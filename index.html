@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tier — crea tu tier list</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏆</text></svg>">
+<style>
+  :root{
+    --bg:#131317;
+    --panel:#1d1d23;
+    --panel-2:#26262e;
+    --line:#33333d;
+    --text:#f2f2f5;
+    --muted:#9d9da8;
+    --accent:#7c6cff;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{color-scheme:dark}
+  body{
+    background:
+      radial-gradient(1100px 500px at 80% -10%, rgba(124,108,255,.14), transparent 60%),
+      radial-gradient(900px 500px at 0% 110%, rgba(255,127,127,.08), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    padding:20px clamp(10px,3vw,36px) 120px;
+  }
+  body.dragging-item{cursor:grabbing;user-select:none;-webkit-user-select:none}
+
+  /* ---------- Encabezado ---------- */
+  header{max-width:1100px;margin:0 auto 14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+  #title{
+    font-size:clamp(22px,4vw,34px);font-weight:800;letter-spacing:.5px;
+    padding:4px 10px;border-radius:10px;outline:none;min-width:120px;
+  }
+  #title:focus{background:var(--panel-2);box-shadow:0 0 0 2px var(--accent)}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap}
+  button{
+    font:inherit;color:var(--text);background:var(--panel-2);
+    border:1px solid var(--line);border-radius:10px;
+    padding:8px 14px;cursor:pointer;transition:background .15s,transform .05s;
+  }
+  button:hover{background:#31313b}
+  button:active{transform:scale(.97)}
+  button:disabled{opacity:.4;cursor:default}
+  button.primary{background:var(--accent);border-color:transparent}
+  button.primary:hover{background:#8d7fff}
+  button.danger:hover{background:#4a2530;border-color:#7a3a4a}
+  .subtitle{max-width:1100px;margin:0 auto 18px;color:var(--muted);font-size:14px;padding-left:10px}
+
+  /* ---------- Filas ---------- */
+  #rows{max-width:1100px;margin:0 auto;background:#000;border-radius:var(--radius);overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+  .row{display:flex;align-items:stretch;gap:2px;margin-bottom:2px;position:relative}
+  .row:last-child{margin-bottom:0}
+  .tier-label{
+    flex:0 0 110px;display:flex;align-items:center;justify-content:center;
+    padding:8px;text-align:center;
+  }
+  .tier-name{
+    color:#141414;font-weight:800;font-size:clamp(15px,2.4vw,22px);line-height:1.15;
+    outline:none;word-break:break-word;max-width:100%;padding:2px 6px;border-radius:8px;
+  }
+  .tier-name:focus{background:rgba(255,255,255,.45)}
+  .items{
+    flex:1;display:flex;flex-wrap:wrap;align-content:flex-start;gap:6px;
+    padding:8px;min-height:96px;background:var(--panel-2);transition:background .12s;
+  }
+  .dropzone.over{background:#34344a}
+  .row-tools{
+    position:absolute;right:6px;top:6px;display:flex;gap:4px;
+    opacity:0;transition:opacity .15s;z-index:5;
+  }
+  .row:hover .row-tools,.row:focus-within .row-tools{opacity:1}
+  .row-tools button{padding:3px 8px;font-size:12px;border-radius:8px;background:rgba(19,19,23,.85)}
+  @media (hover:none){.row-tools{opacity:.55}}
+
+  /* ---------- Elementos ---------- */
+  .item{
+    position:relative;width:84px;height:84px;border-radius:10px;overflow:hidden;
+    cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;
+    background:var(--panel);flex:0 0 auto;
+    box-shadow:0 2px 8px rgba(0,0,0,.35);
+  }
+  .item img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+  .item .chip-text{
+    width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+    padding:6px;text-align:center;font-weight:700;font-size:12.5px;line-height:1.15;
+    color:#16161a;word-break:break-word;overflow:hidden;
+  }
+  .item.dragging{opacity:.3}
+  .item.selected{outline:3px solid var(--accent);outline-offset:-3px}
+  .item-btn{
+    position:absolute;top:3px;width:22px;height:22px;padding:0;border-radius:50%;
+    font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;
+    background:rgba(10,10,14,.75);border:none;opacity:0;transition:opacity .12s;z-index:3;
+  }
+  .item-btn.remove{right:3px}
+  .item-btn.rename{left:3px}
+  .item:hover .item-btn,.item.selected .item-btn{opacity:1}
+
+  .ghost{
+    position:fixed;z-index:1000;pointer-events:none;
+    transform-origin:center;box-shadow:0 14px 34px rgba(0,0,0,.55);
+    border-radius:10px;overflow:hidden;
+  }
+  .drop-marker{
+    flex:0 0 4px;height:84px;border-radius:2px;background:var(--accent);
+    box-shadow:0 0 8px var(--accent);
+  }
+
+  /* ---------- Banco ---------- */
+  #bank{max-width:1100px;margin:22px auto 0}
+  .bank-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  #new-text{
+    flex:1;min-width:220px;font:inherit;color:var(--text);
+    background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:9px 14px;outline:none;
+  }
+  #new-text:focus{border-color:var(--accent)}
+  #tray{
+    display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;
+    padding:10px;min-height:110px;background:var(--panel);
+    border:1.5px dashed var(--line);border-radius:var(--radius);transition:background .12s;
+  }
+  .tray-hint{
+    width:100%;min-height:86px;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);text-align:center;font-size:14px;line-height:1.6;pointer-events:none;
+  }
+
+  /* ---------- Flotantes ---------- */
+  #placebar{
+    position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+    background:var(--panel);border:1px solid var(--accent);border-radius:999px;
+    padding:9px 16px;display:flex;gap:12px;align-items:center;z-index:900;
+    box-shadow:0 8px 30px rgba(0,0,0,.5);font-size:14px;max-width:92vw;
+  }
+  #placebar button{padding:4px 12px;border-radius:999px;font-size:13px}
+  #toast{
+    position:fixed;left:50%;bottom:70px;transform:translateX(-50%);
+    background:#2c2c36;border:1px solid var(--line);border-radius:10px;
+    padding:9px 18px;z-index:950;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.5);
+    max-width:92vw;text-align:center;
+  }
+  #drop-overlay{
+    position:fixed;inset:0;z-index:800;display:flex;align-items:center;justify-content:center;
+    background:rgba(19,19,23,.85);font-size:clamp(20px,4vw,32px);font-weight:700;
+    border:4px dashed var(--accent);pointer-events:none;
+  }
+  #palette-pop{
+    position:fixed;z-index:960;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:10px;display:grid;grid-template-columns:repeat(6,30px);
+    gap:7px;box-shadow:0 10px 30px rgba(0,0,0,.55);
+  }
+  #palette-pop .sw{width:30px;height:30px;border-radius:8px;border:2px solid rgba(0,0,0,.35);cursor:pointer;padding:0}
+  #palette-pop input[type=color]{grid-column:span 2;width:100%;height:30px;border:none;background:none;cursor:pointer;padding:0}
+  [hidden]{display:none !important}
+
+  @media (max-width:640px){
+    body{padding:14px 8px 130px}
+    .tier-label{flex-basis:74px}
+    .item{width:66px;height:66px}
+    .drop-marker{height:66px}
+    .item .chip-text{font-size:11px}
+    .items{min-height:78px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="title" contenteditable="true" spellcheck="false">MI TIER LIST</h1>
+  <div class="toolbar">
+    <button id="btn-add-row" title="Añadir una fila al final">＋ Fila</button>
+    <button id="btn-undo" title="Deshacer (Ctrl+Z)">↩ Deshacer</button>
+    <button id="btn-export" class="primary" title="Descargar como imagen">⬇ Exportar PNG</button>
+    <button id="btn-reset" class="danger" title="Empezar de cero">Reiniciar</button>
+  </div>
+</header>
+<p class="subtitle">Arrastra los elementos a una fila, o tócalos y luego toca la fila. Pega imágenes con Ctrl+V. Todo se guarda solo. ✨</p>
+
+<main id="rows"></main>
+
+<section id="bank">
+  <div class="bank-bar">
+    <input id="new-text" type="text" maxlength="60" placeholder="Escribe un nombre y pulsa Enter ⏎  (crea una ficha sin imagen)" autocomplete="off">
+    <button id="btn-images">🖼 Añadir imágenes</button>
+    <input type="file" id="file-input" accept="image/*" multiple hidden>
+  </div>
+  <div id="tray" class="dropzone" data-zone="tray"></div>
+</section>
+
+<div id="placebar" hidden>
+  <span id="placebar-text"></span>
+  <button id="placebar-cancel">Cancelar</button>
+</div>
+<div id="drop-overlay" hidden>Suelta tus imágenes aquí 🖼</div>
+<div id="toast" hidden></div>
+<div id="palette-pop" hidden></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ============================== Estado ============================== */
+
+const KEY = 'detodo-tierlist-v1';
+const PALETTE = ['#ff7f7f','#ffbf7f','#ffdf7f','#ffff7f','#bfff7f','#7fff7f',
+                 '#7fffff','#7fbfff','#7f7fff','#bf7fff','#ff7fbf','#cfcfcf'];
+const TILE = 84;
+
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+function defaultState() {
+  return {
+    v: 1,
+    title: 'MI TIER LIST',
+    rows: ['S','A','B','C','D'].map((name, i) => ({ id: uid(), name, color: PALETTE[i], items: [] })),
+    tray: [],
+  };
+}
+
+let state = load();
+let undoStack = [];
+let selectedId = null;   // elemento seleccionado para "tocar y colocar"
+let editBefore = null;   // snapshot al empezar a editar un texto
+
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (s && s.v === 1 && Array.isArray(s.rows)) return s;
+    }
+  } catch (e) {}
+  return defaultState();
+}
+
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch (e) { toast('⚠️ Sin espacio para guardar: la lista funciona pero no se conservará al cerrar.'); }
+}
+
+function mutate(fn) {
+  undoStack.push(JSON.stringify(state));
+  if (undoStack.length > 60) undoStack.shift();
+  fn(state);
+  save();
+  render();
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  state = JSON.parse(undoStack.pop());
+  selectedId = null;
+  save();
+  render();
+}
+
+/* Listas: 'tray' o id de fila */
+function getList(listId) {
+  if (listId === 'tray') return state.tray;
+  const row = state.rows.find(r => r.id === listId);
+  return row ? row.items : null;
+}
+function findItem(itemId) {
+  for (const listId of ['tray', ...state.rows.map(r => r.id)]) {
+    const list = getList(listId);
+    const idx = list.findIndex(it => it.id === itemId);
+    if (idx !== -1) return { listId, list, idx, item: list[idx] };
+  }
+  return null;
+}
+
+/* ============================== Render ============================== */
+
+const $ = sel => document.querySelector(sel);
+const rowsEl = $('#rows'), trayEl = $('#tray'), titleEl = $('#title');
+
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function itemHTML(it) {
+  const sel = it.id === selectedId ? ' selected' : '';
+  const inner = it.type === 'img'
+    ? `<img src="${it.src}" alt="${esc(it.label || '')}" draggable="false">`
+    : `<span class="chip-text" style="background:${esc(it.color)}">${esc(it.label)}</span>`;
+  return `<div class="item${sel}" data-item="${it.id}" title="${esc(it.label || '')}">
+    ${inner}
+    <button class="item-btn rename" title="Renombrar">✎</button>
+    <button class="item-btn remove" title="Quitar">✕</button>
+  </div>`;
+}
+
+function render() {
+  titleEl.textContent = state.title;
+  document.title = (state.title || 'Tier list') + ' — tier list';
+
+  rowsEl.innerHTML = state.rows.map(r => `
+    <section class="row" data-row="${r.id}">
+      <div class="tier-label" style="background:${esc(r.color)}">
+        <span class="tier-name" contenteditable="true" spellcheck="false">${esc(r.name)}</span>
+      </div>
+      <div class="items dropzone" data-zone="${r.id}">${r.items.map(itemHTML).join('')}</div>
+      <div class="row-tools">
+        <button data-act="color" title="Cambiar color">🎨</button>
+        <button data-act="up" title="Subir fila">▲</button>
+        <button data-act="down" title="Bajar fila">▼</button>
+        <button data-act="clear" title="Vaciar fila (vuelven al banco)">⤺</button>
+        <button data-act="del" title="Eliminar fila">✕</button>
+      </div>
+    </section>`).join('');
+
+  trayEl.innerHTML = state.tray.length
+    ? state.tray.map(itemHTML).join('')
+    : `<div class="tray-hint">Tu banco está vacío.<br>
+       🖼 Arrastra imágenes aquí, pégalas con <b>Ctrl+V</b> o escribe un nombre arriba y pulsa <b>Enter</b>.</div>`;
+
+  $('#btn-undo').disabled = !undoStack.length;
+  updatePlacebar();
+}
+
+function updatePlacebar() {
+  const bar = $('#placebar');
+  if (!selectedId) { bar.hidden = true; return; }
+  const found = findItem(selectedId);
+  if (!found) { selectedId = null; bar.hidden = true; return; }
+  $('#placebar-text').textContent = `Toca el espacio de una fila para colocar «${found.item.label || 'imagen'}»`;
+  bar.hidden = false;
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+}
+
+/* ==================== Arrastrar y soltar (pointer) ==================== */
+
+let press = null; // {id, startX, startY, el, started, ghost, threshold}
+
+document.addEventListener('pointerdown', e => {
+  const itemEl = e.target.closest('.item');
+  if (!itemEl) return;
+  if (e.target.closest('.item-btn')) return;          // botones ✎ / ✕
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  e.preventDefault();
+  press = {
+    id: itemEl.dataset.item,
+    el: itemEl,
+    startX: e.clientX, startY: e.clientY,
+    started: false, ghost: null,
+    threshold: e.pointerType === 'touch' ? 10 : 5,
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onCancel);
+});
+
+function beginDrag() {
+  const r = press.el.getBoundingClientRect();
+  const ghost = press.el.cloneNode(true);
+  ghost.classList.remove('selected');
+  ghost.classList.add('ghost');
+  ghost.style.width = r.width + 'px';
+  ghost.style.height = r.height + 'px';
+  ghost.style.left = r.left + 'px';
+  ghost.style.top = r.top + 'px';
+  document.body.appendChild(ghost);
+  press.ghost = ghost;
+  press.baseX = r.left; press.baseY = r.top;
+  press.el.classList.add('dragging');
+  document.body.classList.add('dragging-item');
+  press.started = true;
+}
+
+function onMove(e) {
+  if (!press) return;
+  const dx = e.clientX - press.startX, dy = e.clientY - press.startY;
+  if (!press.started) {
+    if (Math.hypot(dx, dy) < press.threshold) return;
+    beginDrag();
+  }
+  press.ghost.style.transform = `translate(${dx}px,${dy}px) scale(1.06) rotate(2deg)`;
+
+  // desplazamiento automático cerca de los bordes
+  if (e.clientY < 70) window.scrollBy(0, -14);
+  else if (e.clientY > innerHeight - 70) window.scrollBy(0, 14);
+
+  updateDropTarget(e.clientX, e.clientY);
+}
+
+let curZone = null, curIdx = -1, marker = null;
+
+function zoneAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  if (!el) return null;
+  const dz = el.closest('.dropzone');
+  if (dz) return dz;
+  const row = el.closest('.row');
+  return row ? row.querySelector('.dropzone') : null;
+}
+
+function dropIndex(zone, x, y) {
+  const els = [...zone.querySelectorAll('.item')].filter(el => !el.classList.contains('dragging'));
+  let idx = 0;
+  for (const el of els) {
+    const r = el.getBoundingClientRect();
+    if (y > r.bottom || (y >= r.top && x > r.left + r.width / 2)) idx++;
+  }
+  return idx;
+}
+
+function updateDropTarget(x, y) {
+  const zone = zoneAt(x, y);
+  const idx = zone ? dropIndex(zone, x, y) : -1;
+  if (zone === curZone && idx === curIdx) return;
+  clearDropTarget();
+  curZone = zone; curIdx = idx;
+  if (!zone) return;
+  zone.classList.add('over');
+  marker = document.createElement('div');
+  marker.className = 'drop-marker';
+  const els = [...zone.querySelectorAll('.item')].filter(el => !el.classList.contains('dragging'));
+  if (idx >= els.length) zone.appendChild(marker);
+  else zone.insertBefore(marker, els[idx]);
+}
+
+function clearDropTarget() {
+  if (curZone) curZone.classList.remove('over');
+  if (marker) marker.remove();
+  curZone = null; curIdx = -1; marker = null;
+}
+
+function onUp(e) {
+  if (!press) return;
+  const p = press;
+  cleanupPressListeners();
+  if (!p.started) { endPress(p); handleTap(p.id); return; }
+  const zone = curZone, idx = curIdx;
+  clearDropTarget();
+  endPress(p);
+  if (zone) {
+    const targetList = zone.dataset.zone;
+    const found = findItem(p.id);
+    if (found && !(found.listId === targetList && idx === found.idx)) {
+      mutate(s => {
+        const src = getList(found.listId);
+        const [it] = src.splice(found.idx, 1);
+        getList(targetList).splice(idx, 0, it);
+      });
+    }
+  }
+  press = null;
+}
+
+function onCancel() {
+  if (!press) return;
+  cleanupPressListeners();
+  clearDropTarget();
+  endPress(press);
+  press = null;
+}
+
+function endPress(p) {
+  if (p.ghost) p.ghost.remove();
+  p.el.classList.remove('dragging');
+  document.body.classList.remove('dragging-item');
+}
+
+function cleanupPressListeners() {
+  window.removeEventListener('pointermove', onMove);
+  window.removeEventListener('pointerup', onUp);
+  window.removeEventListener('pointercancel', onCancel);
+}
+
+/* ==================== Tocar y colocar ==================== */
+
+function handleTap(itemId) {
+  selectedId = selectedId === itemId ? null : itemId;
+  render();
+}
+
+document.addEventListener('click', e => {
+  // Botones del elemento
+  const btn = e.target.closest('.item-btn');
+  if (btn) {
+    const itemEl = btn.closest('.item');
+    const id = itemEl.dataset.item;
+    if (btn.classList.contains('remove')) {
+      const found = findItem(id);
+      if (!found) return;
+      if (found.listId === 'tray') {
+        mutate(s => { s.tray.splice(found.idx, 1); });
+        toast('Elemento eliminado');
+      } else {
+        mutate(s => {
+          const [it] = getList(found.listId).splice(found.idx, 1);
+          s.tray.push(it);
+        });
+        toast('Devuelto al banco');
+      }
+      if (selectedId === id) selectedId = null;
+    } else {
+      const found = findItem(id);
+      if (!found) return;
+      const name = prompt('Nombre:', found.item.label || '');
+      if (name !== null) mutate(s => { findItem(id).item.label = name.trim(); });
+    }
+    return;
+  }
+
+  // Herramientas de fila
+  const tool = e.target.closest('.row-tools button');
+  if (tool) {
+    const rowId = tool.closest('.row').dataset.row;
+    rowAction(tool.dataset.act, rowId, tool);
+    return;
+  }
+
+  // Colocar elemento seleccionado tocando una zona
+  if (selectedId && !e.target.closest('.item') && !e.target.closest('.tier-name')) {
+    const zone = e.target.closest('.dropzone') ||
+                 (e.target.closest('.row') && e.target.closest('.row').querySelector('.dropzone'));
+    if (zone) {
+      const targetList = zone.dataset.zone;
+      const found = findItem(selectedId);
+      if (found) {
+        mutate(s => {
+          const src = getList(found.listId);
+          const [it] = src.splice(found.idx, 1);
+          getList(targetList).push(it);
+        });
+        selectedId = null;
+        render();
+      }
+    }
+  }
+});
+
+$('#placebar-cancel').addEventListener('click', () => { selectedId = null; render(); });
+
+/* ==================== Filas ==================== */
+
+function rowAction(act, rowId, btnEl) {
+  const i = state.rows.findIndex(r => r.id === rowId);
+  if (i === -1) return;
+  if (act === 'up' && i > 0) {
+    mutate(s => { [s.rows[i-1], s.rows[i]] = [s.rows[i], s.rows[i-1]]; });
+  } else if (act === 'down' && i < state.rows.length - 1) {
+    mutate(s => { [s.rows[i+1], s.rows[i]] = [s.rows[i], s.rows[i+1]]; });
+  } else if (act === 'clear') {
+    if (state.rows[i].items.length)
+      mutate(s => { s.tray.push(...s.rows[i].items.splice(0)); });
+  } else if (act === 'del') {
+    mutate(s => {
+      s.tray.push(...s.rows[i].items);
+      s.rows.splice(i, 1);
+    });
+    toast('Fila eliminada (sus elementos volvieron al banco)');
+  } else if (act === 'color') {
+    openPalette(rowId, btnEl);
+  }
+}
+
+$('#btn-add-row').addEventListener('click', () => {
+  const used = new Set(state.rows.map(r => r.name.toUpperCase()));
+  const next = 'EFGHIJKLMNOPQ'.split('').find(l => !used.has(l)) || '★';
+  mutate(s => {
+    s.rows.push({ id: uid(), name: next, color: PALETTE[s.rows.length % PALETTE.length], items: [] });
+  });
+});
+
+/* Paleta de colores */
+const pop = $('#palette-pop');
+let popRowId = null;
+
+function openPalette(rowId, anchor) {
+  popRowId = rowId;
+  pop.innerHTML = PALETTE.map(c =>
+    `<button class="sw" style="background:${c}" data-color="${c}" title="${c}"></button>`).join('') +
+    `<input type="color" title="Color personalizado" value="${state.rows.find(r=>r.id===rowId)?.color || '#ff7f7f'}">`;
+  pop.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  const w = 6*30 + 5*7 + 20;
+  pop.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left - w + r.width)) + 'px';
+  pop.style.top = Math.min(innerHeight - 120, r.bottom + 6) + 'px';
+}
+
+pop.addEventListener('click', e => {
+  const sw = e.target.closest('.sw');
+  if (sw && popRowId) {
+    const c = sw.dataset.color;
+    mutate(s => { const row = s.rows.find(r => r.id === popRowId); if (row) row.color = c; });
+    pop.hidden = true;
+  }
+});
+pop.addEventListener('input', e => {
+  if (e.target.type === 'color' && popRowId) {
+    const c = e.target.value;
+    mutate(s => { const row = s.rows.find(r => r.id === popRowId); if (row) row.color = c; });
+  }
+});
+document.addEventListener('pointerdown', e => {
+  if (!pop.hidden && !e.target.closest('#palette-pop') && !e.target.closest('[data-act="color"]'))
+    pop.hidden = true;
+}, true);
+
+/* ==================== Edición de textos ==================== */
+
+document.addEventListener('focusin', e => {
+  if (e.target.matches('.tier-name') || e.target === titleEl)
+    editBefore = JSON.stringify(state);
+});
+document.addEventListener('focusout', e => {
+  if (e.target.matches('.tier-name')) {
+    const rowId = e.target.closest('.row').dataset.row;
+    const name = e.target.textContent.trim() || '·';
+    const row = state.rows.find(r => r.id === rowId);
+    if (row && row.name !== name) {
+      undoStack.push(editBefore);
+      row.name = name;
+      save();
+    }
+    render();
+  } else if (e.target === titleEl) {
+    const t = titleEl.textContent.trim() || 'MI TIER LIST';
+    if (t !== state.title) {
+      undoStack.push(editBefore);
+      state.title = t;
+      save();
+    }
+    render();
+  }
+});
+document.addEventListener('keydown', e => {
+  if ((e.target.matches('.tier-name') || e.target === titleEl) && e.key === 'Enter') {
+    e.preventDefault();
+    e.target.blur();
+  }
+});
+
+/* ==================== Añadir elementos ==================== */
+
+const pastel = str => {
+  let h = 0;
+  for (const ch of str) h = (h * 31 + ch.codePointAt(0)) % 360;
+  return `hsl(${h} 75% 74%)`;
+};
+
+$('#new-text').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const label = e.target.value.trim();
+  if (!label) return;
+  mutate(s => { s.tray.push({ id: uid(), type: 'text', label, color: pastel(label) }); });
+  e.target.value = '';
+});
+
+$('#btn-images').addEventListener('click', () => $('#file-input').click());
+$('#file-input').addEventListener('change', e => {
+  addImageFiles([...e.target.files]);
+  e.target.value = '';
+});
+
+async function fileToItem(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+    const S = 160;
+    const c = document.createElement('canvas');
+    c.width = S; c.height = S;
+    const ctx = c.getContext('2d');
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    ctx.drawImage(img,
+      (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side,
+      0, 0, S, S);
+    let src = c.toDataURL('image/webp', 0.85);
+    if (!src.startsWith('data:image/webp')) {
+      const data = ctx.getImageData(0, 0, S, S).data;
+      let alpha = false;
+      for (let i = 3; i < data.length; i += 4) if (data[i] < 250) { alpha = true; break; }
+      src = alpha ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.85);
+    }
+    const label = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
+    return { id: uid(), type: 'img', src, label };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function addImageFiles(files) {
+  const imgs = files.filter(f => f.type.startsWith('image/'));
+  if (!imgs.length) return;
+  const items = [];
+  for (const f of imgs) {
+    try { items.push(await fileToItem(f)); }
+    catch (e) { toast(`No pude leer «${f.name}»`); }
+  }
+  if (items.length) {
+    mutate(s => { s.tray.push(...items); });
+    toast(items.length === 1 ? 'Imagen añadida al banco' : `${items.length} imágenes añadidas al banco`);
+  }
+}
+
+/* Pegar con Ctrl+V */
+document.addEventListener('paste', e => {
+  const files = [...(e.clipboardData?.items || [])]
+    .filter(it => it.kind === 'file' && it.type.startsWith('image/'))
+    .map(it => it.getAsFile())
+    .filter(Boolean);
+  if (files.length) {
+    e.preventDefault();
+    addImageFiles(files);
+  }
+});
+
+/* Soltar archivos en cualquier parte */
+let dragDepth = 0;
+window.addEventListener('dragenter', e => {
+  if ([...(e.dataTransfer?.types || [])].includes('Files')) {
+    dragDepth++;
+    $('#drop-overlay').hidden = false;
+  }
+});
+window.addEventListener('dragleave', () => {
+  if (dragDepth > 0 && --dragDepth === 0) $('#drop-overlay').hidden = true;
+});
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => {
+  e.preventDefault();
+  dragDepth = 0;
+  $('#drop-overlay').hidden = true;
+  if (e.dataTransfer?.files?.length) addImageFiles([...e.dataTransfer.files]);
+});
+
+/* ==================== Atajos de teclado ==================== */
+
+document.addEventListener('keydown', e => {
+  const editing = e.target.isContentEditable || /^(INPUT|TEXTAREA)$/.test(e.target.tagName);
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !editing) {
+    e.preventDefault();
+    undo();
+  } else if (e.key === 'Escape' && selectedId) {
+    selectedId = null;
+    render();
+  } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId && !editing) {
+    const found = findItem(selectedId);
+    if (found) {
+      mutate(s => { getList(found.listId).splice(found.idx, 1); });
+      selectedId = null;
+      render();
+    }
+  }
+});
+
+$('#btn-undo').addEventListener('click', undo);
+$('#btn-reset').addEventListener('click', () => {
+  if (confirm('¿Borrar todo y empezar de cero?')) {
+    undoStack.push(JSON.stringify(state));
+    state = defaultState();
+    selectedId = null;
+    save();
+    render();
+  }
+});
+
+/* ==================== Exportar PNG ==================== */
+
+const rr = (ctx, x, y, w, h, r) => {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+};
+
+function wrapText(ctx, text, maxW) {
+  const words = String(text).split(/\s+/);
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+$('#btn-export').addEventListener('click', async () => {
+  const btn = $('#btn-export');
+  btn.disabled = true;
+  const prev = btn.textContent;
+  btn.textContent = 'Generando…';
+  try { await exportPNG(); toast('Imagen descargada ✅'); }
+  catch (e) { console.error(e); toast('No se pudo generar la imagen 😔'); }
+  btn.disabled = false;
+  btn.textContent = prev;
+});
+
+async function exportPNG() {
+  // Precargar imágenes
+  const cache = new Map();
+  const allItems = state.rows.flatMap(r => r.items);
+  await Promise.all(allItems.filter(it => it.type === 'img').map(it =>
+    new Promise(res => {
+      const im = new Image();
+      im.onload = () => { cache.set(it.id, im); res(); };
+      im.onerror = res;
+      im.src = it.src;
+    })));
+
+  const SC = 2, W = 1000, PAD = 24, LABEL_W = 120, T = 84, GAP = 8, RPAD = 8;
+  const itemsW = W - PAD * 2 - LABEL_W;
+  const perRow = Math.max(1, Math.floor((itemsW - RPAD * 2 + GAP) / (T + GAP)));
+  const rowHeights = state.rows.map(r => {
+    const lines = Math.max(1, Math.ceil(r.items.length / perRow));
+    return Math.max(100, lines * (T + GAP) - GAP + RPAD * 2);
+  });
+  const titleH = 64;
+  const H = PAD + titleH + rowHeights.reduce((a, b) => a + b + 3, 0) + PAD;
+
+  const c = document.createElement('canvas');
+  c.width = W * SC; c.height = H * SC;
+  const ctx = c.getContext('2d');
+  ctx.scale(SC, SC);
+  ctx.fillStyle = '#131317';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#f2f2f5';
+  ctx.font = '800 30px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(state.title, W / 2, PAD + titleH / 2 - 6);
+
+  let y = PAD + titleH;
+  state.rows.forEach((row, ri) => {
+    const h = rowHeights[ri];
+    // etiqueta
+    ctx.fillStyle = row.color;
+    ctx.fillRect(PAD, y, LABEL_W, h);
+    ctx.fillStyle = '#141414';
+    ctx.font = '800 22px system-ui, sans-serif';
+    const lines = wrapText(ctx, row.name, LABEL_W - 16).slice(0, 4);
+    const lh = 26;
+    lines.forEach((ln, li) =>
+      ctx.fillText(ln, PAD + LABEL_W / 2, y + h / 2 + (li - (lines.length - 1) / 2) * lh));
+    // zona de elementos
+    ctx.fillStyle = '#26262e';
+    ctx.fillRect(PAD + LABEL_W + 3, y, W - PAD * 2 - LABEL_W - 3, h);
+    row.items.forEach((it, ii) => {
+      const cx = PAD + LABEL_W + 3 + RPAD + (ii % perRow) * (T + GAP);
+      const cy = y + RPAD + Math.floor(ii / perRow) * (T + GAP);
+      ctx.save();
+      rr(ctx, cx, cy, T, T, 8);
+      ctx.clip();
+      if (it.type === 'img' && cache.has(it.id)) {
+        ctx.drawImage(cache.get(it.id), cx, cy, T, T);
+      } else {
+        ctx.fillStyle = it.color || '#cfcfcf';
+        ctx.fillRect(cx, cy, T, T);
+        ctx.fillStyle = '#16161a';
+        ctx.font = '700 12px system-ui, sans-serif';
+        const tl = wrapText(ctx, it.label || '', T - 10).slice(0, 5);
+        tl.forEach((ln, li) =>
+          ctx.fillText(ln, cx + T / 2, cy + T / 2 + (li - (tl.length - 1) / 2) * 13));
+      }
+      ctx.restore();
+    });
+    y += h + 3;
+  });
+
+  const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (state.title.toLowerCase().replace(/[^a-z0-9áéíóúñü]+/gi, '-').replace(/^-+|-+$/g, '') || 'tier-list') + '.png';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+/* ============================== Inicio ============================== */
+
+render();
+
+})();
+</script>
+</body>
+</html>
