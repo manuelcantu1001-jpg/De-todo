@@ -7,9 +7,12 @@ Una tier list al estilo TierMaker, pero más fácil de usar: sin cuentas, sin pl
 ## Cómo se usa
 
 - **Agregar elementos** (van al banco de abajo):
-  - 🖼 Arrastra imágenes desde tu computadora a cualquier parte de la página
-  - 📋 Pégalas con `Ctrl+V`
-  - ⌨️ Escribe un nombre y pulsa `Enter` para crear una ficha de texto (no necesitas imágenes)
+  - 🔍 **Escribe un nombre y pulsa `Enter`: su imagen se busca sola** (Wikipedia, sin cuentas ni llaves). Si no encuentra nada, queda como ficha de texto de color.
+  - 📋 **Pegar lista**: pega muchos nombres (uno por línea) y se agregan todos de golpe, cada uno con su imagen.
+  - 🖼 Arrastra imágenes desde tu computadora (o desde otra pestaña) a cualquier parte de la página
+  - 📋 Pega imágenes con `Ctrl+V`
+  - Si la imagen encontrada no es la correcta, toca `🔍` en el elemento para ver otras opciones y elegir con un clic (o dejarlo sin imagen).
+  - ¿Prefieres solo fichas de texto? Desactiva la casilla «🔍 imagen automática».
 - **Colocar en una fila**:
   - Arrastra el elemento a la fila que quieras (funciona con mouse y táctil), o
   - Tócalo para seleccionarlo y luego toca el espacio de la fila (ideal en celular)
