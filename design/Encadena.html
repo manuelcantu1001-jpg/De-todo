@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Encadena — prototipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Serif+Display&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #E9EAE6; }
+  * { -webkit-font-smoothing: antialiased; }
+  #root { height: 100%; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="game.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+  const Canvas = window.DesignCanvas;
+  const Section = window.DCSection;
+  const Artboard = window.DCArtboard;
+  const PostIt = window.DCPostIt;
+
+  const Phone = ({ theme }) => (
+    <IOSDevice width={402} height={874}>
+      <Game theme={theme} />
+    </IOSDevice>
+  );
+
+  function App() {
+    return (
+      <Canvas>
+        <Section id="dir" title="Encadena" subtitle="Juego de palabras encadenadas por su terminación · 3 direcciones visuales · prototipo jugable">
+          <PostIt>
+            <b>Cómo se juega</b><br />
+            La 1ª palabra fija la <b>terminación o el inicio</b> (ej. Faustino → ‑tino, o Faustino → fau‑). Por turnos, cada quien dice una palabra que coincida. La app <b>lleva el registro</b> de lo dicho y <b>valida con IA</b> si existe — incluye nombres propios reales. Pierdes si te rindes o te quedas sin vidas.<br /><br />
+            Toca una pantalla y <b>juega</b>. Ábrela en pantalla completa para verla a tamaño real.
+          </PostIt>
+          <Artboard id="limpio" label="A · Limpio" width={402} height={874}>
+            <Phone theme="limpio" />
+          </Artboard>
+          <Artboard id="fieltro" label="B · Fieltro (mesa de juego)" width={402} height={874}>
+            <Phone theme="fieltro" />
+          </Artboard>
+          <Artboard id="calido" label="C · Cálido" width={402} height={874}>
+            <Phone theme="calido" />
+          </Artboard>
+        </Section>
+      </Canvas>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
