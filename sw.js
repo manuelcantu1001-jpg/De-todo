@@ -1,6 +1,6 @@
 /* Service worker de Encadena: cache-first para jugar sin conexión. */
-const CACHE = 'encadena-v1';
-const ASSETS = ['./', 'index.html', 'dicc-es.js', 'manifest.webmanifest',
+const CACHE = 'encadena-v2';
+const ASSETS = ['./', 'index.html', 'dicc-es.js', 'lexico-es.txt.gz', 'manifest.webmanifest',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-512-maskable.png'];
 
 self.addEventListener('install', (e) => {

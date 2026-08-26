@@ -40,7 +40,8 @@ para títulos y letras, [Onest](https://fonts.google.com/specimen/Onest) para la
 
 ```
 index.html            La app completa (HTML + CSS + JS vanilla, sin build ni frameworks)
-dicc-es.js            Diccionario: ~32.000 palabras del español ordenadas por frecuencia
+dicc-es.js            Diccionario de frecuencias: ~32.000 palabras
+lexico-es.txt.gz      Léxico de validación: ~635.000 formas del español (normalizadas)
 manifest.webmanifest  Manifiesto PWA (instalable, pantalla completa)
 sw.js                 Service worker: cache para jugar sin conexión
 icons/                Iconos de la app
@@ -49,15 +50,19 @@ design/               Prototipo original (canvas de diseño con 3 direcciones vi
 
 ## Validación de palabras
 
-1. **Diccionario local** (`dicc-es.js`): si la palabra está, es válida al instante.
-   La comparación ignora tildes y mayúsculas pero distingue la ñ.
-2. **Juez rival** (modo 1 vs 1): lo que no esté en el diccionario lo decide el otro jugador.
-3. **Árbitro IA** (opcional): si el entorno expone `window.claude.complete`
-   (p. ej. dentro de un artifact de Claude), se consulta a la IA para palabras dudosas
-   y como respaldo del rival app.
+1. **Frecuentes** (`dicc-es.js`, ~32.000 palabras por frecuencia): válida al instante.
+   Es también el vocabulario con el que juega la app y el que alimenta los contadores.
+2. **Léxico completo** (`lexico-es.txt.gz`, ~635.000 formas con conjugaciones, plurales
+   y femeninos): segunda comprobación para todo lo que no sea frecuente.
+3. **Juez rival** (1 vs 1): lo que no aparezca en ninguno lo decide el otro jugador
+   (así entran los nombres propios).
+4. **Árbitro IA** (opcional): si el entorno expone `window.claude.complete`, se consulta
+   a la IA antes de rechazar en Solo/Vs. app.
 
-El diccionario deriva de [hermitdave/FrequencyWords](https://github.com/hermitdave/FrequencyWords)
-(OpenSubtitles 2018, licencia CC-BY-SA-4.0), filtrado a palabras de 3–15 letras sin ruido.
+La comparación ignora tildes y mayúsculas pero distingue la ñ. Fuentes: frecuencias de
+[hermitdave/FrequencyWords](https://github.com/hermitdave/FrequencyWords) (OpenSubtitles 2018,
+CC-BY-SA-4.0) y léxico de [words/an-array-of-spanish-words](https://github.com/words/an-array-of-spanish-words)
+(derivado del diccionario hunspell de LibreOffice), ambos filtrados a 3–15 letras.
 
 ## Desarrollo
 

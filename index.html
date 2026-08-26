@@ -339,6 +339,42 @@ const Dicc = (() => {
   return { ready, has, candidates, countFor, randomCommon };
 })();
 
+/* ── Léxico completo (~635.000 formas ya normalizadas, comprimido) ───── */
+const Lex = (() => {
+  let txt = null, done = false, promise = null;
+  async function fetchBuf() {
+    if (window.LEXICO_ES_B64) return (await fetch('data:application/gzip;base64,' + window.LEXICO_ES_B64)).arrayBuffer();
+    const r = await fetch('lexico-es.txt.gz');
+    if (!r.ok) throw new Error('http ' + r.status);
+    return r.arrayBuffer();
+  }
+  function load() {
+    if (promise) return promise;
+    promise = (async () => {
+      try {
+        const buf = await fetchBuf();
+        const u8 = new Uint8Array(buf);
+        let out;
+        if (u8[0] === 0x1f && u8[1] === 0x8b) {
+          if (typeof DecompressionStream === 'undefined') throw new Error('sin DecompressionStream');
+          out = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+        } else {
+          out = new TextDecoder().decode(buf);
+        }
+        txt = '\n' + out + '\n';
+      } catch (e) { /* sin léxico seguimos con frecuentes + juez/IA */ }
+      done = true;
+    })();
+    return promise;
+  }
+  return {
+    ready: load,
+    settled: () => done,
+    loaded: () => !!txt,
+    has: (n) => !!txt && txt.includes('\n' + n + '\n'),
+  };
+})();
+
 /* Palabras de arranque con encanto, por si el diccionario no carga. */
 const SEED = ['faustino', 'corazón', 'mariposa', 'tornillo', 'escarabajo', 'melodía', 'naranja', 'relámpago',
   'bicicleta', 'ventanal', 'sombrero', 'aguacate', 'pingüino', 'calendario', 'caracol', 'castillo',
@@ -558,7 +594,16 @@ async function submitWord() {
 
   if (Dicc.has(n)) { acceptWord(raw, null); return; }
 
-  // No está en el diccionario del juego
+  // No es de las frecuentes: consultar el léxico completo
+  if (!Lex.settled()) {
+    P.busy = true;
+    setMsg('check', 'Comprobando…');
+    await Lex.ready();
+    P.busy = false;
+    if (S.phase !== 'play') return;
+  }
+  if (Lex.has(n)) { acceptWord(raw, null); return; }
+
   if (S.cfg.mode === '2p') { openJudge(raw); return; }
 
   if (AI.available()) {
@@ -570,7 +615,8 @@ async function submitWord() {
     if (res && res.valid) { acceptWord(raw, res.nota || 'Válida según la IA'); return; }
     if (res && !res.valid) { rejectWord(res.nota ? `No válida · ${res.nota}` : 'Esa palabra no parece existir'); return; }
   }
-  rejectWord('No está en el diccionario del juego');
+  if (!Lex.loaded()) { acceptWord(raw, 'Aceptada sin comprobar'); return; }
+  rejectWord('No la encuentro en el diccionario');
 }
 
 function acceptWord(raw, note) {
@@ -648,6 +694,8 @@ function openRules() {
     todas las palabras deben acabar en <b>‑ino</b>.</p>
     <p>Por turnos, cada quien dice una palabra nueva que encaje. Valen conjugaciones, plurales y
     <b>nombres propios reales</b>. No se puede repetir palabra.</p>
+    <p>El juego conoce unas 635.000 formas del español. En <b>1 vs 1</b>, si una palabra no aparece,
+    el rival decide (ahí entran los nombres propios); en Solo y Vs. app decide el diccionario.</p>
     <p>Una palabra inválida (o quedarte sin tiempo) te cuesta una <b>vida</b>. Si te rindes o te quedas
     sin vidas, pierdes la ronda. En modo <b>Solo</b>, encadena tantas como puedas.</p>
     <div class="m-actions"><button class="btn btn-primary" id="m-ok">Entendido</button></div>
@@ -1070,6 +1118,7 @@ function render() {
   else renderEnd();
 }
 
+Lex.ready();
 render();
 </script>
 <script id="sw-reg">
