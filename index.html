@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="calido">
+<html lang="es">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Serif+Display&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
   /* ── Temas ─────────────────────────────────────────────────────────── */
-  :root[data-theme="limpio"] {
+  #enc[data-theme="limpio"] {
     --font: 'Space Grotesk', system-ui, sans-serif;
     --title-font: 'Space Grotesk', system-ui, sans-serif;
     --title-track: -0.03em;
@@ -28,7 +28,7 @@
     --shadow: 0 1px 2px rgba(20,24,40,.05), 0 8px 24px rgba(20,24,40,.06);
     --toggle-off: #D7D9D4;
   }
-  :root[data-theme="fieltro"] {
+  #enc[data-theme="fieltro"] {
     --font: 'DM Sans', system-ui, sans-serif;
     --title-font: 'DM Serif Display', Georgia, serif;
     --title-track: 0;
@@ -42,7 +42,7 @@
     --shadow: 0 2px 0 rgba(0,0,0,.18), 0 10px 26px rgba(0,0,0,.28);
     --toggle-off: rgba(251,244,228,.28);
   }
-  :root[data-theme="calido"] {
+  #enc[data-theme="calido"] {
     --font: 'Fredoka', system-ui, sans-serif;
     --title-font: 'Fredoka', system-ui, sans-serif;
     --title-track: -0.01em;
@@ -60,11 +60,11 @@
   /* ── Base ──────────────────────────────────────────────────────────── */
   * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
   html, body { margin: 0; padding: 0; height: 100%; }
-  body {
+  #enc {
     background: var(--bg); color: var(--bg-ink); font-family: var(--font);
-    transition: background .25s;
+    transition: background .25s; min-height: 100dvh;
   }
-  :root[data-theme="fieltro"] body {
+  #enc[data-theme="fieltro"] {
     background-image: radial-gradient(rgba(255,255,255,.035) 1px, transparent 1px);
     background-size: 4px 4px;
   }
@@ -89,7 +89,7 @@
   .btn:disabled { opacity: .45; cursor: default; transform: none; }
   .btn-primary { background: var(--accent); color: var(--accent-ink); box-shadow: var(--shadow); }
   .btn-soft { background: var(--accent-soft); color: var(--accent); }
-  :root[data-theme="fieltro"] .btn-soft { color: #8a6420; }
+  #enc[data-theme="fieltro"] .btn-soft { color: #8a6420; }
   .btn-ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
   .btn-danger-ghost { background: transparent; color: var(--bad); border: 1.5px solid color-mix(in srgb, var(--bad) 25%, transparent); }
 
@@ -109,7 +109,7 @@
     font-weight: 600; font-size: 13.5px; background: transparent; color: var(--sub); transition: all .15s;
   }
   .seg button.sel { background: var(--card); color: var(--accent); box-shadow: var(--shadow); }
-  :root[data-theme="fieltro"] .seg button.sel { color: #8a6420; }
+  #enc[data-theme="fieltro"] .seg button.sel { color: #8a6420; }
   .seg button:disabled { opacity: .55; cursor: default; }
   .seg button .pronto { display: block; font-size: 9px; font-weight: 600; opacity: .8; }
 
@@ -153,7 +153,7 @@
     background: none; border: none; color: var(--accent); font-weight: 600; font-size: 13.5px;
     cursor: pointer; margin-top: 8px; padding: 4px 8px;
   }
-  :root[data-theme="fieltro"] .brand .howto { color: var(--accent); }
+  #enc[data-theme="fieltro"] .brand .howto { color: var(--accent); }
 
   .themes { display: flex; justify-content: center; gap: 10px; margin-bottom: 16px; }
   .theme-dot {
@@ -200,7 +200,7 @@
     display: flex; align-items: center; justify-content: space-between; margin: 0 16px 10px;
     padding: 10px 16px; border-radius: 999px; background: color-mix(in srgb, var(--bg-ink) 7%, transparent);
   }
-  :root[data-theme="fieltro"] .turnbar { background: rgba(251,244,228,.1); }
+  #enc[data-theme="fieltro"] .turnbar { background: rgba(251,244,228,.1); }
   .turnbar .who { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--bg-ink); }
   .turnbar .dot { width: 9px; height: 9px; border-radius: 999px; background: var(--accent); }
   .turnbar .right { display: flex; align-items: center; gap: 12px; }
@@ -228,12 +228,12 @@
   .bubble.think { color: var(--sub); font-style: italic; font-size: 15px; }
 
   .dock { padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--border); }
-  :root[data-theme="fieltro"] .dock { background: transparent; border-top: 1px solid var(--line); }
+  #enc[data-theme="fieltro"] .dock { background: transparent; border-top: 1px solid var(--line); }
   .dock .msg { font-size: 13.5px; font-weight: 600; margin-bottom: 8px; text-align: center; min-height: 18px; }
   .dock .msg.ok { color: var(--good); }
   .dock .msg.err { color: var(--bad); }
   .dock .msg.check { color: var(--sub); }
-  :root[data-theme="fieltro"] .dock .msg.check { color: var(--faint); }
+  #enc[data-theme="fieltro"] .dock .msg.check { color: var(--faint); }
   .dock .line { display: flex; gap: 8px; }
   .dock input { flex: 1; min-width: 0; padding: 14px 16px; font-size: 17px; }
   .dock input.shake { animation: shake .4s; }
@@ -268,7 +268,7 @@
   .stats { display: flex; gap: 12px; margin: 24px 0; }
   .stats .stat { flex: 1; background: var(--card); border-radius: var(--radius); padding: 18px 8px; box-shadow: var(--shadow); }
   .stats .n { font-family: var(--title-font); font-size: 28px; font-weight: 700; color: var(--accent); }
-  :root[data-theme="fieltro"] .stats .n { color: #8a6420; }
+  #enc[data-theme="fieltro"] .stats .n { color: #8a6420; }
   .stats .l { font-size: 12.5px; color: var(--sub); margin-top: 2px; font-weight: 500; }
   .recap {
     background: var(--card); border-radius: calc(var(--radius) + 2px); padding: 6px 18px;
@@ -313,8 +313,10 @@
 </style>
 </head>
 <body>
-<div id="app"></div>
-<div id="modal" role="dialog" aria-modal="true"></div>
+<div id="enc" data-theme="calido">
+  <div id="app"></div>
+  <div id="modal" role="dialog" aria-modal="true"></div>
+</div>
 
 <script src="dicc-es.js"></script>
 <script>
@@ -445,7 +447,8 @@ const THEME_META = {
 };
 function applyTheme(id) {
   S.theme = THEME_META[id] ? id : 'calido';
-  document.documentElement.dataset.theme = S.theme;
+  const encEl = document.getElementById('enc');
+  if (encEl) encEl.dataset.theme = S.theme;
   const meta = $('meta[name="theme-color"]');
   if (meta) meta.content = THEME_META[S.theme].bg;
   store.set('enc.theme', S.theme);
@@ -734,9 +737,9 @@ function confirmQuit() {
 
 /* ── UI: confeti ─────────────────────────────────────────────────────── */
 function confetti() {
-  const colors = [getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
-    getComputedStyle(document.documentElement).getPropertyValue('--second').trim(),
-    getComputedStyle(document.documentElement).getPropertyValue('--good').trim(), '#F3C64B', '#7A9CF5'];
+  const cs = getComputedStyle(document.getElementById('enc'));
+  const colors = [cs.getPropertyValue('--accent').trim(), cs.getPropertyValue('--second').trim(),
+    cs.getPropertyValue('--good').trim(), '#F3C64B', '#7A9CF5'];
   const c = document.createElement('div');
   c.className = 'confetti';
   let html = '';
