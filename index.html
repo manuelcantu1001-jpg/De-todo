@@ -3,71 +3,43 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FFF6EC" />
+<meta name="theme-color" content="#F7F3EA" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="description" content="Encadena — el juego de las terminaciones. Palabras encadenadas por su final (o su inicio), para dos, contra la app o en solitario." />
 <title>Encadena · El juego de las terminaciones</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23FF6A3D'/%3E%3Ctext x='32' y='44' font-size='34' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle'%3E‑E%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3EE%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Serif+Display&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
-  /* ── Temas ─────────────────────────────────────────────────────────── */
-  #enc[data-theme="limpio"] {
-    --font: 'Space Grotesk', system-ui, sans-serif;
-    --title-font: 'Space Grotesk', system-ui, sans-serif;
-    --title-track: -0.03em;
-    --bg: #F6F7F5; --card: #FFFFFF; --soft: #EEF0EC;
-    --ink: #15171C; --bg-ink: #15171C; --sub: #6B7280; --bg-sub: #6B7280; --faint: #A0A6AE;
-    --accent: #3B5BFF; --accent-ink: #FFFFFF; --accent-soft: #E9EDFF;
-    --second: #E8590C; --second-soft: #FFEFE4;
-    --good: #178A57; --bad: #DC4233; --border: #E5E7E2; --line: #E5E7E2;
-    --radius: 18px; --seg-bg: #EEF0EC;
-    --tile-bg: #15171C; --tile-ink: #FFFFFF; --tile-border: transparent;
-    --shadow: 0 1px 2px rgba(20,24,40,.05), 0 8px 24px rgba(20,24,40,.06);
-    --toggle-off: #D7D9D4;
-  }
-  #enc[data-theme="fieltro"] {
-    --font: 'DM Sans', system-ui, sans-serif;
-    --title-font: 'DM Serif Display', Georgia, serif;
-    --title-track: 0;
-    --bg: #163A2B; --card: #FBF4E4; --soft: #12301F;
-    --ink: #1D2B22; --bg-ink: #FBF4E4; --sub: #5E6E63; --bg-sub: rgba(251,244,228,.6); --faint: rgba(251,244,228,.55);
-    --accent: #E0A23D; --accent-ink: #22150A; --accent-soft: #F4E7C8;
-    --second: #3FA76A; --second-soft: #DCEEE2;
-    --good: #3FA76A; --bad: #D2604F; --border: #E7D9BF; --line: rgba(251,244,228,.14);
-    --radius: 10px; --seg-bg: #EFE2C2;
-    --tile-bg: #F3E5C2; --tile-ink: #1D2B22; --tile-border: #C9A85F;
-    --shadow: 0 2px 0 rgba(0,0,0,.18), 0 10px 26px rgba(0,0,0,.28);
-    --toggle-off: rgba(251,244,228,.28);
-  }
-  #enc[data-theme="calido"] {
-    --font: 'Fredoka', system-ui, sans-serif;
-    --title-font: 'Fredoka', system-ui, sans-serif;
+  /* ── Identidad ─────────────────────────────────────────────────────── */
+  #enc {
+    --font: 'Onest', system-ui, sans-serif;
+    --title-font: 'Fraunces', Georgia, serif;
     --title-track: -0.01em;
-    --bg: #FFF6EC; --card: #FFFFFF; --soft: #FFEDDD;
-    --ink: #2A2622; --bg-ink: #2A2622; --sub: #8A7E72; --bg-sub: #8A7E72; --faint: #BCAE9F;
-    --accent: #FF6A3D; --accent-ink: #FFFFFF; --accent-soft: #FFE6DA;
-    --second: #1F8A6B; --second-soft: #DDF0E8;
-    --good: #1F8A6B; --bad: #E0483D; --border: #F2E3D3; --line: #F2E3D3;
-    --radius: 22px; --seg-bg: #FFEDDD;
-    --tile-bg: #FF6A3D; --tile-ink: #FFFFFF; --tile-border: transparent;
-    --shadow: 0 2px 4px rgba(120,70,40,.06), 0 12px 30px rgba(120,70,40,.12);
-    --toggle-off: #E8DACB;
+    --bg: #F7F3EA; --card: #FFFFFF; --soft: #EFE9DC;
+    --ink: #221F19; --bg-ink: #221F19; --sub: #6F6759; --bg-sub: #6F6759; --faint: #ABA192;
+    --accent: #0E7A5C; --accent-ink: #FFFFFF; --accent-soft: #E0EEE6;
+    --second: #C25B36; --second-soft: #F6E4DC;
+    --good: #0E7A5C; --bad: #D4483B; --border: #E8E0D0; --line: #E8E0D0;
+    --radius: 18px; --seg-bg: #EFE9DC;
+    --tile-bg: #FFFDF6; --tile-ink: #221F19; --tile-border: #D9CFBA;
+    --shadow: 0 1px 2px rgba(60,50,30,.05), 0 8px 24px rgba(60,50,30,.07);
+    --toggle-off: #DCD3C2;
   }
 
   /* ── Base ──────────────────────────────────────────────────────────── */
   * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
   html, body { margin: 0; padding: 0; height: 100%; }
+  body { overscroll-behavior: none; }
   #enc {
     background: var(--bg); color: var(--bg-ink); font-family: var(--font);
-    transition: background .25s; min-height: 100dvh;
+    min-height: 100dvh; -webkit-tap-highlight-color: transparent;
   }
-  #enc[data-theme="fieltro"] {
-    background-image: radial-gradient(rgba(255,255,255,.035) 1px, transparent 1px);
-    background-size: 4px 4px;
-  }
+  #enc button { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
   #app {
     max-width: 480px; margin: 0 auto; height: 100dvh; position: relative;
     display: flex; flex-direction: column; overflow: hidden;
@@ -89,7 +61,6 @@
   .btn:disabled { opacity: .45; cursor: default; transform: none; }
   .btn-primary { background: var(--accent); color: var(--accent-ink); box-shadow: var(--shadow); }
   .btn-soft { background: var(--accent-soft); color: var(--accent); }
-  #enc[data-theme="fieltro"] .btn-soft { color: #8a6420; }
   .btn-ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
   .btn-danger-ghost { background: transparent; color: var(--bad); border: 1.5px solid color-mix(in srgb, var(--bad) 25%, transparent); }
 
@@ -109,7 +80,6 @@
     font-weight: 600; font-size: 13.5px; background: transparent; color: var(--sub); transition: all .15s;
   }
   .seg button.sel { background: var(--card); color: var(--accent); box-shadow: var(--shadow); }
-  #enc[data-theme="fieltro"] .seg button.sel { color: #8a6420; }
   .seg button:disabled { opacity: .55; cursor: default; }
   .seg button .pronto { display: block; font-size: 9px; font-weight: 600; opacity: .8; }
 
@@ -153,16 +123,6 @@
     background: none; border: none; color: var(--accent); font-weight: 600; font-size: 13.5px;
     cursor: pointer; margin-top: 8px; padding: 4px 8px;
   }
-  #enc[data-theme="fieltro"] .brand .howto { color: var(--accent); }
-
-  .themes { display: flex; justify-content: center; gap: 10px; margin-bottom: 16px; }
-  .theme-dot {
-    width: 40px; height: 40px; border-radius: 999px; cursor: pointer; padding: 0;
-    border: 2.5px solid transparent; position: relative; overflow: hidden;
-  }
-  .theme-dot.sel { border-color: var(--accent); }
-  .theme-dot span { position: absolute; inset: 0; }
-  .theme-dot .half { clip-path: polygon(0 0, 100% 0, 0 100%); }
 
   .start-hint { font-size: 13px; color: var(--bg-sub); margin-top: 8px; padding-left: 4px; min-height: 18px; }
   .start-hint b { color: var(--accent); }
@@ -179,28 +139,21 @@
     font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
     color: var(--bg-sub); margin-bottom: 10px;
   }
-  .ending-plain { font-family: var(--title-font); font-weight: 700; color: var(--bg-ink); line-height: 1; display: inline-flex; align-items: baseline; }
-  .ending-plain .dash { color: var(--faint); font-size: 30px; }
-  .ending-plain .sfx { font-size: 52px; letter-spacing: -1px; }
-  .ending-pill {
-    display: inline-flex; align-items: baseline; gap: 2px; background: var(--accent-soft); color: var(--accent);
-    padding: 10px 22px; border-radius: 999px; font-weight: 600;
-  }
-  .ending-pill .dash { font-size: 20px; opacity: .7; }
-  .ending-pill .sfx { font-size: 32px; letter-spacing: 1px; }
-  .ending-tiles { display: flex; gap: 6px; justify-content: center; }
+  .ending-tiles { display: flex; gap: 7px; justify-content: center; align-items: center; }
   .ending-tiles .tile {
-    width: 44px; height: 50px; border-radius: 6px; background: var(--tile-bg); color: var(--tile-ink);
-    border: 1px solid var(--tile-border); box-shadow: 0 3px 0 rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.5);
+    min-width: 48px; height: 56px; padding: 0 6px; border-radius: 9px;
+    background: var(--tile-bg); color: var(--tile-ink);
+    border: 1px solid var(--tile-border);
+    box-shadow: 0 3px 0 var(--tile-border), inset 0 1px 0 rgba(255,255,255,.65);
     display: flex; align-items: center; justify-content: center;
-    font-family: var(--title-font); font-size: 28px; font-weight: 700;
+    font-family: var(--title-font); font-size: 32px; font-weight: 600;
   }
+  .ending-tiles .dash { font-family: var(--title-font); font-size: 30px; color: var(--faint); padding: 0 2px; }
 
   .turnbar {
     display: flex; align-items: center; justify-content: space-between; margin: 0 16px 10px;
     padding: 10px 16px; border-radius: 999px; background: color-mix(in srgb, var(--bg-ink) 7%, transparent);
   }
-  #enc[data-theme="fieltro"] .turnbar { background: rgba(251,244,228,.1); }
   .turnbar .who { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--bg-ink); }
   .turnbar .dot { width: 9px; height: 9px; border-radius: 999px; background: var(--accent); }
   .turnbar .right { display: flex; align-items: center; gap: 12px; }
@@ -228,12 +181,10 @@
   .bubble.think { color: var(--sub); font-style: italic; font-size: 15px; }
 
   .dock { padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--border); }
-  #enc[data-theme="fieltro"] .dock { background: transparent; border-top: 1px solid var(--line); }
   .dock .msg { font-size: 13.5px; font-weight: 600; margin-bottom: 8px; text-align: center; min-height: 18px; }
   .dock .msg.ok { color: var(--good); }
   .dock .msg.err { color: var(--bad); }
   .dock .msg.check { color: var(--sub); }
-  #enc[data-theme="fieltro"] .dock .msg.check { color: var(--faint); }
   .dock .line { display: flex; gap: 8px; }
   .dock input { flex: 1; min-width: 0; padding: 14px 16px; font-size: 17px; }
   .dock input.shake { animation: shake .4s; }
@@ -268,7 +219,6 @@
   .stats { display: flex; gap: 12px; margin: 24px 0; }
   .stats .stat { flex: 1; background: var(--card); border-radius: var(--radius); padding: 18px 8px; box-shadow: var(--shadow); }
   .stats .n { font-family: var(--title-font); font-size: 28px; font-weight: 700; color: var(--accent); }
-  #enc[data-theme="fieltro"] .stats .n { color: #8a6420; }
   .stats .l { font-size: 12.5px; color: var(--sub); margin-top: 2px; font-weight: 500; }
   .recap {
     background: var(--card); border-radius: calc(var(--radius) + 2px); padding: 6px 18px;
@@ -313,7 +263,7 @@
 </style>
 </head>
 <body>
-<div id="enc" data-theme="calido">
+<div id="enc">
   <div id="app"></div>
   <div id="modal" role="dialog" aria-modal="true"></div>
 </div>
@@ -418,7 +368,6 @@ const DIFF_RANK = { facil: 6000, normal: 16000, experta: Infinity };
 const PLAYER_LABEL = { A: 'Jugador 1', B: 'Jugador 2', tu: 'Tú', app: 'App' };
 
 const S = {
-  theme: store.get('enc.theme', 'calido'),
   phase: 'setup',
   cfg: null,
   suffix: '',
@@ -438,21 +387,6 @@ const defCfg = {
 };
 let setupCfg = Object.assign({}, defCfg, store.get('enc.cfg', {}));
 setupCfg.start = '';
-
-/* ── Tema ────────────────────────────────────────────────────────────── */
-const THEME_META = {
-  limpio: { label: 'Limpio', bg: '#F6F7F5', accent: '#3B5BFF' },
-  fieltro: { label: 'Fieltro', bg: '#163A2B', accent: '#E0A23D' },
-  calido: { label: 'Cálido', bg: '#FFF6EC', accent: '#FF6A3D' },
-};
-function applyTheme(id) {
-  S.theme = THEME_META[id] ? id : 'calido';
-  const encEl = document.getElementById('enc');
-  if (encEl) encEl.dataset.theme = S.theme;
-  const meta = $('meta[name="theme-color"]');
-  if (meta) meta.content = THEME_META[S.theme].bg;
-  store.set('enc.theme', S.theme);
-}
 
 /* ── Reglas ──────────────────────────────────────────────────────────── */
 const isPre = () => S.cfg.match === 'inicio';
@@ -777,13 +711,6 @@ function renderSetup() {
   const soloOk = Dicc.ready() || AI.available();
   if (!soloOk && (c.mode === 'app' || c.mode === 'solo')) c.mode = '2p';
   const app = $('#app');
-  const themes = Object.keys(THEME_META).map((id) => {
-    const m = THEME_META[id];
-    return `<button class="theme-dot ${id === S.theme ? 'sel' : ''}" data-theme-id="${id}" aria-label="Tema ${m.label}" title="${m.label}">
-      <span style="background:${m.bg}"></span><span class="half" style="background:${m.accent}"></span>
-    </button>`;
-  }).join('');
-
   app.innerHTML = `
   <div class="screen setup scroll">
     <div class="brand">
@@ -791,7 +718,6 @@ function renderSetup() {
       <div class="tag">El juego de las terminaciones</div>
       <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
-    <div class="themes" role="group" aria-label="Tema visual">${themes}</div>
 
     <div class="card" style="padding: 4px 18px; margin-bottom: 16px;">
       <div class="row" style="flex-direction: column; align-items: stretch; gap: 8px;">
@@ -862,7 +788,6 @@ function renderSetup() {
   });
 
   // tema
-  app.querySelectorAll('.theme-dot').forEach((b) => b.onclick = () => { applyTheme(b.dataset.themeId); renderSetup(); });
   $('#howto').onclick = openRules;
 
   // segmentados
@@ -934,17 +859,9 @@ function startFromSetup(random) {
 
 /* ── UI: pantalla de juego ───────────────────────────────────────────── */
 function endingHTML() {
-  const sfx = S.suffix;
-  const pre = isPre();
-  const style = S.theme === 'fieltro' ? 'tiles' : S.theme === 'calido' ? 'pill' : 'plain';
-  if (style === 'tiles') {
-    return `<div class="ending-tiles">` +
-      sfx.toUpperCase().split('').map((ch) => `<div class="tile">${esc(ch)}</div>`).join('') + `</div>`;
-  }
-  const dash = `<span class="dash">‑</span>`;
-  const body = `<span class="sfx">${esc(sfx)}</span>`;
-  const inner = pre ? body + dash : dash + body;
-  return `<div class="${style === 'pill' ? 'ending-pill' : 'ending-plain'}">${inner}</div>`;
+  const tiles = S.suffix.toUpperCase().split('').map((ch) => `<div class="tile">${esc(ch)}</div>`).join('');
+  const dash = '<span class="dash">\u2011</span>';
+  return `<div class="ending-tiles">${isPre() ? tiles + dash : dash + tiles}</div>`;
 }
 
 function heartsHTML(total, left) {
@@ -1153,8 +1070,12 @@ function render() {
   else renderEnd();
 }
 
-applyTheme(S.theme);
 render();
+</script>
+<script id="sw-reg">
+if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+  addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+}
 </script>
 </body>
 </html>

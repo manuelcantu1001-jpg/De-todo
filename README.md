@@ -5,6 +5,8 @@ y, por turnos, cada quien dice una palabra nueva que encaje. Con «Faustino» y 
 todo debe acabar en **‑ino**: camino, destino, adivino…
 
 Es una app web sin dependencias: abre [`index.html`](index.html) en el navegador y juega.
+Instalada como PWA (menú del navegador → «Añadir a pantalla de inicio») funciona a pantalla
+completa y sin conexión.
 
 ## Cómo se juega
 
@@ -26,14 +28,23 @@ Es una app web sin dependencias: abre [`index.html`](index.html) en el navegador
 
 - **Encadenar por el final o por el inicio** (fau‑… en vez de …‑ino).
 - **Vidas** (1–5) y **tiempo por turno** (5–60 s), ambos opcionales.
-- **Tres temas visuales** heredados de la exploración de diseño: *Limpio*, *Fieltro* (mesa de juego) y *Cálido*. Se cambian desde la pantalla inicial y se recuerdan.
+
+## Identidad visual
+
+Una sola identidad, destilada de la exploración de diseño que vive en `design/`:
+papel cálido, verde botella y terracota, con las letras de la terminación como
+**fichas de juego**. Tipografía: [Fraunces](https://fonts.google.com/specimen/Fraunces)
+para títulos y letras, [Onest](https://fonts.google.com/specimen/Onest) para la interfaz.
 
 ## Estructura
 
 ```
-index.html   La app completa (HTML + CSS + JS vanilla, sin build ni frameworks)
-dicc-es.js   Diccionario: ~32.000 palabras del español ordenadas por frecuencia
-design/      Prototipo original (canvas de diseño con las 3 direcciones visuales, en React)
+index.html            La app completa (HTML + CSS + JS vanilla, sin build ni frameworks)
+dicc-es.js            Diccionario: ~32.000 palabras del español ordenadas por frecuencia
+manifest.webmanifest  Manifiesto PWA (instalable, pantalla completa)
+sw.js                 Service worker: cache para jugar sin conexión
+icons/                Iconos de la app
+design/               Prototipo original (canvas de diseño con 3 direcciones visuales, en React)
 ```
 
 ## Validación de palabras
