@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&amp;family=Archivo:wght@400;500;600;700&amp;display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #2545FF; } a:hover { color: #161719; }
+
+    .ph { width:390px; min-height:844px; background:#F6F5F1; color:#131210;
+      font-family:'Archivo',system-ui,sans-serif; display:flex; flex-direction:column; }
+    .disp { font-family:'Archivo Black','Arial Black',sans-serif; }
+    .hub-head { padding:46px 24px 18px; border-bottom:3px solid #131210; }
+    .hub-head h1 { margin:0; font-size:44px; line-height:1; letter-spacing:-.5px; text-transform:uppercase; }
+    .hub-head h1 em { font-style:normal; color:#D8321F; }
+    .hub-head .tag { display:flex; justify-content:space-between; margin-top:10px;
+      font-size:11.5px; font-weight:700; letter-spacing:1.6px; text-transform:uppercase; color:#131210; }
+    .cards { padding:20px 20px 8px; display:flex; flex-direction:column; gap:14px; }
+    .gcard { display:flex; align-items:center; gap:14px; background:#FFFFFF; border:2px solid #131210;
+      border-radius:6px; padding:16px 14px; box-shadow:4px 4px 0 #131210; }
+    .gicon { width:48px; height:48px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+      border:2px solid #131210; border-radius:4px; background:#F6F5F1; color:#131210; }
+    .gcard:nth-child(2) .gicon, .gcard:nth-child(4) .gicon { background:#D8321F; color:#FFFFFF; border-color:#131210; }
+    .gname { font-family:'Archivo Black',sans-serif; font-size:17px; text-transform:uppercase; letter-spacing:.2px; }
+    .gsub { font-size:12.5px; color:#6E6A62; margin-top:2px; font-weight:500; }
+    .gchev { margin-left:auto; color:#D8321F; }
+    .foot { margin-top:auto; padding:16px 24px 26px; font-size:11px; font-weight:700; letter-spacing:1.4px;
+      text-transform:uppercase; color:#9A958B; display:flex; justify-content:space-between; }
+    /* sudoku */
+    .top { display:flex; align-items:center; gap:12px; padding:46px 20px 14px; }
+    .top .bk { width:40px; height:40px; border:2px solid #131210; border-radius:4px; background:#FFFFFF;
+      display:flex; align-items:center; justify-content:center; box-shadow:3px 3px 0 #131210; }
+    .top h2 { margin:0; font-family:'Archivo Black',sans-serif; font-size:24px; text-transform:uppercase; }
+    .top .meta { margin-left:auto; text-align:right; }
+    .top .diff { font-size:10.5px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase; color:#D8321F; }
+    .top .time { font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; }
+    .board { margin:10px auto 0; width:352px; border:3px solid #131210; background:#FFFFFF;
+      display:grid; grid-template-columns:repeat(9,1fr); }
+    .cell { aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:19px;
+      border-right:1px solid #D8D4CB; border-bottom:1px solid #D8D4CB; position:relative; }
+    .cell.br { border-right:2.5px solid #131210; } .cell.bb { border-bottom:2.5px solid #131210; }
+    .cell.g { font-weight:700; color:#131210; }
+    .cell.u { font-weight:700; color:#D8321F; }
+    .cell.sel { background:#FBE3DF; outline:2.5px solid #D8321F; outline-offset:-2.5px; }
+    .ns { display:flex; gap:2px; position:absolute; top:3px; left:4px; }
+    .ns i { font-style:normal; font-size:9px; font-weight:700; color:#9A958B; }
+    .pad { margin:22px 20px 0; display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+    .key { height:56px; background:#FFFFFF; border:2px solid #131210; border-radius:4px; box-shadow:3px 3px 0 #131210;
+      display:flex; align-items:center; justify-content:center; font-family:'Archivo Black',sans-serif; font-size:20px; }
+    .key.fn { font-family:'Archivo',sans-serif; font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; background:#D8321F; color:#FFFFFF; }
+    
+  </style>
+</helmet>
+<div class="ph">
+  <div class="hub-head">
+    <h1 class="disp">QUIOS<em>CO</em></h1>
+    <div class="tag"><span>Pasatiempos en español</span><span>4 juegos</span></div>
+  </div>
+  <div class="cards">
+    <div class="gcard c1">
+      <div class="gicon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7"></path><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"></path></svg></div>
+      <div><div class="gname">Encadena</div><div class="gsub">Palabras por terminación</div></div>
+      <div class="gchev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg></div>
+    </div>
+    <div class="gcard c2">
+      <div class="gicon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="M21 21l-5.2-5.2"></path><path d="M8 10.5h5M10.5 8v5" opacity="0.55"></path></svg></div>
+      <div><div class="gname">Sopa de letras</div><div class="gsub">Encuentra las escondidas</div></div>
+      <div class="gchev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg></div>
+    </div>
+    <div class="gcard c3">
+      <div class="gicon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3.5 3.5h17v17h-17z"></path><path d="M9.2 3.5v17M14.9 3.5v17M3.5 9.2h17M3.5 14.9h17" opacity="0.55"></path><rect x="9.2" y="3.5" width="5.7" height="5.7" fill="currentColor" stroke="none" opacity="0.9"></rect><rect x="3.5" y="14.9" width="5.7" height="5.7" fill="currentColor" stroke="none" opacity="0.9"></rect></svg></div>
+      <div><div class="gname">Diagrama</div><div class="gsub">Acomoda las palabras</div></div>
+      <div class="gchev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg></div>
+    </div>
+    <div class="gcard c4">
+      <div class="gicon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3.5 3.5h17v17h-17z"></path><path d="M9.2 3.5v17M14.9 3.5v17M3.5 9.2h17M3.5 14.9h17" opacity="0.55"></path><circle cx="6.3" cy="6.3" r="1.2" fill="currentColor" stroke="none"></circle><circle cx="17.7" cy="12" r="1.2" fill="currentColor" stroke="none"></circle><circle cx="12" cy="17.7" r="1.2" fill="currentColor" stroke="none"></circle></svg></div>
+      <div><div class="gname">Sudoku</div><div class="gsub">El clásico de números</div></div>
+      <div class="gchev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg></div>
+    </div>
+  </div>
+  <div class="foot"><span>Hecho en casa</span><span>Sin conexión</span></div>
+</div>
+</x-dc>
+</body>
+</html>

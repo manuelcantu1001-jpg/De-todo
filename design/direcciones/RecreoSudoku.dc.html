@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #2545FF; } a:hover { color: #161719; }
+
+    .ph { width:390px; min-height:844px; background:#F4F2EC; color:#23222A;
+      font-family:'Schibsted Grotesk',system-ui,sans-serif; display:flex; flex-direction:column; }
+    .disp { font-family:'Bricolage Grotesque',sans-serif; }
+    .hub-head { padding:52px 24px 16px; }
+    .hub-head h1 { margin:0; font-family:'Bricolage Grotesque',sans-serif; font-size:42px; font-weight:800; line-height:1; letter-spacing:-.5px; }
+    .hub-head h1 .dot { color:#FF5D73; }
+    .hub-head .tag { margin-top:8px; font-size:13.5px; color:#8B8798; font-weight:500; }
+    .cards { padding:14px 18px 8px; display:flex; flex-direction:column; gap:13px; }
+    .gcard { display:flex; align-items:center; gap:14px; background:#FFFFFF; border-radius:24px; padding:16px 16px;
+      box-shadow:0 2px 4px rgba(50,45,70,.05), 0 12px 28px rgba(50,45,70,.09); }
+    .gicon { width:52px; height:52px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+      border-radius:17px; color:#FFFFFF; transform:rotate(-3deg); }
+    .c1 .gicon { background:#FF5D73; } .c2 .gicon { background:#21B8A6; }
+    .c3 .gicon { background:#F5A623; } .c4 .gicon { background:#7C6BF0; }
+    .gname { font-family:'Bricolage Grotesque',sans-serif; font-size:18px; font-weight:700; }
+    .gsub { font-size:13px; color:#8B8798; margin-top:2px; }
+    .gchev { margin-left:auto; color:#C9C5D2; }
+    .foot { margin-top:auto; padding:16px 24px 28px; font-size:12.5px; color:#B3AFC0; display:flex; justify-content:space-between; }
+    /* sudoku (violeta = su color de juego) */
+    .top { display:flex; align-items:center; gap:12px; padding:50px 20px 14px; }
+    .top .bk { width:42px; height:42px; border-radius:999px; background:#FFFFFF; box-shadow:0 2px 10px rgba(50,45,70,.1);
+      display:flex; align-items:center; justify-content:center; color:#23222A; }
+    .top h2 { margin:0; font-family:'Bricolage Grotesque',sans-serif; font-size:23px; font-weight:800; }
+    .top .meta { margin-left:auto; text-align:right; }
+    .top .diff { display:inline-block; font-size:11px; font-weight:700; color:#7C6BF0; background:#ECE8FD;
+      border-radius:999px; padding:3px 10px; }
+    .top .time { font-size:15.5px; font-weight:700; color:#23222A; margin-top:3px; font-variant-numeric:tabular-nums; }
+    .board { margin:10px auto 0; width:352px; border-radius:18px; overflow:hidden; background:#FFFFFF;
+      box-shadow:0 2px 4px rgba(50,45,70,.05), 0 14px 30px rgba(50,45,70,.1);
+      display:grid; grid-template-columns:repeat(9,1fr); border:2px solid #E4E1EA; }
+    .cell { aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:18px;
+      border-right:1px solid #EFEDF3; border-bottom:1px solid #EFEDF3; position:relative; }
+    .cell.br { border-right:2px solid #C9C5D2; } .cell.bb { border-bottom:2px solid #C9C5D2; }
+    .cell.g { font-weight:700; color:#23222A; }
+    .cell.u { font-weight:700; color:#7C6BF0; }
+    .cell.sel { background:#ECE8FD; outline:2.5px solid #7C6BF0; outline-offset:-2.5px; border-radius:8px; }
+    .ns { display:flex; gap:2px; position:absolute; top:3px; left:4px; }
+    .ns i { font-style:normal; font-size:9px; font-weight:600; color:#B3AFC0; }
+    .pad { margin:22px 20px 0; display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+    .key { height:58px; background:#FFFFFF; border-radius:19px; box-shadow:0 2px 4px rgba(50,45,70,.06), 0 8px 18px rgba(50,45,70,.08);
+      display:flex; align-items:center; justify-content:center; font-family:'Bricolage Grotesque',sans-serif; font-size:21px; font-weight:700; color:#23222A; }
+    .key.fn { font-size:12px; font-family:'Schibsted Grotesk',sans-serif; font-weight:700; background:#7C6BF0; color:#FFFFFF; }
+    
+  </style>
+</helmet>
+<div class="ph">
+  <div class="top">
+    <div class="bk"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+    <h2 class="disp">Sudoku</h2>
+    <div class="meta"><div class="diff">Normal</div><div class="time">04:32</div></div>
+  </div>
+  <div class="board"><div class="cell g">5</div><div class="cell"></div><div class="cell br g">4</div><div class="cell u">6</div><div class="cell"></div><div class="cell br"></div><div class="cell g">9</div><div class="cell"></div><div class="cell g">2</div><div class="cell nt"><span class="ns"><i>2</i><i>4</i><i>7</i></span></div><div class="cell g">7</div><div class="cell br"></div><div class="cell g">1</div><div class="cell g">9</div><div class="cell br"></div><div class="cell"></div><div class="cell g">4</div><div class="cell"></div><div class="cell bb"></div><div class="cell bb"></div><div class="cell br bb g">8</div><div class="cell bb"></div><div class="cell bb"></div><div class="cell br bb g">2</div><div class="cell bb g">5</div><div class="cell bb"></div><div class="cell bb"></div><div class="cell g">8</div><div class="cell g">5</div><div class="cell br"></div><div class="cell"></div><div class="cell g">6</div><div class="cell br"></div><div class="cell"></div><div class="cell g">2</div><div class="cell g">3</div><div class="cell"></div><div class="cell"></div><div class="cell br"></div><div class="cell g">8</div><div class="cell sel u">5</div><div class="cell br g">3</div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell bb g">7</div><div class="cell bb g">1</div><div class="cell br bb"></div><div class="cell bb"></div><div class="cell bb g">2</div><div class="cell br bb"></div><div class="cell bb"></div><div class="cell bb g">5</div><div class="cell bb g">6</div><div class="cell"></div><div class="cell"></div><div class="cell br g">1</div><div class="cell g">5</div><div class="cell"></div><div class="cell br"></div><div class="cell g">2</div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell g">8</div><div class="cell br"></div><div class="cell"></div><div class="cell g">1</div><div class="cell br g">9</div><div class="cell"></div><div class="cell g">3</div><div class="cell"></div><div class="cell g">3</div><div class="cell"></div><div class="cell br g">5</div><div class="cell"></div><div class="cell"></div><div class="cell br"></div><div class="cell g">1</div><div class="cell"></div><div class="cell g">9</div></div>
+  <div class="pad"><div class="key">1</div><div class="key">2</div><div class="key">3</div><div class="key">4</div><div class="key">5</div><div class="key">6</div><div class="key">7</div><div class="key">8</div><div class="key">9</div><div class="key fn">Notas</div></div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700;800&amp;family=Instrument+Sans:wght@400;500;600;700&amp;display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #2545FF; } a:hover { color: #161719; }
+
+    .ph { width:390px; min-height:844px; background:#14121B; color:#F1EEF9;
+      font-family:'Instrument Sans',system-ui,sans-serif; display:flex; flex-direction:column;
+      background-image:radial-gradient(ellipse 90% 40% at 50% -5%, rgba(126,91,255,.22), transparent); }
+    .disp { font-family:'Unbounded',sans-serif; }
+    .hub-head { padding:52px 24px 20px; text-align:left; }
+    .hub-head h1 { margin:0; font-family:'Unbounded',sans-serif; font-size:34px; font-weight:800; line-height:1;
+      background:linear-gradient(100deg,#A88BFF,#53E6C6); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .hub-head .tag { margin-top:10px; font-size:13px; color:#8D87A3; font-weight:500; }
+    .cards { padding:14px 18px 8px; display:flex; flex-direction:column; gap:12px; }
+    .gcard { display:flex; align-items:center; gap:14px; background:#1E1B29; border:1px solid rgba(255,255,255,.07);
+      border-radius:20px; padding:16px 16px; }
+    .gicon { width:50px; height:50px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+      border-radius:14px; background:rgba(140,105,255,.14); color:#A88BFF; box-shadow:0 0 22px rgba(140,105,255,.25); }
+    .gcard:nth-child(even) .gicon { background:rgba(60,220,190,.12); color:#53E6C6; box-shadow:0 0 22px rgba(60,220,190,.22); }
+    .gname { font-family:'Unbounded',sans-serif; font-size:15px; font-weight:600; }
+    .gsub { font-size:12.5px; color:#8D87A3; margin-top:3px; }
+    .gchev { margin-left:auto; color:#544E6B; }
+    .foot { margin-top:auto; padding:16px 24px 28px; font-size:12px; color:#544E6B; display:flex; justify-content:space-between; }
+    /* sudoku */
+    .top { display:flex; align-items:center; gap:12px; padding:50px 20px 14px; }
+    .top .bk { width:40px; height:40px; border-radius:12px; background:#1E1B29; border:1px solid rgba(255,255,255,.08);
+      display:flex; align-items:center; justify-content:center; color:#F1EEF9; }
+    .top h2 { margin:0; font-family:'Unbounded',sans-serif; font-size:20px; font-weight:700; }
+    .top .meta { margin-left:auto; text-align:right; }
+    .top .diff { font-size:11px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:#53E6C6; }
+    .top .time { font-size:16px; font-weight:600; color:#F1EEF9; font-variant-numeric:tabular-nums; }
+    .board { margin:10px auto 0; width:352px; border-radius:14px; overflow:hidden; border:1.5px solid rgba(255,255,255,.16);
+      background:#1B1826; display:grid; grid-template-columns:repeat(9,1fr); }
+    .cell { aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:18px;
+      border-right:1px solid rgba(255,255,255,.06); border-bottom:1px solid rgba(255,255,255,.06); position:relative; }
+    .cell.br { border-right:1.5px solid rgba(255,255,255,.22); } .cell.bb { border-bottom:1.5px solid rgba(255,255,255,.22); }
+    .cell.g { font-weight:600; color:#F1EEF9; }
+    .cell.u { font-weight:600; color:#A88BFF; }
+    .cell.sel { background:rgba(83,230,198,.13); outline:2px solid #53E6C6; outline-offset:-2px;
+      box-shadow:0 0 18px rgba(83,230,198,.35); }
+    .ns { display:flex; gap:2px; position:absolute; top:3px; left:4px; }
+    .ns i { font-style:normal; font-size:9px; color:#8D87A3; }
+    .pad { margin:22px 20px 0; display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+    .key { height:56px; background:#211D30; border:1px solid rgba(255,255,255,.08); border-radius:16px;
+      display:flex; align-items:center; justify-content:center; font-family:'Unbounded',sans-serif; font-size:17px; font-weight:600; color:#F1EEF9; }
+    .key.fn { font-family:'Instrument Sans',sans-serif; font-size:11.5px; font-weight:700; letter-spacing:1px; text-transform:uppercase;
+      background:linear-gradient(120deg,rgba(140,105,255,.25),rgba(60,220,190,.2)); color:#F1EEF9; }
+    
+  </style>
+</helmet>
+<div class="ph">
+  <div class="top">
+    <div class="bk"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+    <h2 class="disp">Sudoku</h2>
+    <div class="meta"><div class="diff">Normal</div><div class="time">04:32</div></div>
+  </div>
+  <div class="board"><div class="cell g">5</div><div class="cell"></div><div class="cell br g">4</div><div class="cell u">6</div><div class="cell"></div><div class="cell br"></div><div class="cell g">9</div><div class="cell"></div><div class="cell g">2</div><div class="cell nt"><span class="ns"><i>2</i><i>4</i><i>7</i></span></div><div class="cell g">7</div><div class="cell br"></div><div class="cell g">1</div><div class="cell g">9</div><div class="cell br"></div><div class="cell"></div><div class="cell g">4</div><div class="cell"></div><div class="cell bb"></div><div class="cell bb"></div><div class="cell br bb g">8</div><div class="cell bb"></div><div class="cell bb"></div><div class="cell br bb g">2</div><div class="cell bb g">5</div><div class="cell bb"></div><div class="cell bb"></div><div class="cell g">8</div><div class="cell g">5</div><div class="cell br"></div><div class="cell"></div><div class="cell g">6</div><div class="cell br"></div><div class="cell"></div><div class="cell g">2</div><div class="cell g">3</div><div class="cell"></div><div class="cell"></div><div class="cell br"></div><div class="cell g">8</div><div class="cell sel u">5</div><div class="cell br g">3</div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell bb g">7</div><div class="cell bb g">1</div><div class="cell br bb"></div><div class="cell bb"></div><div class="cell bb g">2</div><div class="cell br bb"></div><div class="cell bb"></div><div class="cell bb g">5</div><div class="cell bb g">6</div><div class="cell"></div><div class="cell"></div><div class="cell br g">1</div><div class="cell g">5</div><div class="cell"></div><div class="cell br"></div><div class="cell g">2</div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell g">8</div><div class="cell br"></div><div class="cell"></div><div class="cell g">1</div><div class="cell br g">9</div><div class="cell"></div><div class="cell g">3</div><div class="cell"></div><div class="cell g">3</div><div class="cell"></div><div class="cell br g">5</div><div class="cell"></div><div class="cell"></div><div class="cell br"></div><div class="cell g">1</div><div class="cell"></div><div class="cell g">9</div></div>
+  <div class="pad"><div class="key">1</div><div class="key">2</div><div class="key">3</div><div class="key">4</div><div class="key">5</div><div class="key">6</div><div class="key">7</div><div class="key">8</div><div class="key">9</div><div class="key fn">Notas</div></div>
+</div>
+</x-dc>
+</body>
+</html>

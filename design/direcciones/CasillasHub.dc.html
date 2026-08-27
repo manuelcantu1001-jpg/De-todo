@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #2545FF; } a:hover { color: #161719; }
+
+    .ph { width:390px; min-height:844px; background:#FBFBF8; color:#161719;
+      font-family:'Familjen Grotesk',system-ui,sans-serif; display:flex; flex-direction:column; }
+    .disp { font-family:'Familjen Grotesk',sans-serif; }
+    .mono { font-family:'IBM Plex Mono',monospace; }
+    .hub-head { padding:50px 24px 18px; border-bottom:1px solid #E4E3DC; }
+    .hub-head h1 { margin:0; font-size:38px; font-weight:700; letter-spacing:-1px; line-height:1; }
+    .hub-head h1 .sq { display:inline-block; width:13px; height:13px; background:#2545FF; margin-left:6px; }
+    .hub-head .tag { margin-top:10px; display:flex; justify-content:space-between; font-size:11.5px; font-weight:600;
+      letter-spacing:1.4px; text-transform:uppercase; color:#8D8C85; }
+    .cards { padding:0; display:flex; flex-direction:column; }
+    .gcard { display:flex; align-items:center; gap:16px; background:transparent; padding:20px 24px;
+      border-bottom:1px solid #E4E3DC; }
+    .gicon { width:44px; height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+      border:1.5px solid #161719; border-radius:8px; color:#161719; background:#FFFFFF; }
+    .gnum { font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8D8C85; margin-bottom:3px; }
+    .gname { font-size:18px; font-weight:600; letter-spacing:-.2px; }
+    .gsub { font-size:12.5px; color:#8D8C85; margin-top:2px; }
+    .gchev { margin-left:auto; color:#2545FF; }
+    .foot { margin-top:auto; padding:16px 24px 28px; font-family:'IBM Plex Mono',monospace; font-size:11px;
+      color:#8D8C85; display:flex; justify-content:space-between; text-transform:uppercase; letter-spacing:.5px; }
+    /* sudoku */
+    .top { display:flex; align-items:center; gap:12px; padding:50px 20px 14px; }
+    .top .bk { width:40px; height:40px; border:1.5px solid #161719; border-radius:8px; background:#FFFFFF;
+      display:flex; align-items:center; justify-content:center; }
+    .top h2 { margin:0; font-size:22px; font-weight:700; letter-spacing:-.4px; }
+    .top .meta { margin-left:auto; text-align:right; }
+    .top .diff { font-family:'IBM Plex Mono',monospace; font-size:11px; color:#2545FF; text-transform:uppercase; letter-spacing:1px; }
+    .top .time { font-family:'IBM Plex Mono',monospace; font-size:15px; font-weight:600; }
+    .board { margin:10px auto 0; width:352px; border:2px solid #161719; background:#FFFFFF;
+      display:grid; grid-template-columns:repeat(9,1fr); }
+    .cell { aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+      font-family:'IBM Plex Mono',monospace; font-size:17px;
+      border-right:1px solid #E4E3DC; border-bottom:1px solid #E4E3DC; position:relative; }
+    .cell.br { border-right:2px solid #161719; } .cell.bb { border-bottom:2px solid #161719; }
+    .cell.g { font-weight:600; color:#161719; }
+    .cell.u { font-weight:600; color:#2545FF; }
+    .cell.sel { background:#E9EDFF; outline:2px solid #2545FF; outline-offset:-2px; }
+    .ns { display:flex; gap:2px; position:absolute; top:3px; left:4px; }
+    .ns i { font-style:normal; font-size:9px; color:#8D8C85; }
+    .pad { margin:22px 20px 0; display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+    .key { height:54px; background:#FFFFFF; border:1.5px solid #161719; border-radius:8px;
+      display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:18px; font-weight:600; }
+    .key.fn { font-family:'Familjen Grotesk',sans-serif; font-size:12px; font-weight:700; letter-spacing:.8px;
+      text-transform:uppercase; background:#2545FF; color:#FFFFFF; border-color:#2545FF; }
+    
+  </style>
+</helmet>
+<div class="ph">
+  <div class="hub-head">
+    <h1 class="disp">Casillas<span class="sq"></span></h1>
+    <div class="tag"><span>Pasatiempos en español</span><span>4 juegos</span></div>
+  </div>
+  <div class="cards">
+    <div class="gcard c1">
+      <div class="gicon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7"></path><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"></path></svg></div>
+      <div><div class="gnum">01</div><div class="gname">Encadena</div><div class="gsub">Palabras por terminación</div></div>
+      <div class="gchev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg></div>
+    </div>
+    <div class="gcard c2">
+      <div class="gicon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="M21 21l-5.2-5.2"></path><path d="M8 10.5h5M10.5 8v5" opacity="0.55"></path></svg></div>
+      <div><div class="gnum">02</div><div class="gname">Sopa de letras</div><div class="gsub">Encuentra las escondidas</div></div>
+      <div class="gchev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg></div>
+    </div>
+    <div class="gcard c3">
+      <div class="gicon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3.5 3.5h17v17h-17z"></path><path d="M9.2 3.5v17M14.9 3.5v17M3.5 9.2h17M3.5 14.9h17" opacity="0.55"></path><rect x="9.2" y="3.5" width="5.7" height="5.7" fill="currentColor" stroke="none" opacity="0.9"></rect><rect x="3.5" y="14.9" width="5.7" height="5.7" fill="currentColor" stroke="none" opacity="0.9"></rect></svg></div>
+      <div><div class="gnum">03</div><div class="gname">Diagrama</div><div class="gsub">Acomoda las palabras</div></div>
+      <div class="gchev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg></div>
+    </div>
+    <div class="gcard c4">
+      <div class="gicon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3.5 3.5h17v17h-17z"></path><path d="M9.2 3.5v17M14.9 3.5v17M3.5 9.2h17M3.5 14.9h17" opacity="0.55"></path><circle cx="6.3" cy="6.3" r="1.2" fill="currentColor" stroke="none"></circle><circle cx="17.7" cy="12" r="1.2" fill="currentColor" stroke="none"></circle><circle cx="12" cy="17.7" r="1.2" fill="currentColor" stroke="none"></circle></svg></div>
+      <div><div class="gnum">04</div><div class="gname">Sudoku</div><div class="gsub">El clásico de números</div></div>
+      <div class="gchev"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg></div>
+    </div>
+  </div>
+  <div class="foot"><span>Hecho en casa</span><span>Sin conexión</span></div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #2545FF; } a:hover { color: #161719; }
+
+    .ph { width:390px; min-height:844px; background:#FBFBF8; color:#161719;
+      font-family:'Familjen Grotesk',system-ui,sans-serif; display:flex; flex-direction:column; }
+    .disp { font-family:'Familjen Grotesk',sans-serif; }
+    .mono { font-family:'IBM Plex Mono',monospace; }
+    .hub-head { padding:50px 24px 18px; border-bottom:1px solid #E4E3DC; }
+    .hub-head h1 { margin:0; font-size:38px; font-weight:700; letter-spacing:-1px; line-height:1; }
+    .hub-head h1 .sq { display:inline-block; width:13px; height:13px; background:#2545FF; margin-left:6px; }
+    .hub-head .tag { margin-top:10px; display:flex; justify-content:space-between; font-size:11.5px; font-weight:600;
+      letter-spacing:1.4px; text-transform:uppercase; color:#8D8C85; }
+    .cards { padding:0; display:flex; flex-direction:column; }
+    .gcard { display:flex; align-items:center; gap:16px; background:transparent; padding:20px 24px;
+      border-bottom:1px solid #E4E3DC; }
+    .gicon { width:44px; height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+      border:1.5px solid #161719; border-radius:8px; color:#161719; background:#FFFFFF; }
+    .gnum { font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8D8C85; margin-bottom:3px; }
+    .gname { font-size:18px; font-weight:600; letter-spacing:-.2px; }
+    .gsub { font-size:12.5px; color:#8D8C85; margin-top:2px; }
+    .gchev { margin-left:auto; color:#2545FF; }
+    .foot { margin-top:auto; padding:16px 24px 28px; font-family:'IBM Plex Mono',monospace; font-size:11px;
+      color:#8D8C85; display:flex; justify-content:space-between; text-transform:uppercase; letter-spacing:.5px; }
+    /* sudoku */
+    .top { display:flex; align-items:center; gap:12px; padding:50px 20px 14px; }
+    .top .bk { width:40px; height:40px; border:1.5px solid #161719; border-radius:8px; background:#FFFFFF;
+      display:flex; align-items:center; justify-content:center; }
+    .top h2 { margin:0; font-size:22px; font-weight:700; letter-spacing:-.4px; }
+    .top .meta { margin-left:auto; text-align:right; }
+    .top .diff { font-family:'IBM Plex Mono',monospace; font-size:11px; color:#2545FF; text-transform:uppercase; letter-spacing:1px; }
+    .top .time { font-family:'IBM Plex Mono',monospace; font-size:15px; font-weight:600; }
+    .board { margin:10px auto 0; width:352px; border:2px solid #161719; background:#FFFFFF;
+      display:grid; grid-template-columns:repeat(9,1fr); }
+    .cell { aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+      font-family:'IBM Plex Mono',monospace; font-size:17px;
+      border-right:1px solid #E4E3DC; border-bottom:1px solid #E4E3DC; position:relative; }
+    .cell.br { border-right:2px solid #161719; } .cell.bb { border-bottom:2px solid #161719; }
+    .cell.g { font-weight:600; color:#161719; }
+    .cell.u { font-weight:600; color:#2545FF; }
+    .cell.sel { background:#E9EDFF; outline:2px solid #2545FF; outline-offset:-2px; }
+    .ns { display:flex; gap:2px; position:absolute; top:3px; left:4px; }
+    .ns i { font-style:normal; font-size:9px; color:#8D8C85; }
+    .pad { margin:22px 20px 0; display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+    .key { height:54px; background:#FFFFFF; border:1.5px solid #161719; border-radius:8px;
+      display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:18px; font-weight:600; }
+    .key.fn { font-family:'Familjen Grotesk',sans-serif; font-size:12px; font-weight:700; letter-spacing:.8px;
+      text-transform:uppercase; background:#2545FF; color:#FFFFFF; border-color:#2545FF; }
+    
+  </style>
+</helmet>
+<div class="ph">
+  <div class="top">
+    <div class="bk"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></div>
+    <h2 class="disp">Sudoku</h2>
+    <div class="meta"><div class="diff">Normal</div><div class="time">04:32</div></div>
+  </div>
+  <div class="board"><div class="cell g">5</div><div class="cell"></div><div class="cell br g">4</div><div class="cell u">6</div><div class="cell"></div><div class="cell br"></div><div class="cell g">9</div><div class="cell"></div><div class="cell g">2</div><div class="cell nt"><span class="ns"><i>2</i><i>4</i><i>7</i></span></div><div class="cell g">7</div><div class="cell br"></div><div class="cell g">1</div><div class="cell g">9</div><div class="cell br"></div><div class="cell"></div><div class="cell g">4</div><div class="cell"></div><div class="cell bb"></div><div class="cell bb"></div><div class="cell br bb g">8</div><div class="cell bb"></div><div class="cell bb"></div><div class="cell br bb g">2</div><div class="cell bb g">5</div><div class="cell bb"></div><div class="cell bb"></div><div class="cell g">8</div><div class="cell g">5</div><div class="cell br"></div><div class="cell"></div><div class="cell g">6</div><div class="cell br"></div><div class="cell"></div><div class="cell g">2</div><div class="cell g">3</div><div class="cell"></div><div class="cell"></div><div class="cell br"></div><div class="cell g">8</div><div class="cell sel u">5</div><div class="cell br g">3</div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell bb g">7</div><div class="cell bb g">1</div><div class="cell br bb"></div><div class="cell bb"></div><div class="cell bb g">2</div><div class="cell br bb"></div><div class="cell bb"></div><div class="cell bb g">5</div><div class="cell bb g">6</div><div class="cell"></div><div class="cell"></div><div class="cell br g">1</div><div class="cell g">5</div><div class="cell"></div><div class="cell br"></div><div class="cell g">2</div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell g">8</div><div class="cell br"></div><div class="cell"></div><div class="cell g">1</div><div class="cell br g">9</div><div class="cell"></div><div class="cell g">3</div><div class="cell"></div><div class="cell g">3</div><div class="cell"></div><div class="cell br g">5</div><div class="cell"></div><div class="cell"></div><div class="cell br"></div><div class="cell g">1</div><div class="cell"></div><div class="cell g">9</div></div>
+  <div class="pad"><div class="key">1</div><div class="key">2</div><div class="key">3</div><div class="key">4</div><div class="key">5</div><div class="key">6</div><div class="key">7</div><div class="key">8</div><div class="key">9</div><div class="key fn">Notas</div></div>
+</div>
+</x-dc>
+</body>
+</html>
