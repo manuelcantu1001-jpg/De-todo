@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Solitario Klondike: ordena las cuatro escaleras del as al rey." />
+<title>Solitario</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='44' font-size='30' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E♠%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .mesa { padding: 8px 8px 0; user-select: none; -webkit-user-select: none; }
+  .fila-alta { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
+  .hueco {
+    border-radius: 8px; border: 1.5px dashed var(--tile-border); background: color-mix(in srgb, var(--card) 40%, transparent);
+    display: flex; align-items: center; justify-content: center; color: var(--faint); font-size: 18px; position: relative;
+  }
+  .carta {
+    border-radius: 8px; background: var(--card); border: 1px solid var(--tile-border);
+    box-shadow: 0 1px 2px rgba(60,50,30,.15); position: relative; cursor: pointer; overflow: hidden;
+  }
+  .carta.abajo {
+    background: var(--accent);
+    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.09) 0 5px, transparent 5px 10px);
+    border-color: color-mix(in srgb, var(--accent) 70%, black);
+  }
+  .carta .esq { position: absolute; top: 2px; left: 4px; font-weight: 800; line-height: 1; }
+  .carta .esq small { display: block; font-size: 80%; margin-top: -1px; }
+  .carta .pip { position: absolute; bottom: 2px; right: 5px; opacity: .9; }
+  .carta.roja { color: #C2403A; }
+  .carta.negra { color: var(--ink); }
+  .cols { display: flex; gap: 6px; justify-content: center; }
+  .colu { position: relative; flex-shrink: 0; }
+  .colu .carta, .colu .hueco { position: absolute; left: 0; }
+  .statusrow { display: flex; justify-content: center; gap: 18px; padding: 8px 0 0; font-size: 12.5px; font-weight: 600; color: var(--sub); }
+  .statusrow b { color: var(--ink); }
+  .tools { display: flex; gap: 8px; justify-content: center; padding: 10px 0 calc(14px + env(safe-area-inset-bottom)); }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13px; padding: 10px 16px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+  .tool.brillo { background: var(--accent); color: var(--accent-ink); }
+  .tool:disabled { opacity: .4; cursor: default; }
+  .shakec { animation: shake .35s; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const PALOS = ['♠', '♥', '♣', '♦'];
+const ROJO = (s) => s === 1 || s === 3;
+const RANGO = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+const S = {
+  robar: store.get('sol.robar', 1),
+  stock: [], waste: [], found: [[], [], [], []], tab: [],
+  hist: [], done: false,
+};
+const clock = makeClock(() => $('#clock'));
+
+const REGLAS = `<p>El objetivo: subir las 52 cartas a las <b>cuatro bases</b> de arriba a la derecha, por palo y en orden, del as al rey.</p>
+<p>En las columnas se apilan cartas descendentes <b>alternando color</b> (un 8 rojo sobre un 9 negro). Una columna vacía solo acepta un rey. <b>Toca una carta</b> y se mueve sola a donde mejor convenga; toca el mazo para robar.</p>
+<p>Cuando el mazo se agota, tocarlo recicla el descarte. Hay <b>Deshacer</b> ilimitado, y al despejarse todo aparece «Terminar»: las cartas suben solas.</p>`;
+
+/* ── Estado ──────────────────────────────────────────────────────────── */
+function baraja() {
+  const d = [];
+  for (let s = 0; s < 4; s++) for (let v = 1; v <= 13; v++) d.push({ v, s });
+  return shuffle(d);
+}
+
+function repartir() {
+  const d = baraja();
+  S.tab = Array.from({ length: 7 }, () => []);
+  for (let c = 0; c < 7; c++) {
+    for (let k = 0; k <= c; k++) {
+      S.tab[c].push({ ...d.pop(), up: k === c });
+    }
+  }
+  S.stock = d;
+  S.waste = [];
+  S.found = [[], [], [], []];
+  S.hist = [];
+  S.done = false;
+}
+
+function snapshot() {
+  S.hist.push(JSON.stringify({ stock: S.stock, waste: S.waste, found: S.found, tab: S.tab }));
+  if (S.hist.length > 200) S.hist.shift();
+}
+function undo() {
+  if (!S.hist.length || S.done) return;
+  const st = JSON.parse(S.hist.pop());
+  S.stock = st.stock; S.waste = st.waste; S.found = st.found; S.tab = st.tab;
+  paint();
+}
+
+/* ── Reglas ──────────────────────────────────────────────────────────── */
+function puedeBase(card) {
+  return S.found[card.s].length === card.v - 1;
+}
+function puedeCol(card, c) {
+  const col = S.tab[c];
+  if (!col.length) return card.v === 13;
+  const top = col[col.length - 1];
+  return top.up && ROJO(top.s) !== ROJO(card.s) && top.v === card.v + 1;
+}
+
+function moverASitio(cards, origen) {
+  // cards: arreglo (run); origen: función que las quita del sitio actual
+  const single = cards.length === 1;
+  if (single && puedeBase(cards[0])) {
+    snapshot(); origen();
+    S.found[cards[0].s].push({ v: cards[0].v, s: cards[0].s });
+    return true;
+  }
+  for (let c = 0; c < 7; c++) {
+    if (puedeCol(cards[0], c)) {
+      snapshot(); origen();
+      for (const cd of cards) S.tab[c].push({ ...cd, up: true });
+      return true;
+    }
+  }
+  return false;
+}
+
+function voltearPuntas() {
+  for (const col of S.tab) {
+    if (col.length && !col[col.length - 1].up) col[col.length - 1].up = true;
+  }
+}
+
+/* ── Interacción ─────────────────────────────────────────────────────── */
+function tapStock() {
+  if (S.done) return;
+  snapshot();
+  if (!S.stock.length) {
+    if (!S.waste.length) { S.hist.pop(); return; }
+    S.stock = S.waste.reverse();
+    S.waste = [];
+  } else {
+    for (let k = 0; k < S.robar && S.stock.length; k++) S.waste.push(S.stock.pop());
+  }
+  vibrate(8);
+  paint();
+}
+
+function tapWaste() {
+  if (S.done || !S.waste.length) return;
+  const card = S.waste[S.waste.length - 1];
+  const ok = moverASitio([card], () => S.waste.pop());
+  if (ok) { vibrate(12); voltearPuntas(); paint(); checkWin(); }
+  else sacudir('#waste');
+}
+
+function tapTab(c, k) {
+  if (S.done) return;
+  const col = S.tab[c];
+  const carta = col[k];
+  if (!carta.up) {
+    if (k === col.length - 1) { carta.up = true; paint(); }
+    return;
+  }
+  const run = col.slice(k);
+  const ok = moverASitio(run, () => { S.tab[c] = col.slice(0, k); });
+  if (ok) { vibrate(12); voltearPuntas(); paint(); checkWin(); }
+  else sacudir(`[data-col="${c}"]`);
+}
+
+function sacudir(sel) {
+  const el = $(sel);
+  if (el) { el.classList.remove('shakec'); void el.offsetWidth; el.classList.add('shakec'); }
+  vibrate(40);
+}
+
+function puedeTerminar() {
+  return !S.stock.length && !S.waste.length &&
+    S.tab.every((col) => col.every((cd) => cd.up));
+}
+
+async function autoFin() {
+  if (!puedeTerminar() || S.done) return;
+  snapshot();
+  let quedan = true;
+  while (quedan) {
+    quedan = false;
+    for (let c = 0; c < 7; c++) {
+      const col = S.tab[c];
+      if (col.length && puedeBase(col[col.length - 1])) {
+        const cd = col.pop();
+        S.found[cd.s].push({ v: cd.v, s: cd.s });
+        quedan = true;
+        paint();
+        await delay(90);
+      }
+    }
+  }
+  checkWin();
+}
+
+/* ── Pintado ─────────────────────────────────────────────────────────── */
+let CW = 48, CH = 67;
+
+function cartaHTML(cd, extra) {
+  if (!cd.up) return `<div class="carta abajo" ${extra || ''} style="width:${CW}px;height:${CH}px;"></div>`;
+  const color = ROJO(cd.s) ? 'roja' : 'negra';
+  const fs = Math.floor(CW * .3);
+  return `<div class="carta ${color}" ${extra || ''} style="width:${CW}px;height:${CH}px;">
+    <span class="esq" style="font-size:${fs}px;">${RANGO[cd.v]}<small>${PALOS[cd.s]}</small></span>
+    <span class="pip" style="font-size:${Math.floor(CW * .42)}px;">${PALOS[cd.s]}</span>
+  </div>`;
+}
+
+function renderPlay() {
+  CW = Math.min(52, Math.floor((Math.min(402, innerWidth) * .97 - 6 * 6 - 8) / 7));
+  CH = Math.floor(CW * 1.42);
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Solitario', `<span class="chip">Robar ${S.robar}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="scroll">
+      <div class="mesa">
+        <div class="fila-alta" id="alta"></div>
+        <div class="cols" id="cols"></div>
+      </div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-undo">Deshacer</button>
+      <button class="tool" id="t-fin" style="display:none;">Terminar ✨</button>
+      <button class="tool" id="t-nueva">Nueva</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#t-undo').onclick = undo;
+  $('#t-fin').onclick = autoFin;
+  $('#t-nueva').onclick = () => confirmarNueva();
+  $('#t-salir').onclick = renderSetup;
+  paint();
+}
+
+function paint() {
+  // fila alta: mazo · descarte · (hueco) · 4 bases
+  const alta = [];
+  alta.push(S.stock.length
+    ? `<div class="carta abajo" id="stock" style="width:${CW}px;height:${CH}px;"></div>`
+    : `<div class="hueco" id="stock" style="width:${CW}px;height:${CH}px;">↻</div>`);
+  const w = S.waste[S.waste.length - 1];
+  alta.push(w
+    ? cartaHTML({ ...w, up: true }, 'id="waste"')
+    : `<div class="hueco" id="waste" style="width:${CW}px;height:${CH}px;"></div>`);
+  alta.push(`<div style="width:${Math.floor(CW * .4)}px;"></div>`);
+  for (let s = 0; s < 4; s++) {
+    const f = S.found[s];
+    alta.push(f.length
+      ? cartaHTML({ ...f[f.length - 1], up: true }, `data-base="${s}"`)
+      : `<div class="hueco" style="width:${CW}px;height:${CH}px;">${PALOS[s]}</div>`);
+  }
+  $('#alta').innerHTML = alta.join('');
+  $('#stock').onclick = tapStock;
+  $('#waste').onclick = tapWaste;
+
+  // columnas
+  const offUp = Math.floor(CH * .34), offDown = Math.floor(CH * .13);
+  const colsHTML = S.tab.map((col, c) => {
+    let top = 0;
+    const cartas = col.map((cd, k) => {
+      const html = `<div style="position:absolute;top:${top}px;left:0;" data-col="${c}" data-k="${k}">${cartaHTML(cd)}</div>`;
+      top += cd.up ? offUp : offDown;
+      return html;
+    });
+    const alto = (col.length ? top - (col[col.length - 1].up ? offUp : offDown) : 0) + CH;
+    return `<div class="colu" data-colwrap="${c}" style="width:${CW}px;height:${Math.max(alto, CH)}px;">
+      ${col.length ? cartas.join('') : `<div class="hueco" data-col="${c}" data-k="-1" style="width:${CW}px;height:${CH}px;position:absolute;top:0;"></div>`}
+    </div>`;
+  }).join('');
+  $('#cols').innerHTML = colsHTML;
+  $('#cols').onclick = (e) => {
+    const el = e.target.closest('[data-col]');
+    if (!el) return;
+    const c = Number(el.dataset.col), k = Number(el.dataset.k);
+    if (k >= 0) tapTab(c, k);
+  };
+  $('#t-fin').style.display = puedeTerminar() && !S.done ? '' : 'none';
+  $('#t-undo').disabled = !S.hist.length;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  clock.stop();
+  const wins = store.get('sol.wins', 0);
+  const best = store.get('sol.best', null);
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Solitario', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Modo de robo</div></div>
+        <div class="seg" id="seg-r">
+          <button data-v="1" class="${S.robar === 1 ? 'sel' : ''}">Robar 1</button>
+          <button data-v="3" class="${S.robar === 3 ? 'sel' : ''}">Robar 3</button>
+        </div>
+        <div class="row-hint" style="padding: 10px 2px 6px;">Robar 3 es el clásico difícil</div>
+      </div>
+      <div class="bests">
+        <div class="b"><div class="bn">${wins}</div><div class="bl">Ganados</div></div>
+        <div class="b"><div class="bn">${best ? fmtTime(best) : '—'}</div><div class="bl">Mejor tiempo</div></div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Repartir</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-r', (v) => { S.robar = Number(v); store.set('sol.robar', S.robar); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  repartir();
+  renderPlay();
+  clock.start();
+}
+
+function confirmarNueva() {
+  openModal(`
+    <h3>¿Repartir de nuevo?</h3>
+    <p>Se pierde la partida en curso.</p>
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-si">Sí, repartir</button>
+      <button class="btn btn-soft" id="m-no">Seguir jugando</button>
+    </div>
+  `, closeModal);
+  $('#m-si').onclick = () => { closeModal(); startGame(); };
+  $('#m-no').onclick = closeModal;
+}
+
+function checkWin() {
+  if (S.found.every((f) => f.length === 13)) {
+    S.done = true;
+    clock.stop();
+    const secs = clock.seconds;
+    const wins = store.get('sol.wins', 0) + 1;
+    store.set('sol.wins', wins);
+    const best = store.get('sol.best', null);
+    const isRecord = !best || secs < best;
+    if (isRecord) store.set('sol.best', secs);
+    store.set('sol.hub', `Ganados: ${wins}`);
+    confetti(); vibrate([30, 60, 30]);
+    openModal(`
+      <h3>¡Solitario ganado!</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+        <div class="stat"><div class="n">${wins}</div><div class="l">ganados</div></div>
+      </div>
+      ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Mejor tiempo!</span></p>' : ''}
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }
+}
+
+renderSetup();
+</script>
+</body>
+</html>

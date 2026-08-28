@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Damas clásicas con capturas obligatorias, contra la app o a dos." />
+<title>Damas</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E◉%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .boardwrap { display: flex; justify-content: center; padding: 12px 12px 0; }
+  .tab {
+    display: grid; border-radius: 14px; overflow: hidden; box-shadow: var(--shadow);
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  }
+  .sq { display: flex; align-items: center; justify-content: center; position: relative; }
+  .sq.clara { background: var(--tile-bg); }
+  .sq.oscura { background: color-mix(in srgb, var(--ink) 24%, var(--tile-bg)); cursor: pointer; }
+  .sq.oscura.dest::after {
+    content: ''; width: 30%; height: 30%; border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 70%, transparent);
+  }
+  .sq.oscura.selsq { outline: 3px solid var(--accent); outline-offset: -3px; }
+  .pieza {
+    width: 76%; height: 76%; border-radius: 999px; position: relative;
+    box-shadow: 0 2px 3px rgba(0,0,0,.3), inset 0 -4px 0 rgba(0,0,0,.22), inset 0 2px 0 rgba(255,255,255,.28);
+  }
+  .pieza.pa { background: var(--accent); }
+  .pieza.pb { background: var(--second); }
+  .pieza .corona { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(255,253,246,.9); }
+  .turnrow { text-align: center; padding: 12px 0 0; font-size: 15px; font-weight: 700; color: var(--bg-ink); }
+  .turnrow .who { color: var(--accent); }
+  .turnrow .who.o { color: var(--second); }
+  .scorebar { display: flex; justify-content: center; gap: 14px; margin: 14px 16px 0; }
+  .scorebar .b { flex: 0 1 110px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 6px; text-align: center; }
+  .scorebar .bn { font-family: var(--title-font); font-size: 22px; font-weight: 700; color: var(--ink); }
+  .scorebar .bl { font-size: 10.5px; color: var(--sub); font-weight: 600; margin-top: 1px; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const N = 8;
+const CORONA = '<svg viewBox="0 0 24 24" width="60%" height="60%" fill="currentColor"><path d="M4 17h16l1.2-8-4.7 3-4.5-6-4.5 6-4.7-3z"></path></svg>';
+
+const S = {
+  mode: store.get('damas.mode', 'app'),
+  level: store.get('damas.level', 'normal'),
+  b: null,               // [64] = null | {p:'A'|'B', k:bool}
+  turn: 'A', starter: 'A', over: false, thinking: false,
+  sel: -1, movs: [],     // movimientos legales del turno
+  score: { A: 0, B: 0 },
+};
+
+const REGLAS = `<p>Las fichas avanzan <b>una diagonal</b> hacia el frente. Se come <b>saltando</b> por encima de la ficha rival hasta la casilla libre — y comer es <b>obligatorio</b>, incluidos los saltos en cadena con la misma ficha.</p>
+<p>Al llegar a la última fila, la ficha se <b>corona</b> como dama y puede moverse y comer también hacia atrás.</p>
+<p>Pierde quien se queda sin movimientos (o sin fichas). Toca una ficha tuya para ver sus jugadas; los puntos marcan a dónde puede ir.</p>`;
+
+/* ── Movimientos ─────────────────────────────────────────────────────── */
+const fila = (i) => Math.floor(i / N), col = (i) => i % N;
+const dentro = (r, c) => r >= 0 && r < N && c >= 0 && c < N;
+const adelante = (p) => (p === 'A' ? -1 : 1);
+
+function dirsDe(pz) {
+  if (pz.k) return [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+  const d = adelante(pz.p);
+  return [[d, -1], [d, 1]];
+}
+
+function saltosDesde(b, i, pz, capturadas) {
+  const out = [];
+  const r = fila(i), c = col(i);
+  for (const [dr, dc] of dirsDe(pz)) {
+    const r1 = r + dr, c1 = c + dc, r2 = r + dr * 2, c2 = c + dc * 2;
+    if (!dentro(r2, c2)) continue;
+    const medio = r1 * N + c1, dest = r2 * N + c2;
+    if (capturadas.includes(medio)) continue;
+    const v = b[medio];
+    if (!v || v.p === pz.p) continue;
+    if (b[dest]) continue;
+    // salta y sigue (coronar corta la cadena)
+    const nuevasCap = [...capturadas, medio];
+    const corona = !pz.k && ((pz.p === 'A' && fila(dest) === 0) || (pz.p === 'B' && fila(dest) === N - 1));
+    let colas = [];
+    if (!corona) colas = saltosDesde(b, dest, pz, nuevasCap);
+    if (colas.length) {
+      for (const cola of colas) out.push({ path: [dest, ...cola.path], cap: [medio, ...cola.cap] });
+    } else {
+      out.push({ path: [dest], cap: [medio] });
+    }
+  }
+  return out;
+}
+
+function movimientosDe(b, p) {
+  const capturas = [], simples = [];
+  for (let i = 0; i < 64; i++) {
+    const pz = b[i];
+    if (!pz || pz.p !== p) continue;
+    const saltos = saltosDesde(b, i, pz, []);
+    for (const s of saltos) capturas.push({ from: i, path: s.path, cap: s.cap });
+    if (!capturas.length) {
+      const r = fila(i), c = col(i);
+      for (const [dr, dc] of dirsDe(pz)) {
+        const r1 = r + dr, c1 = c + dc;
+        if (dentro(r1, c1) && !b[r1 * N + c1]) simples.push({ from: i, path: [r1 * N + c1], cap: [] });
+      }
+    }
+  }
+  return capturas.length ? capturas : simples;
+}
+
+function aplicar(b, m) {
+  const pz = b[m.from];
+  b[m.from] = null;
+  for (const c of m.cap) b[c] = null;
+  const dest = m.path[m.path.length - 1];
+  const corona = !pz.k && ((pz.p === 'A' && fila(dest) === 0) || (pz.p === 'B' && fila(dest) === N - 1));
+  b[dest] = { p: pz.p, k: pz.k || corona };
+}
+
+/* ── IA ──────────────────────────────────────────────────────────────── */
+function evalB(b) {
+  let s = 0;
+  for (let i = 0; i < 64; i++) {
+    const pz = b[i];
+    if (!pz) continue;
+    let v = pz.k ? 165 : 100;
+    if (!pz.k) v += (pz.p === 'B' ? fila(i) : (7 - fila(i))) * 2;   // avance
+    s += pz.p === 'B' ? v : -v;
+  }
+  return s;
+}
+
+function minimax(b, p, depth, alfa, beta) {
+  const movs = movimientosDe(b, p);
+  if (!movs.length) return p === 'B' ? -50000 - depth : 50000 + depth;
+  if (depth === 0) return evalB(b);
+  const esB = p === 'B';
+  let mejor = esB ? -Infinity : Infinity;
+  for (const m of movs) {
+    const b2 = b.map((x) => (x ? { ...x } : null));
+    aplicar(b2, m);
+    const v = minimax(b2, p === 'A' ? 'B' : 'A', depth - 1, alfa, beta);
+    if (esB) { mejor = Math.max(mejor, v); alfa = Math.max(alfa, v); }
+    else { mejor = Math.min(mejor, v); beta = Math.min(beta, v); }
+    if (alfa >= beta) break;
+  }
+  return mejor;
+}
+
+function appMove() {
+  const movs = movimientosDe(S.b, 'B');
+  if (S.level === 'facil') {
+    return movs[randInt(movs.length)];
+  }
+  const depth = S.level === 'normal' ? 4 : 7;
+  let best = -Infinity, bestMovs = [];
+  for (const m of movs) {
+    const b2 = S.b.map((x) => (x ? { ...x } : null));
+    aplicar(b2, m);
+    const v = minimax(b2, 'A', depth, -Infinity, Infinity) + Math.random() * 4;
+    if (v > best) { best = v; bestMovs = [m]; }
+    else if (v === best) bestMovs.push(m);
+  }
+  return bestMovs[randInt(bestMovs.length)];
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Damas', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Modo</div></div>
+        <div class="seg" id="seg-m">
+          <button data-v="app" class="${S.mode === 'app' ? 'sel' : ''}">Vs. app</button>
+          <button data-v="2p" class="${S.mode === '2p' ? 'sel' : ''}">2 jugadores</button>
+        </div>
+        <div id="lvl-wrap" style="${S.mode === 'app' ? '' : 'display:none;'}">
+          <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
+          ${diffSegHTML('seg-d', S.level, ['facil', 'normal', 'experto'])}
+        </div>
+      </div>
+      <div class="bests"><div class="b"><div class="bn">${store.get('damas.wins', 0)}</div><div class="bl">Victorias vs. app</div></div></div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-m', (v) => { S.mode = v; store.set('damas.mode', v); $('#lvl-wrap').style.display = v === 'app' ? '' : 'none'; });
+  bindSeg('seg-d', (v) => { S.level = v; store.set('damas.level', v); });
+  $('#new').onclick = () => { S.score = { A: 0, B: 0 }; S.starter = 'A'; startRound(true); };
+  bindHowto(REGLAS);
+}
+
+function startRound(first) {
+  S.b = new Array(64).fill(null);
+  for (let i = 0; i < 64; i++) {
+    const r = fila(i), c = col(i);
+    if ((r + c) % 2 !== 1) continue;
+    if (r < 3) S.b[i] = { p: 'B', k: false };
+    else if (r > 4) S.b[i] = { p: 'A', k: false };
+  }
+  S.turn = S.starter;
+  S.over = false; S.thinking = false; S.sel = -1;
+  S.movs = movimientosDe(S.b, S.turn);
+  if (first) renderPlay(); else { paint(); updateTurn(); }
+  maybeApp();
+}
+
+function renderPlay() {
+  const cell = Math.min(46, Math.floor((Math.min(402, innerWidth) * .94) / N));
+  const sqs = [];
+  for (let i = 0; i < 64; i++) {
+    const oscura = (fila(i) + col(i)) % 2 === 1;
+    sqs.push(`<div class="sq ${oscura ? 'oscura' : 'clara'}" data-i="${i}" style="width:${cell}px;height:${cell}px;"></div>`);
+  }
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Damas', `<span class="chip">${S.mode === 'app' ? 'Vs. app · ' + DIFF_LABEL[S.level] : '2 jugadores'}</span>`)}
+    <div class="turnrow" id="turnrow"></div>
+    <div class="boardwrap"><div class="tab" id="board" style="grid-template-columns: repeat(${N}, ${cell}px);">${sqs.join('')}</div></div>
+    <div class="scorebar">
+      <div class="b"><div class="bn" id="sa">0</div><div class="bl">${S.mode === 'app' ? 'Tú' : 'Jugador 1'}</div></div>
+      <div class="b"><div class="bn" id="sb">0</div><div class="bl">${S.mode === 'app' ? 'App' : 'Jugador 2'}</div></div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#board').onclick = (e) => {
+    const sq = e.target.closest('.sq.oscura');
+    if (sq) tap(Number(sq.dataset.i));
+  };
+  $('#t-salir').onclick = renderSetup;
+  paint();
+  updateTurn();
+}
+
+function updateTurn() {
+  const el = $('#turnrow');
+  if (!el || S.over) return;
+  const who = S.turn === 'A'
+    ? (S.mode === 'app' ? 'Tu turno' : 'Turno del Jugador 1')
+    : (S.mode === 'app' ? 'Piensa la app…' : 'Turno del Jugador 2');
+  el.innerHTML = `<span class="who ${S.turn === 'B' ? 'o' : ''}">${who}</span>` +
+    (S.movs.length && S.movs[0].cap.length && (S.mode === '2p' || S.turn === 'A')
+      ? ' <span style="color:var(--bad);font-size:12.5px;">· comer es obligatorio</span>' : '');
+}
+
+function paint() {
+  const dests = new Set(S.sel >= 0 ? S.movs.filter((m) => m.from === S.sel).map((m) => m.path[m.path.length - 1]) : []);
+  $$('.sq.oscura').forEach((el) => {
+    const i = Number(el.dataset.i);
+    const pz = S.b[i];
+    el.innerHTML = pz
+      ? `<div class="pieza ${pz.p === 'A' ? 'pa' : 'pb'}">${pz.k ? `<span class="corona">${CORONA}</span>` : ''}</div>`
+      : '';
+    el.classList.toggle('selsq', i === S.sel);
+    el.classList.toggle('dest', dests.has(i));
+  });
+  $('#sa').textContent = S.score.A;
+  $('#sb').textContent = S.score.B;
+}
+
+function tap(i) {
+  if (S.over || S.thinking) return;
+  if (S.mode === 'app' && S.turn === 'B') return;
+  const pz = S.b[i];
+  if (pz && pz.p === S.turn) {
+    S.sel = (S.sel === i) ? -1 : i;
+    paint();
+    return;
+  }
+  if (S.sel >= 0) {
+    const m = S.movs.find((mv) => mv.from === S.sel && mv.path[mv.path.length - 1] === i);
+    if (m) return jugar(m);
+  }
+  vibrate(30);
+}
+
+function jugar(m) {
+  aplicar(S.b, m);
+  vibrate(m.cap.length ? [20, 40, 20] : 12);
+  S.sel = -1;
+  S.turn = S.turn === 'A' ? 'B' : 'A';
+  S.movs = movimientosDe(S.b, S.turn);
+  paint();
+  if (!S.movs.length) return endRound(S.turn === 'A' ? 'B' : 'A');
+  updateTurn();
+  maybeApp();
+}
+
+function maybeApp() {
+  if (S.mode !== 'app' || S.turn !== 'B' || S.over) return;
+  S.thinking = true;
+  setTimeout(() => {
+    S.thinking = false;
+    if (S.over) return;
+    jugar(appMove());
+  }, 420 + randInt(500));
+}
+
+function endRound(winner) {
+  S.over = true;
+  S.score[winner]++;
+  paint();
+  let title;
+  if (S.mode === 'app') {
+    if (winner === 'A') {
+      title = '¡Ganaste!';
+      const wins = store.get('damas.wins', 0) + 1;
+      store.set('damas.wins', wins);
+      store.set('damas.hub', 'Victorias vs. app: ' + wins);
+      confetti(); vibrate([30, 60, 30]);
+    } else title = 'Ganó la app';
+  } else {
+    title = winner === 'A' ? 'Ganó el Jugador 1' : 'Ganó el Jugador 2';
+    confetti();
+  }
+  $('#turnrow').innerHTML = `<span class="who ${winner === 'B' ? 'o' : ''}">${title}</span>`;
+  setTimeout(() => {
+    S.starter = S.starter === 'A' ? 'B' : 'A';
+    openModal(`
+      <h3>${title}</h3>
+      <p style="text-align:center;">Marcador: <b>${S.score.A}</b> – <b>${S.score.B}</b></p>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Siguiente ronda</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startRound(false); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 1100);
+}
+
+renderSetup();
+</script>
+</body>
+</html>
