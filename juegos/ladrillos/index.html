@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Rompe-ladrillos: rebota la bola con la paleta y limpia todos los niveles." />
+<title>Ladrillos</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E▬%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .lwrap { display: flex; justify-content: center; padding: 10px 12px 0; }
+  canvas#juego { border-radius: 14px; box-shadow: var(--shadow); background: var(--card); touch-action: none; width: min(94vw, 380px); }
+  .marcador { display: flex; justify-content: center; gap: 18px; padding-top: 10px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
+  .marcador b { color: var(--bg-ink); font-size: 15px; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 12px; }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const W = 360, H = 500;
+const CFG = { facil: 3.2, normal: 4.0, dificil: 4.8, experto: 5.6 };
+
+const S = {
+  diff: store.get('ladrillos.diff', 'normal'),
+  x: W / 2, y: 0, vx: 0, vy: 0, px: W / 2, pw: 86,
+  ladrillos: [], nivel: 1, vidas: 3, score: 0,
+  lanzada: false, jugando: false, rafId: 0,
+};
+
+const REGLAS = `<p>Mueve la <b>paleta</b> arrastrando el dedo por el tablero y rebota la bola para <b>romper todos los ladrillos</b>. Toca para lanzar.</p>
+<p>El punto de la paleta donde pega la bola cambia el ángulo del rebote: úsalo para apuntar. Si la bola cae abajo, pierdes una de tus <b>3 vidas</b>.</p>
+<p>Cada nivel limpio trae un patrón nuevo y más velocidad (la paleta también se encoge un poco). Tu marca es la puntuación.</p>`;
+
+function armarNivel() {
+  S.ladrillos = [];
+  const filas = Math.min(4 + S.nivel, 8), cols = 8;
+  const bw = (W - 24) / cols, bh = 18;
+  const patron = (S.nivel - 1) % 3;
+  for (let r = 0; r < filas; r++) for (let c = 0; c < cols; c++) {
+    if (patron === 1 && (r + c) % 2) continue;
+    if (patron === 2 && Math.abs(c - 3.5) > filas - r) continue;
+    S.ladrillos.push({ x: 12 + c * bw, y: 46 + r * (bh + 6), w: bw - 5, h: bh, t: r % 5 });
+  }
+  S.lanzada = false;
+  S.pw = Math.max(56, 92 - (S.nivel - 1) * 5);
+}
+
+function resetBola() {
+  S.x = S.px; S.y = H - 46;
+  const vel = CFG[S.diff] + (S.nivel - 1) * 0.35;
+  const ang = -Math.PI / 2 + (Math.random() * 0.7 - 0.35);
+  S.vx = Math.cos(ang) * vel; S.vy = Math.sin(ang) * vel;
+}
+
+/* ── Bucle ───────────────────────────────────────────────────────────── */
+let ctx = null, COLORES = [], dpr = 1;
+function paso() {
+  if (!S.jugando) return;
+  if (S.lanzada) {
+    S.x += S.vx; S.y += S.vy;
+    if (S.x < 8) { S.x = 8; S.vx = -S.vx; }
+    if (S.x > W - 8) { S.x = W - 8; S.vx = -S.vx; }
+    if (S.y < 8) { S.y = 8; S.vy = -S.vy; }
+    // paleta
+    const py = H - 30;
+    if (S.vy > 0 && S.y > py - 8 && S.y < py + 10 && Math.abs(S.x - S.px) < S.pw / 2 + 8) {
+      const rel = (S.x - S.px) / (S.pw / 2);
+      const vel = Math.hypot(S.vx, S.vy);
+      const ang = -Math.PI / 2 + rel * 1.05;
+      S.vx = Math.cos(ang) * vel; S.vy = Math.sin(ang) * vel;
+      S.y = py - 9;
+      vibrate(4);
+    }
+    // ladrillos
+    for (let i = 0; i < S.ladrillos.length; i++) {
+      const b = S.ladrillos[i];
+      if (S.x > b.x - 8 && S.x < b.x + b.w + 8 && S.y > b.y - 8 && S.y < b.y + b.h + 8) {
+        const dx = Math.min(S.x - (b.x - 8), (b.x + b.w + 8) - S.x);
+        const dy = Math.min(S.y - (b.y - 8), (b.y + b.h + 8) - S.y);
+        if (dx < dy) S.vx = -S.vx; else S.vy = -S.vy;
+        S.ladrillos.splice(i, 1);
+        S.score += 10 * S.nivel;
+        vibrate(6);
+        break;
+      }
+    }
+    if (!S.ladrillos.length) {
+      S.nivel++;
+      S.score += 100;
+      armarNivel();
+      resetBola();
+      aviso(`Nivel ${S.nivel}`);
+    }
+    if (S.y > H + 10) {
+      S.vidas--;
+      if (S.vidas <= 0) return terminar();
+      S.lanzada = false;
+      aviso('Se fue la bola');
+    }
+  } else {
+    S.x = S.px; S.y = H - 46;
+  }
+  dibujar();
+  hud();
+  S.rafId = requestAnimationFrame(paso);
+}
+
+function dibujar() {
+  ctx.clearRect(0, 0, W, H);
+  for (const b of S.ladrillos) {
+    ctx.fillStyle = COLORES[b.t];
+    ctx.beginPath();
+    ctx.roundRect(b.x, b.y, b.w, b.h, 5);
+    ctx.fill();
+  }
+  ctx.fillStyle = COLORES[0];
+  ctx.beginPath();
+  ctx.roundRect(S.px - S.pw / 2, H - 30, S.pw, 12, 6);
+  ctx.fill();
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--ink');
+  ctx.beginPath();
+  ctx.arc(S.x, S.y, 8, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function hud() {
+  $('#h-score').textContent = S.score;
+  $('#h-nivel').textContent = S.nivel;
+  $('#h-vidas').textContent = '●'.repeat(S.vidas) || '—';
+}
+
+function aviso(t) {
+  const el = $('#aviso');
+  if (el) { el.textContent = t; setTimeout(() => { if ($('#aviso') === el) el.textContent = ''; }, 1400); }
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  cancelAnimationFrame(S.rafId);
+  S.jugando = false;
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('ladrillos.best.' + d, 0);
+    return `<div class="b"><div class="bn">${b || '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Ladrillos', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Velocidad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores puntuaciones</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('ladrillos.diff', v); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  S.nivel = 1; S.vidas = 3; S.score = 0; S.px = W / 2;
+  armarNivel();
+  S.jugando = true;
+  renderPlay();
+  resetBola();
+  dibujar();
+  hud();
+  S.rafId = requestAnimationFrame(paso);
+}
+
+function renderPlay() {
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Ladrillos', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
+    <div class="marcador"><span>Puntos <b id="h-score">0</b></span><span>Nivel <b id="h-nivel">1</b></span><span>Vidas <b id="h-vidas"></b></span></div>
+    <div class="msg" id="aviso" style="padding-top:6px;"></div>
+    <div class="lwrap">
+      <canvas id="juego" width="${W * dpr}" height="${H * dpr}"></canvas>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  const cv = $('#juego');
+  ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const cs = getComputedStyle(document.body);
+  COLORES = ['--accent', '--second', '--warn', '--bad'].map((v) => cs.getPropertyValue(v).trim()).concat(['#2A6DB5']);
+  const mueve = (e) => {
+    const r = cv.getBoundingClientRect();
+    S.px = Math.max(S.pw / 2, Math.min(W - S.pw / 2, (e.clientX - r.left) / r.width * W));
+  };
+  cv.onpointerdown = (e) => { mueve(e); if (!S.lanzada) { S.lanzada = true; resetBola(); } };
+  cv.onpointermove = mueve;
+  $('#t-salir').onclick = renderSetup;
+}
+
+function terminar() {
+  S.jugando = false;
+  cancelAnimationFrame(S.rafId);
+  const best = store.get('ladrillos.best.' + S.diff, 0);
+  const isRecord = S.score > best;
+  if (isRecord && S.score > 0) {
+    store.set('ladrillos.best.' + S.diff, S.score);
+    store.set('lad.hub', `Mejor: ${S.score} pts`);
+    confetti();
+  }
+  vibrate([80, 60, 80]);
+  setTimeout(() => {
+    openModal(`
+      <h3>${isRecord && S.score > 0 ? '¡Récord!' : 'Fin del juego'}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${S.score}</div><div class="l">puntos</div></div>
+        <div class="stat"><div class="n">${S.nivel}</div><div class="l">nivel</div></div>
+        <div class="stat"><div class="n">${Math.max(best, S.score)}</div><div class="l">mejor</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 500);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

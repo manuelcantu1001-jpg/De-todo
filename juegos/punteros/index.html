@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Punteros: saca todas las flechas del tablero, pero solo si su camino está despejado." />
+<title>Punteros</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E➤%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .pwrap { display: flex; justify-content: center; padding: 16px 14px 0; }
+  .pgrid { display: grid; gap: 5px; width: min(92vw, 400px); }
+  .pc {
+    aspect-ratio: 1; border: none; border-radius: 10px; padding: 0; background: var(--soft);
+    box-shadow: inset 0 1px 3px rgba(60,50,30,.1); position: relative; overflow: visible;
+  }
+  .pc.flecha { background: var(--card); box-shadow: var(--shadow); cursor: pointer; }
+  .pc svg { display: block; width: 62%; height: 62%; margin: 19%; color: var(--accent); transition: transform .28s ease-in, opacity .28s ease-in; }
+  .pc:nth-child(2n) svg { color: var(--second); }
+  .pc.sale { z-index: 3; }
+  .pc.sale svg { transform: rotate(var(--rot)) translateX(320%) !important; opacity: 0; }
+  .marcador { display: flex; justify-content: center; gap: 20px; padding-top: 14px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
+  .marcador b { color: var(--bg-ink); font-size: 15px; }
+  .marcador .vidas { color: var(--bad); letter-spacing: 2px; font-size: 15px; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const CFG = {
+  facil:   { n: 5, flechas: 10 },
+  normal:  { n: 6, flechas: 18 },
+  dificil: { n: 7, flechas: 30 },
+  experto: { n: 8, flechas: 44 },
+};
+const DIRS = [[0, 1], [0, -1], [-1, 0], [1, 0]]; // → ← ↑ ↓
+const ROT = [0, 180, -90, 90];
+const FLECHA_SVG = (d) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(${ROT[d]}deg); --rot: ${ROT[d]}deg;"><path d="M4 12h15"></path><path d="M13 6l6 6-6 6"></path></svg>`;
+
+const S = {
+  diff: store.get('punteros.diff', 'normal'),
+  n: 0, grid: null, inicial: null, vidas: 3, quedan: 0,
+  clock: makeClock(() => $('#clk')), jugando: false,
+};
+
+const REGLAS = `<p>Toca las flechas para <b>sacarlas del tablero</b>: cada una sale disparada hacia donde apunta… pero solo si <b>su camino está despejado</b>.</p>
+<p>Si choca con otra flecha, pierdes una de tus <b>3 vidas</b>: fíjate bien y elige el <b>orden</b> correcto para vaciar el tablero.</p>
+<p>Todos los tableros se pueden despejar por completo. Tu marca es el mejor tiempo.</p>`;
+
+/* ── Generador (en reversa: cada flecha entra con camino libre) ─────── */
+function genTablero() {
+  const { n, flechas } = CFG[S.diff];
+  const grid = new Array(n * n).fill(-1);
+  let puestas = 0, intentos = 0;
+  while (puestas < flechas && intentos++ < flechas * 90) {
+    const i = randInt(n * n);
+    if (grid[i] !== -1) continue;
+    const d = randInt(4);
+    const [dr, dc] = DIRS[d];
+    let r = Math.floor(i / n) + dr, c = i % n + dc, libre = true;
+    while (r >= 0 && r < n && c >= 0 && c < n) {
+      if (grid[r * n + c] !== -1) { libre = false; break; }
+      r += dr; c += dc;
+    }
+    if (!libre) continue;
+    grid[i] = d;
+    puestas++;
+  }
+  S.n = n; S.grid = grid; S.inicial = grid.slice();
+  S.quedan = puestas; S.vidas = 3; S.jugando = true;
+}
+
+function caminoLibre(i) {
+  const n = S.n, d = S.grid[i];
+  const [dr, dc] = DIRS[d];
+  let r = Math.floor(i / n) + dr, c = i % n + dc;
+  while (r >= 0 && r < n && c >= 0 && c < n) {
+    if (S.grid[r * n + c] !== -1) return false;
+    r += dr; c += dc;
+  }
+  return true;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  S.clock.stop();
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('punteros.best.' + d, 0);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Punteros', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div><div class="row-hint" id="d-hint"></div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => { const c = CFG[S.diff]; $('#d-hint').textContent = `${c.n}×${c.n} · ${c.flechas} flechas`; };
+  hint();
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('punteros.diff', v); hint(); });
+  $('#new').onclick = () => { genTablero(); renderPlay(); S.clock.start(); };
+  bindHowto(REGLAS);
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Punteros', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clk">0:00</span>`)}
+    <div class="marcador"><span>Quedan <b id="qn"></b></span><span class="vidas" id="vidas"></span></div>
+    <div class="pwrap">
+      <div class="pgrid" id="pgrid" style="grid-template-columns: repeat(${S.n}, 1fr);">
+        ${S.grid.map((_, i) => `<button class="pc" data-i="${i}"></button>`).join('')}
+      </div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-reinicio">Reiniciar tablero</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#pgrid').onclick = (e) => {
+    const b = e.target.closest('.pc');
+    if (b) tap(Number(b.dataset.i));
+  };
+  $('#t-reinicio').onclick = reiniciar;
+  $('#t-salir').onclick = () => { S.jugando = false; S.clock.stop(); renderSetup(); };
+  paint();
+}
+
+function paint() {
+  $$('.pc').forEach((el) => {
+    const i = Number(el.dataset.i);
+    const d = S.grid[i];
+    if (el.classList.contains('sale')) return; // en animación de salida
+    el.className = 'pc' + (d !== -1 ? ' flecha' : '');
+    el.innerHTML = d !== -1 ? FLECHA_SVG(d) : '';
+  });
+  $('#qn').textContent = S.quedan;
+  $('#vidas').textContent = '♥'.repeat(S.vidas);
+}
+
+function tap(i) {
+  if (!S.jugando || S.grid[i] === -1) return;
+  const el = $(`.pc[data-i="${i}"]`);
+  if (caminoLibre(i)) {
+    S.grid[i] = -1;
+    S.quedan--;
+    vibrate(8);
+    el.classList.add('sale');
+    setTimeout(() => { el.classList.remove('sale'); paint(); }, 300);
+    $('#qn').textContent = S.quedan;
+    if (S.quedan === 0) ganar();
+  } else {
+    S.vidas--;
+    vibrate([70, 50, 70]);
+    el.classList.add('shake');
+    setTimeout(() => el.classList.remove('shake'), 420);
+    paint();
+    if (S.vidas <= 0) perder();
+  }
+}
+
+function reiniciar() {
+  S.grid = S.inicial.slice();
+  S.quedan = S.grid.filter((d) => d !== -1).length;
+  S.vidas = 3;
+  S.jugando = true;
+  $$('.pc').forEach((el) => el.classList.remove('sale'));
+  paint();
+  S.clock.start();
+}
+
+function ganar() {
+  S.jugando = false;
+  S.clock.stop();
+  const t = S.clock.seconds;
+  const best = store.get('punteros.best.' + S.diff, 0);
+  const isRecord = !best || t < best;
+  if (isRecord) {
+    store.set('punteros.best.' + S.diff, t);
+    store.set('pun.hub', `Mejor: ${fmtTime(t)}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  setTimeout(() => {
+    openModal(`
+      <h3>${isRecord ? '¡Récord!' : '¡Tablero despejado!'}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${fmtTime(t)}</div><div class="l">tiempo</div></div>
+        <div class="stat"><div class="n">${'♥'.repeat(S.vidas)}</div><div class="l">vidas</div></div>
+        <div class="stat"><div class="n">${fmtTime(isRecord ? t : best)}</div><div class="l">mejor</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otro tablero</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); genTablero(); renderPlay(); S.clock.start(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 700);
+}
+
+function perder() {
+  S.jugando = false;
+  S.clock.stop();
+  setTimeout(() => {
+    openModal(`
+      <h3>Sin vidas</h3>
+      <p style="text-align:center;">Quedaban ${S.quedan} flechas. ¿Otro intento con el mismo tablero?</p>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-retry">Reintentar este tablero</button>
+        <button class="btn btn-ghost" id="m-again">Otro tablero</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-retry').onclick = () => { closeModal(); reiniciar(); };
+    $('#m-again').onclick = () => { closeModal(); genTablero(); renderPlay(); S.clock.start(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 500);
+}
+
+renderSetup();
+</script>
+</body>
+</html>
