@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Nonograma: pinta las casillas que dictan los números y revela el dibujo." />
+<title>Nonograma</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3EN%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .nwrap { display: flex; justify-content: center; padding: 8px 8px 4px; }
+  .ngrid { display: grid; gap: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .clue {
+    display: flex; align-items: flex-end; justify-content: center; flex-direction: column;
+    font-weight: 700; color: var(--sub); font-variant-numeric: tabular-nums; line-height: 1.15;
+  }
+  .clue.col { justify-content: flex-end; align-items: center; padding-bottom: 3px; }
+  .clue.row { flex-direction: row; gap: 4px; align-items: center; justify-content: flex-end; padding-right: 5px; }
+  .clue.done { color: var(--faint); }
+  .nc {
+    background: var(--card); border: 1px solid var(--border); border-radius: 2px;
+    display: flex; align-items: center; justify-content: center; color: var(--faint);
+  }
+  .nc.b3r { border-right: 2px solid var(--faint); }
+  .nc.b3b { border-bottom: 2px solid var(--faint); }
+  .nc.fill { background: var(--ink); border-color: var(--ink); }
+  .nc.x::after { content: '×'; font-size: 13px; font-weight: 700; }
+  .nc.hintflash { background: var(--warn-soft); }
+  .tools { margin: 10px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .tool {
+    border: none; cursor: pointer; font-weight: 700; font-size: 13px; padding: 10px 16px;
+    border-radius: 999px; background: var(--soft); color: var(--sub); display: flex; align-items: center; gap: 6px;
+  }
+  .tool.on { background: var(--accent); color: var(--accent-ink); }
+  .tool:disabled { opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const CFG = { facil: 5, normal: 8, dificil: 10, experto: 12 };
+// celdas: 0 desconocida · 1 rellena · 2 marcada con ×
+
+const S = {
+  diff: store.get('nono.diff', 'normal'),
+  n: 0, sol: [], cells: [],
+  rowClues: [], colClues: [],
+  modo: 1,            // 1 rellenar · 2 marcar ×
+  drag: null, pistas: 3, done: false,
+};
+const clock = makeClock(() => $('#clock'));
+
+const REGLAS = `<p>Los números de cada fila y columna dicen los <b>bloques de casillas pintadas seguidas</b>, en orden. «3 1» = un bloque de 3, un hueco de al menos una, y un bloque de 1.</p>
+<p>Usa el modo <b>Pintar</b> para rellenar y el modo <b>×</b> para marcar las que seguro van vacías (las × son apuntes: no cuentan para ganar). Puedes arrastrar para pintar varias.</p>
+<p>Cuando una línea queda resuelta, sus números se apagan. Completa el dibujo y ganas; hay 3 <b>pistas</b> que revelan una casilla. Todos los tableros tienen solución única.</p>`;
+
+/* ── Generación con solución única (resoluble línea a línea) ─────────── */
+function cluesOf(line) {
+  const out = [];
+  let run = 0;
+  for (const v of line) {
+    if (v === 1) run++;
+    else if (run) { out.push(run); run = 0; }
+  }
+  if (run) out.push(run);
+  return out.length ? out : [0];
+}
+
+// Todas las formas de colocar los bloques `groups` en una línea de largo L
+// compatibles con `known` (0 libre / 1 rellena / 2 vacía). Devuelve la
+// intersección de todas (celdas forzadas) o null si ninguna cabe.
+function lineSolve(known, groups) {
+  const L = known.length;
+  if (groups.length === 1 && groups[0] === 0) {
+    if (known.some((v) => v === 1)) return null;
+    return new Array(L).fill(2);
+  }
+  const forced = new Array(L).fill(-1);
+  let count = 0;
+  function place(gi, pos, acc) {
+    if (count > 4000) return;
+    if (gi === groups.length) {
+      for (let i = pos; i < L; i++) if (known[i] === 1) return;
+      count++;
+      for (let i = 0; i < L; i++) {
+        const v = i < pos ? acc[i] : 2;
+        if (forced[i] === -1) forced[i] = v;
+        else if (forced[i] !== v) forced[i] = 9;
+      }
+      return;
+    }
+    const g = groups[gi];
+    let rem = g;
+    for (let k = gi + 1; k < groups.length; k++) rem += groups[k] + 1;
+    for (let start = pos; start + rem <= L; start++) {
+      // el hueco previo no puede pisar celdas ya rellenas
+      let ok = true;
+      for (let i = pos; i < start; i++) if (known[i] === 1) { ok = false; break; }
+      if (!ok) break;
+      let cabe = true;
+      for (let i = start; i < start + g; i++) if (known[i] === 2) { cabe = false; break; }
+      if (cabe && start + g < L && known[start + g] === 1) cabe = false;
+      if (cabe) {
+        const acc2 = acc.slice();
+        for (let i = pos; i < start; i++) acc2[i] = 2;
+        for (let i = start; i < start + g; i++) acc2[i] = 1;
+        let npos = start + g;
+        if (npos < L) { acc2[npos] = 2; npos++; }
+        place(gi + 1, npos, acc2);
+      }
+    }
+  }
+  place(0, 0, new Array(L).fill(0));
+  if (!count) return null;
+  return forced.map((v) => (v === 9 ? 0 : v));
+}
+
+function solvable(sol, n) {
+  const rows = Array.from({ length: n }, (_, r) => cluesOf(sol[r]));
+  const cols = Array.from({ length: n }, (_, c) => cluesOf(sol.map((row) => row[c])));
+  const g = Array.from({ length: n }, () => new Array(n).fill(0));
+  for (let pass = 0; pass < 60; pass++) {
+    let progress = false;
+    for (let r = 0; r < n; r++) {
+      const res = lineSolve(g[r], rows[r]);
+      if (!res) return false;
+      for (let c = 0; c < n; c++) if (res[c] && !g[r][c]) { g[r][c] = res[c]; progress = true; }
+    }
+    for (let c = 0; c < n; c++) {
+      const col = g.map((row) => row[c]);
+      const res = lineSolve(col, cols[c]);
+      if (!res) return false;
+      for (let r = 0; r < n; r++) if (res[r] && !g[r][c]) { g[r][c] = res[r]; progress = true; }
+    }
+    if (g.every((row) => row.every((v) => v))) {
+      // debe coincidir con la solución original
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+        if ((g[r][c] === 1) !== (sol[r][c] === 1)) return false;
+      }
+      return true;
+    }
+    if (!progress) return false;
+  }
+  return false;
+}
+
+function generate() {
+  const n = CFG[S.diff];
+  for (let intento = 0; intento < 300; intento++) {
+    const dens = 0.5 + Math.random() * 0.18;
+    const sol = Array.from({ length: n }, () =>
+      Array.from({ length: n }, () => (Math.random() < dens ? 1 : 0)));
+    if (solvable(sol, n)) {
+      S.n = n;
+      S.sol = sol;
+      S.cells = Array.from({ length: n }, () => new Array(n).fill(0));
+      S.rowClues = Array.from({ length: n }, (_, r) => cluesOf(sol[r]));
+      S.colClues = Array.from({ length: n }, (_, c) => cluesOf(sol.map((row) => row[c])));
+      return true;
+    }
+  }
+  return false;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  clock.stop();
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('nono.best.' + d, null);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Nonograma', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => { $('#d-hint').textContent = `Tablero ${CFG[S.diff]}×${CFG[S.diff]}`; };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('nono.diff', v); hint(); });
+  hint();
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  if (!generate()) return;
+  S.modo = 1; S.pistas = 3; S.done = false; S.drag = null;
+  renderPlay();
+  clock.start();
+}
+
+function renderPlay() {
+  const n = S.n;
+  const clueSpanCols = Math.max(...S.rowClues.map((c) => c.length));
+  const clueSpanRows = Math.max(...S.colClues.map((c) => c.length));
+  const clueW = clueSpanCols * 14 + 10;
+  const clueH = clueSpanRows * 14 + 8;
+  const cell = Math.min(34, Math.floor((Math.min(400, innerWidth * .96) - clueW - 8) / n));
+  const cs = [];
+  // esquina
+  cs.push(`<div style="grid-row:1;grid-column:1;"></div>`);
+  for (let c = 0; c < n; c++) {
+    cs.push(`<div class="clue col" data-cc="${c}" style="grid-row:1;grid-column:${c + 2};font-size:${Math.max(10, cell * .38)}px;">${S.colClues[c].map((x) => `<span>${x}</span>`).join('')}</div>`);
+  }
+  for (let r = 0; r < n; r++) {
+    cs.push(`<div class="clue row" data-rc="${r}" style="grid-row:${r + 2};grid-column:1;font-size:${Math.max(10, cell * .38)}px;">${S.rowClues[r].map((x) => `<span>${x}</span>`).join('')}</div>`);
+    for (let c = 0; c < n; c++) {
+      const b = [(c + 1) % 5 === 0 && c + 1 < n ? 'b3r' : '', (r + 1) % 5 === 0 && r + 1 < n ? 'b3b' : ''].join(' ');
+      cs.push(`<div class="nc ${b}" data-i="${r * n + c}" style="grid-row:${r + 2};grid-column:${c + 2};width:${cell}px;height:${cell}px;"></div>`);
+    }
+  }
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Nonograma', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="scroll">
+      <div class="nwrap">
+        <div class="ngrid" id="grid" style="grid-template-columns: ${clueW}px repeat(${n}, ${cell}px); grid-template-rows: ${clueH}px repeat(${n}, ${cell}px);">
+          ${cs.join('')}
+        </div>
+      </div>
+    </div>
+    <div class="tools">
+      <button class="tool on" id="t-pintar">Pintar</button>
+      <button class="tool" id="t-x">Marcar ×</button>
+      <button class="tool" id="t-pista">Pista · <span id="pistas-n">3</span></button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  bindPaint();
+  $('#t-pintar').onclick = () => setModo(1);
+  $('#t-x').onclick = () => setModo(2);
+  $('#t-pista').onclick = usePista;
+  $('#t-salir').onclick = renderSetup;
+  paintAll();
+}
+
+function setModo(m) {
+  S.modo = m;
+  $('#t-pintar').classList.toggle('on', m === 1);
+  $('#t-x').classList.toggle('on', m === 2);
+}
+
+function cellAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  return el && el.classList.contains('nc') ? Number(el.dataset.i) : -1;
+}
+
+function bindPaint() {
+  const grid = $('#grid');
+  grid.addEventListener('pointerdown', (e) => {
+    const i = cellAt(e.clientX, e.clientY);
+    if (i < 0 || S.done) return;
+    grid.setPointerCapture(e.pointerId);
+    const cur = S.cells[Math.floor(i / S.n)][i % S.n];
+    const val = cur === S.modo ? 0 : S.modo;    // repetir el modo borra
+    S.drag = { val, seen: new Set() };
+    applyCell(i);
+  });
+  grid.addEventListener('pointermove', (e) => {
+    if (!S.drag) return;
+    const i = cellAt(e.clientX, e.clientY);
+    if (i >= 0) applyCell(i);
+  });
+  const fin = () => { S.drag = null; checkWin(); };
+  grid.addEventListener('pointerup', fin);
+  grid.addEventListener('pointercancel', fin);
+}
+
+function applyCell(i) {
+  if (!S.drag || S.drag.seen.has(i)) return;
+  S.drag.seen.add(i);
+  const r = Math.floor(i / S.n), c = i % S.n;
+  S.cells[r][c] = S.drag.val;
+  paintCell(i);
+  paintClueState(r, c);
+}
+
+function paintCell(i) {
+  const r = Math.floor(i / S.n), c = i % S.n;
+  const el = $(`.nc[data-i="${i}"]`);
+  el.classList.toggle('fill', S.cells[r][c] === 1);
+  el.classList.toggle('x', S.cells[r][c] === 2);
+}
+
+function paintClueState(r, c) {
+  const rowLine = S.cells[r].map((v) => (v === 1 ? 1 : 0));
+  const colLine = S.cells.map((row) => (row[c] === 1 ? 1 : 0));
+  $(`.clue[data-rc="${r}"]`).classList.toggle('done',
+    JSON.stringify(cluesOf(rowLine)) === JSON.stringify(S.rowClues[r]));
+  $(`.clue[data-cc="${c}"]`).classList.toggle('done',
+    JSON.stringify(cluesOf(colLine)) === JSON.stringify(S.colClues[c]));
+}
+
+function paintAll() {
+  for (let i = 0; i < S.n * S.n; i++) paintCell(i);
+  for (let r = 0; r < S.n; r++) paintClueState(r, 0);
+  for (let c = 0; c < S.n; c++) paintClueState(0, c);
+}
+
+function usePista() {
+  if (S.done || S.pistas <= 0) return;
+  const malas = [];
+  for (let r = 0; r < S.n; r++) for (let c = 0; c < S.n; c++) {
+    const want = S.sol[r][c] === 1 ? 1 : 2;
+    if (S.cells[r][c] !== want) malas.push([r, c, want]);
+  }
+  if (!malas.length) return;
+  const [r, c, want] = malas[randInt(malas.length)];
+  S.pistas--;
+  $('#pistas-n').textContent = S.pistas;
+  if (S.pistas <= 0) $('#t-pista').disabled = true;
+  S.cells[r][c] = want;
+  const i = r * S.n + c;
+  paintCell(i);
+  paintClueState(r, c);
+  const el = $(`.nc[data-i="${i}"]`);
+  el.classList.add('hintflash');
+  setTimeout(() => el.classList.remove('hintflash'), 900);
+  vibrate(20);
+  checkWin();
+}
+
+function checkWin() {
+  if (S.done) return;
+  for (let r = 0; r < S.n; r++) for (let c = 0; c < S.n; c++) {
+    if ((S.cells[r][c] === 1) !== (S.sol[r][c] === 1)) return;
+  }
+  S.done = true;
+  clock.stop();
+  const secs = clock.seconds;
+  const k = 'nono.best.' + S.diff;
+  const best = store.get(k, null);
+  const isRecord = !best || secs < best;
+  if (isRecord) {
+    store.set(k, secs);
+    store.set('nono.hub', `Mejor ${fmtTime(secs)} · ${DIFF_LABEL[S.diff]}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡Dibujo revelado!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.n}×${S.n}</div><div class="l">tablero</div></div>
+    </div>
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Nuevo mejor tiempo!</span></p>'
+      : (best ? `<p style="text-align:center;">Tu mejor tiempo: <b>${fmtTime(best)}</b></p>` : '')}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otro nonograma</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>

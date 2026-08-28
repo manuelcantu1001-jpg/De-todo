@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Batalla naval de revista: deduce dónde está la flota con los conteos de filas y columnas." />
+<title>Batalla naval</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E⛵%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .boardwrap { display: flex; justify-content: center; padding: 8px 10px 4px; }
+  .board { display: grid; gap: 3px; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  .bc {
+    background: var(--card); border: 1px solid var(--tile-border); border-radius: 6px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative;
+  }
+  .bc.agua { background: #E4EFF2; border-color: #C4DAE0; }
+  .bc.agua::after { content: '~'; color: #7FA6B3; font-weight: 700; font-size: 15px; }
+  .bc.barco { background: var(--ink); border-color: var(--ink); }
+  .bc.barco::after { content: ''; width: 55%; height: 55%; border-radius: 30%; background: #FFFDF6; opacity: .15; }
+  .bc.fija { cursor: default; }
+  .bc.fija.barco { background: var(--accent); border-color: var(--accent); }
+  .bc.fija.agua::after { color: #4E8Ca0; }
+  .bc.errorcell { outline: 2px solid var(--bad); outline-offset: -2px; }
+  .cnt {
+    display: flex; align-items: center; justify-content: center; font-weight: 700;
+    color: var(--sub); font-variant-numeric: tabular-nums;
+  }
+  .cnt.done { color: var(--accent); }
+  .cnt.pasado { color: var(--bad); }
+  .flota { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 12px 16px 0; }
+  .barquito { display: flex; gap: 2px; align-items: center; }
+  .barquito i { width: 13px; height: 13px; border-radius: 4px; background: var(--ink); }
+  .barquito span { font-size: 11.5px; font-weight: 700; color: var(--sub); margin-left: 4px; }
+  .tools { margin: 10px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 8px; justify-content: center; }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13px; padding: 10px 16px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+  .tool:disabled { opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const CFG = {
+  facil:   { n: 6,  flota: [3, 2, 2, 1, 1, 1] },
+  normal:  { n: 7,  flota: [3, 3, 2, 2, 1, 1] },
+  dificil: { n: 8,  flota: [4, 3, 2, 2, 1, 1] },
+  experto: { n: 9,  flota: [4, 3, 3, 2, 2, 1, 1, 1] },
+};
+
+const S = {
+  diff: store.get('naval.diff', 'normal'),
+  n: 0, flota: [],
+  sol: null,            // Set de índices con barco
+  fija: null,           // Map idx -> 'barco'|'agua' (reveladas)
+  marca: null,          // 0 vacío · 1 agua · 2 barco (jugador)
+  rows: [], cols: [],
+  pistas: 3, done: false,
+};
+const clock = makeClock(() => $('#clock'));
+
+const REGLAS = `<p>La flota está escondida. Los números de cada <b>fila y columna</b> dicen cuántas casillas de barco hay ahí. Los barcos son líneas rectas y <b>no se tocan</b> entre sí, ni siquiera en diagonal.</p>
+<p><b>Toca una casilla</b> para rotar: vacía → agua (~) → barco (■). Las casillas reveladas de inicio no se mueven. Bajo el tablero ves la flota completa que hay que colocar.</p>
+<p>Los conteos se pintan verdes al quedar exactos (y rojos si te pasas). Gana cuando marques exactamente todos los barcos. <b>Pista</b> revela una casilla (3 por partida).</p>`;
+
+/* ── Utilidades de tablero ───────────────────────────────────────────── */
+const idx = (r, c) => r * S.n + c;
+function vecinos8(i, n) {
+  const r = Math.floor(i / n), c = i % n;
+  const out = [];
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    if (!dr && !dc) continue;
+    const r2 = r + dr, c2 = c + dc;
+    if (r2 >= 0 && r2 < n && c2 >= 0 && c2 < n) out.push(r2 * n + c2);
+  }
+  return out;
+}
+
+/* ── Colocación de la flota ──────────────────────────────────────────── */
+function colocarFlota(n, flota) {
+  for (let intento = 0; intento < 300; intento++) {
+    const ocupa = new Set();
+    const prohibido = new Set();
+    let ok = true;
+    for (const len of flota) {
+      let puesto = false;
+      for (let t = 0; t < 200 && !puesto; t++) {
+        const vert = Math.random() < .5;
+        const r = randInt(vert ? n - len + 1 : n);
+        const c = randInt(vert ? n : n - len + 1);
+        const cells = [];
+        let cabe = true;
+        for (let k = 0; k < len; k++) {
+          const i = (r + (vert ? k : 0)) * n + (c + (vert ? 0 : k));
+          if (ocupa.has(i) || prohibido.has(i)) { cabe = false; break; }
+          cells.push(i);
+        }
+        if (!cabe) continue;
+        for (const i of cells) {
+          ocupa.add(i);
+          for (const v of vecinos8(i, n)) prohibido.add(v);
+        }
+        puesto = true;
+      }
+      if (!puesto) { ok = false; break; }
+    }
+    if (ok) return ocupa;
+  }
+  return null;
+}
+
+/* ── Contador de soluciones (con tope de nodos) ──────────────────────── */
+function contarSoluciones(n, flota, rows, cols, fija, limite) {
+  const barcosFijos = [];
+  const aguaFija = new Set();
+  for (const [i, tipo] of fija) {
+    if (tipo === 'barco') barcosFijos.push(Number(i));
+    else aguaFija.add(Number(i));
+  }
+  const orden = flota.slice().sort((a, b) => b - a);
+  const ocupa = new Set();
+  const rQ = rows.slice(), cQ = cols.slice();
+  let count = 0, nodos = 0, roto = false;
+
+  function tocaOcupado(i) {
+    for (const v of vecinos8(i, n)) if (ocupa.has(v)) return true;
+    return false;
+  }
+  function posiciones(len, minPos) {
+    const out = [];
+    const maxVert = len === 1 ? 1 : 2;   // un barco de 1 no tiene orientación
+    for (let vert = 0; vert < maxVert; vert++) {
+      const maxR = vert ? n - len : n - 1;
+      const maxC = vert ? n - 1 : n - len;
+      for (let r = 0; r <= maxR; r++) for (let c = 0; c <= maxC; c++) {
+        if (++nodos > 250000) { roto = true; return out; }
+        const pos = vert * 10000 + r * 100 + c;
+        if (pos < minPos) continue;
+        let cabe = true;
+        const cells = [];
+        const porFila = {}, porCol = {};
+        for (let k = 0; k < len; k++) {
+          const rr = r + (vert ? k : 0), cc = c + (vert ? 0 : k);
+          const i = rr * n + cc;
+          if (aguaFija.has(i) || ocupa.has(i) || tocaOcupado(i)) { cabe = false; break; }
+          cells.push(i);
+          porFila[rr] = (porFila[rr] || 0) + 1;
+          porCol[cc] = (porCol[cc] || 0) + 1;
+        }
+        if (!cabe) continue;
+        for (const r2 in porFila) if (porFila[r2] > rQ[r2]) { cabe = false; break; }
+        if (cabe) for (const c2 in porCol) if (porCol[c2] > cQ[c2]) { cabe = false; break; }
+        if (cabe) out.push({ pos, cells, vert, r, c });
+      }
+    }
+    return out;
+  }
+
+  function walk(si, minPosMismoLargo) {
+    if (roto || count >= limite) return;
+    if (si === orden.length) {
+      if (rQ.some((x) => x !== 0) || cQ.some((x) => x !== 0)) return;
+      for (const i of barcosFijos) if (!ocupa.has(i)) return;
+      count++;
+      return;
+    }
+    const len = orden[si];
+    const minPos = (si > 0 && orden[si - 1] === len) ? minPosMismoLargo : 0;
+    for (const p of posiciones(len, minPos)) {
+      for (const i of p.cells) ocupa.add(i);
+      for (const i of p.cells) { rQ[Math.floor(i / n)]--; cQ[i % n]--; }
+      walk(si + 1, p.pos);
+      for (const i of p.cells) { rQ[Math.floor(i / n)]++; cQ[i % n]++; }
+      for (const i of p.cells) ocupa.delete(i);
+      if (roto || count >= limite) return;
+    }
+  }
+  walk(0, 0);
+  return roto ? limite : count;
+}
+
+/* ── Generación completa ─────────────────────────────────────────────── */
+function generar() {
+  const cfg = CFG[S.diff];
+  const n = cfg.n;
+  for (let intento = 0; intento < 10; intento++) {
+    const sol = colocarFlota(n, cfg.flota);
+    if (!sol) continue;
+    const rows = new Array(n).fill(0), cols = new Array(n).fill(0);
+    for (const i of sol) { rows[Math.floor(i / n)]++; cols[i % n]++; }
+    const fija = new Map();
+    // arranque: unas cuantas reveladas de cortesía según el tamaño
+    const iniciales = { 6: 1, 7: 2, 8: 3, 9: 4 }[n] || 2;
+    const celdasBarco = shuffle([...sol]);
+    for (let k = 0; k < iniciales && k < celdasBarco.length; k++) {
+      fija.set(celdasBarco[k], 'barco');
+    }
+    let unico = false;
+    for (let rev = 0; rev < 40; rev++) {
+      if (contarSoluciones(n, cfg.flota, rows, cols, fija, 2) === 1) { unico = true; break; }
+      // revela una celda nueva (barco con más probabilidad)
+      const candidatos = [];
+      for (let i = 0; i < n * n; i++) {
+        if (fija.has(i)) continue;
+        candidatos.push(i);
+      }
+      if (!candidatos.length) break;
+      const barcos = candidatos.filter((i) => sol.has(i));
+      const aguas = candidatos.filter((i) => !sol.has(i));
+      const pool = (Math.random() < .65 && barcos.length) ? barcos : (aguas.length ? aguas : barcos);
+      const i = pool[randInt(pool.length)];
+      fija.set(i, sol.has(i) ? 'barco' : 'agua');
+    }
+    if (!unico) continue;
+    S.n = n; S.flota = cfg.flota; S.sol = sol; S.fija = fija;
+    S.rows = rows; S.cols = cols;
+    S.marca = new Array(n * n).fill(0);
+    for (const [i, tipo] of fija) S.marca[i] = tipo === 'barco' ? 2 : 1;
+    return true;
+  }
+  return false;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  clock.stop();
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('naval.best.' + d, null);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Batalla naval', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => {
+    const c = CFG[S.diff];
+    $('#d-hint').textContent = `Tablero ${c.n}×${c.n} · flota de ${c.flota.length} barcos`;
+  };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('naval.diff', v); hint(); });
+  hint();
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  const antes = Date.now();
+  if (!generar()) {
+    openModal('<h3>Vaya</h3><p>No pude armar el tablero, intenta otra vez.</p><div class="m-actions"><button class="btn btn-primary" id="m-x">Cerrar</button></div>');
+    $('#m-x').onclick = closeModal;
+    return;
+  }
+  S.pistas = 3; S.done = false;
+  renderPlay();
+  clock.start();
+}
+
+function renderPlay() {
+  const n = S.n;
+  const cell = Math.min(42, Math.floor((Math.min(400, innerWidth * .96) - 30 - (n) * 3) / (n + 1)));
+  const cs = [];
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      cs.push(`<div class="bc" data-i="${idx(r, c)}" style="width:${cell}px;height:${cell}px;"></div>`);
+    }
+    cs.push(`<div class="cnt" data-row="${r}" style="width:${Math.floor(cell * .7)}px;height:${cell}px;font-size:${Math.floor(cell * .42)}px;">${S.rows[r]}</div>`);
+  }
+  for (let c = 0; c < n; c++) {
+    cs.push(`<div class="cnt" data-col="${c}" style="width:${cell}px;height:${Math.floor(cell * .7)}px;font-size:${Math.floor(cell * .42)}px;">${S.cols[c]}</div>`);
+  }
+  cs.push('<div></div>');
+  const flotaHTML = (() => {
+    const porLen = {};
+    for (const l of S.flota) porLen[l] = (porLen[l] || 0) + 1;
+    return Object.keys(porLen).sort((a, b) => b - a).map((l) =>
+      `<div class="barquito">${'<i></i>'.repeat(l)}<span>×${porLen[l]}</span></div>`).join('');
+  })();
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Batalla naval', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="scroll">
+      <div class="boardwrap">
+        <div class="board" style="grid-template-columns: repeat(${n}, ${cell}px) ${Math.floor(cell * .7)}px;">${cs.join('')}</div>
+      </div>
+      <div class="flota">${flotaHTML}</div>
+      <div class="msg" id="msg" style="padding-top:8px;"></div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-pista">Pista · <span id="pistas-n">3</span></button>
+      <button class="tool" id="t-nueva">Nueva</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $$('.bc').forEach((el) => el.onclick = () => tap(Number(el.dataset.i)));
+  $('#t-pista').onclick = usePista;
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+  paint();
+}
+
+function paint() {
+  const n = S.n;
+  $$('.bc').forEach((el) => {
+    const i = Number(el.dataset.i);
+    el.className = 'bc';
+    if (S.marca[i] === 1) el.classList.add('agua');
+    else if (S.marca[i] === 2) el.classList.add('barco');
+    if (S.fija.has(i)) el.classList.add('fija');
+  });
+  for (let r = 0; r < n; r++) {
+    let barcos = 0, marcadas = 0;
+    for (let c = 0; c < n; c++) {
+      if (S.marca[idx(r, c)] === 2) barcos++;
+      if (S.marca[idx(r, c)]) marcadas++;
+    }
+    const el = $(`.cnt[data-row="${r}"]`);
+    el.classList.toggle('done', barcos === S.rows[r]);
+    el.classList.toggle('pasado', barcos > S.rows[r]);
+  }
+  for (let c = 0; c < n; c++) {
+    let barcos = 0;
+    for (let r = 0; r < n; r++) if (S.marca[idx(r, c)] === 2) barcos++;
+    const el = $(`.cnt[data-col="${c}"]`);
+    el.classList.toggle('done', barcos === S.cols[c]);
+    el.classList.toggle('pasado', barcos > S.cols[c]);
+  }
+}
+
+function tap(i) {
+  if (S.done || S.fija.has(i)) return;
+  S.marca[i] = (S.marca[i] + 1) % 3;
+  vibrate(8);
+  paint();
+  checkWin();
+}
+
+function usePista() {
+  if (S.done || S.pistas <= 0) return;
+  const malas = [];
+  for (let i = 0; i < S.n * S.n; i++) {
+    if (S.fija.has(i)) continue;
+    const want = S.sol.has(i) ? 2 : 1;
+    if (S.marca[i] !== want) malas.push(i);
+  }
+  if (!malas.length) return;
+  const i = malas[randInt(malas.length)];
+  S.pistas--;
+  $('#pistas-n').textContent = S.pistas;
+  if (S.pistas <= 0) $('#t-pista').disabled = true;
+  S.marca[i] = S.sol.has(i) ? 2 : 1;
+  S.fija.set(i, S.sol.has(i) ? 'barco' : 'agua');
+  vibrate(20);
+  paint();
+  checkWin();
+}
+
+function checkWin() {
+  let barcos = 0;
+  for (let i = 0; i < S.n * S.n; i++) if (S.marca[i] === 2) barcos++;
+  const total = S.flota.reduce((a, b) => a + b, 0);
+  if (barcos !== total) return;
+  for (let i = 0; i < S.n * S.n; i++) {
+    if ((S.marca[i] === 2) !== S.sol.has(i)) {
+      const m = $('#msg');
+      m.className = 'msg err';
+      m.textContent = 'La flota completa está marcada… pero algo no cuadra';
+      setTimeout(() => { m.textContent = ''; m.className = 'msg'; }, 1800);
+      vibrate([40, 60, 40]);
+      return;
+    }
+  }
+  S.done = true;
+  clock.stop();
+  const secs = clock.seconds;
+  const k = 'naval.best.' + S.diff;
+  const best = store.get(k, null);
+  const isRecord = !best || secs < best;
+  if (isRecord) {
+    store.set(k, secs);
+    store.set('naval.hub', `Mejor ${fmtTime(secs)} · ${DIFF_LABEL[S.diff]}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡Flota localizada!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.flota.length}</div><div class="l">barcos</div></div>
+    </div>
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Nuevo mejor tiempo!</span></p>'
+      : (best ? `<p style="text-align:center;">Tu mejor tiempo: <b>${fmtTime(best)}</b></p>` : '')}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otra flota</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>

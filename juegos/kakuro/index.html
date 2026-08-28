@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Kakuro: el crucigrama de sumas. Sin repetir dígitos en cada bloque." />
+<title>Kakuro</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3EK%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .boardwrap { display: flex; justify-content: center; padding: 8px 10px 4px; }
+  .board { display: grid; gap: 2px; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  .kc {
+    border-radius: 5px; position: relative; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .kc.negra {
+    background: linear-gradient(to top right,
+      var(--ink) 0%, var(--ink) 49.5%, color-mix(in srgb, var(--ink) 82%, #fff) 49.5%,
+      color-mix(in srgb, var(--ink) 82%, #fff) 50.5%, var(--ink) 50.5%, var(--ink) 100%);
+    color: #FFFDF6;
+  }
+  .kc.negra.sinsumas { background: var(--ink); }
+  .kc .sr { position: absolute; top: 2px; right: 4px; font-size: 11px; font-weight: 700; }
+  .kc .sd { position: absolute; bottom: 2px; left: 4px; font-size: 11px; font-weight: 700; }
+  .kc.blanca { background: var(--card); border: 1px solid var(--tile-border); color: var(--accent); cursor: pointer; }
+  .kc.blanca.runsel { background: var(--accent-soft); }
+  .kc.blanca.sel { outline: 2.5px solid var(--accent); outline-offset: -2.5px; z-index: 1; }
+  .kc.blanca.dup { color: var(--bad); }
+  .kc.blanca.malsuma { background: var(--bad-soft); }
+  .pad { margin: 12px 16px 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 9px; }
+  .key {
+    height: 52px; background: var(--card); border: none; border-radius: 14px; box-shadow: var(--shadow);
+    font-family: var(--title-font); font-size: 21px; font-weight: 600; color: var(--ink); cursor: pointer;
+  }
+  .key:active { transform: scale(.94); }
+  .key svg { display: block; margin: 0 auto; }
+  .tools { margin: 10px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 8px; justify-content: center; }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13px; padding: 10px 16px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+  .tool:disabled { opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const CFG = { facil: 5, normal: 6, dificil: 7, experto: 8 };
+
+const S = {
+  diff: store.get('kak.diff', 'normal'),
+  W: 0, H: 0,           // tamaño total (incluye fila/columna de sumas)
+  celdas: [],           // [r][c] = {negra, right, down} | {negra:false, sol, val}
+  runs: [],             // {cells:[[r,c]...], sum, dir}
+  deCelda: new Map(),   // "r,c" -> [runIdx...]
+  sel: null, pistas: 3, done: false,
+};
+const clock = makeClock(() => $('#clock'));
+const kk = (r, c) => r + ',' + c;
+
+const REGLAS = `<p>Es un crucigrama de números. Cada bloque blanco seguido debe <b>sumar</b> lo que indica su casilla negra: el número de arriba a la derecha manda sobre el bloque a su derecha, y el de abajo a la izquierda sobre el bloque hacia abajo.</p>
+<p>Solo se usan dígitos del <b>1 al 9</b> y dentro de un mismo bloque <b>no se repiten</b>. Los repetidos se marcan en rojo, y un bloque completo con suma equivocada se sombrea.</p>
+<p>Toca una casilla y escribe con el teclado. Gana al llenar todo con las sumas correctas. <b>Pista</b> rellena una casilla (3 por partida).</p>`;
+
+/* ── Generación ──────────────────────────────────────────────────────── */
+function generar() {
+  const n = CFG[S.diff];
+  for (let intento = 0; intento < 2000; intento++) {
+    // patrón de negras dentro del área de juego
+    const negra = Array.from({ length: n }, () => new Array(n).fill(false));
+    const p = 0.12 + Math.random() * 0.16;
+    let cuenta = 0;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      if (Math.random() < p) { negra[r][c] = true; cuenta++; }
+    }
+    if (n >= 6 && cuenta < 2) continue;
+    // valida largos de bloque (mínimo 2; el máximo crece con el tablero)
+    const maxRun = Math.min(9, n);
+    let ok = true;
+    const runLen = (r, c, dr, dc) => {
+      let r0 = r, c0 = c;
+      while (r0 - dr >= 0 && c0 - dc >= 0 && !negra[r0 - dr][c0 - dc]) { r0 -= dr; c0 -= dc; }
+      let len = 0, r1 = r0, c1 = c0;
+      while (r1 < n && c1 < n && !negra[r1][c1]) { len++; r1 += dr; c1 += dc; }
+      return len;
+    };
+    for (let r = 0; r < n && ok; r++) for (let c = 0; c < n && ok; c++) {
+      if (negra[r][c]) continue;
+      const lh = runLen(r, c, 0, 1), lv = runLen(r, c, 1, 0);
+      if (lh < 2 || lh > maxRun || lv < 2 || lv > maxRun) ok = false;
+    }
+    if (!ok) continue;
+
+    // dígitos: distintos dentro de cada bloque H y V
+    const val = Array.from({ length: n }, () => new Array(n).fill(0));
+    const cabe = (r, c, v) => {
+      for (let c2 = c - 1; c2 >= 0 && !negra[r][c2]; c2--) if (val[r][c2] === v) return false;
+      for (let r2 = r - 1; r2 >= 0 && !negra[r2][c]; r2--) if (val[r2][c] === v) return false;
+      return true;
+    };
+    const orden = [];
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (!negra[r][c]) orden.push([r, c]);
+    let i = 0, backtracks = 0;
+    const opciones = orden.map(() => null);
+    while (i >= 0 && i < orden.length && backtracks < 4000) {
+      const [r, c] = orden[i];
+      if (!opciones[i]) opciones[i] = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      let puesto = false;
+      while (opciones[i].length) {
+        const v = opciones[i].pop();
+        if (cabe(r, c, v)) { val[r][c] = v; puesto = true; break; }
+      }
+      if (puesto) i++;
+      else { opciones[i] = null; val[r][c] = 0; i--; if (i >= 0) val[orden[i][0]][orden[i][1]] = 0; backtracks++; }
+    }
+    if (i < orden.length) continue;
+
+    // arma tablero total con fila/columna de sumas
+    const W = n + 1, H = n + 1;
+    const celdas = Array.from({ length: H }, (_, r) => Array.from({ length: W }, (_, c) => {
+      if (r === 0 || c === 0 || negra[r - 1][c - 1]) return { negra: true, right: 0, down: 0 };
+      return { negra: false, sol: val[r - 1][c - 1], val: 0 };
+    }));
+    const runs = [];
+    const deCelda = new Map();
+    for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+      if (!celdas[r][c].negra) continue;
+      // bloque a la derecha
+      if (c + 1 < W && !celdas[r][c + 1].negra) {
+        const cells = [];
+        let suma = 0;
+        for (let c2 = c + 1; c2 < W && !celdas[r][c2].negra; c2++) { cells.push([r, c2]); suma += celdas[r][c2].sol; }
+        celdas[r][c].right = suma;
+        runs.push({ cells, sum: suma, dir: 'H' });
+      }
+      // bloque hacia abajo
+      if (r + 1 < H && !celdas[r + 1][c].negra) {
+        const cells = [];
+        let suma = 0;
+        for (let r2 = r + 1; r2 < H && !celdas[r2][c].negra; r2++) { cells.push([r2, c]); suma += celdas[r2][c].sol; }
+        celdas[r][c].down = suma;
+        runs.push({ cells, sum: suma, dir: 'V' });
+      }
+    }
+    runs.forEach((run, idx) => run.cells.forEach(([r, c]) => {
+      if (!deCelda.has(kk(r, c))) deCelda.set(kk(r, c), []);
+      deCelda.get(kk(r, c)).push(idx);
+    }));
+    S.W = W; S.H = H; S.celdas = celdas; S.runs = runs; S.deCelda = deCelda;
+    return true;
+  }
+  return false;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  clock.stop();
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('kak.best.' + d, null);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Kakuro', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => { $('#d-hint').textContent = `Área de juego ${CFG[S.diff]}×${CFG[S.diff]}`; };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('kak.diff', v); hint(); });
+  hint();
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  if (!generar()) return;
+  S.sel = null; S.pistas = 3; S.done = false;
+  renderPlay();
+  clock.start();
+}
+
+function renderPlay() {
+  const cell = Math.min(46, Math.floor(378 / S.W));
+  const cs = [];
+  for (let r = 0; r < S.H; r++) for (let c = 0; c < S.W; c++) {
+    const d = S.celdas[r][c];
+    if (d.negra) {
+      const sinsumas = !d.right && !d.down;
+      cs.push(`<div class="kc negra ${sinsumas ? 'sinsumas' : ''}" style="width:${cell}px;height:${cell}px;">
+        ${d.right ? `<span class="sr">${d.right}</span>` : ''}${d.down ? `<span class="sd">${d.down}</span>` : ''}</div>`);
+    } else {
+      cs.push(`<div class="kc blanca" data-k="${kk(r, c)}" style="width:${cell}px;height:${cell}px;font-size:${Math.floor(cell * .48)}px;"></div>`);
+    }
+  }
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Kakuro', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="scroll">
+      <div class="boardwrap"><div class="board" style="grid-template-columns: repeat(${S.W}, ${cell}px);">${cs.join('')}</div></div>
+      <div class="pad" id="pad">
+        ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((v) => `<button class="key" data-n="${v}">${v}</button>`).join('')}
+        <button class="key" data-n="0" aria-label="Borrar"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H9l-6 6 6 6h11a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"></path><path d="M17 10l-4 4M13 10l4 4"></path></svg></button>
+      </div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-pista">Pista · <span id="pistas-n">3</span></button>
+      <button class="tool" id="t-nueva">Nueva</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $$('.kc.blanca').forEach((el) => el.onclick = () => { S.sel = el.dataset.k; paint(); });
+  $('#pad').onclick = (e) => {
+    const b = e.target.closest('.key');
+    if (b) tecla(Number(b.dataset.n));
+  };
+  $('#t-pista').onclick = usePista;
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+  paint();
+}
+
+function celda(k2) {
+  const [r, c] = k2.split(',').map(Number);
+  return S.celdas[r][c];
+}
+
+function paint() {
+  const runSel = new Set();
+  if (S.sel) for (const idx of (S.deCelda.get(S.sel) || [])) {
+    for (const [r, c] of S.runs[idx].cells) runSel.add(kk(r, c));
+  }
+  // duplicados y sumas por bloque
+  const dup = new Set(), malsuma = new Set();
+  for (const run of S.runs) {
+    const vistos = {};
+    let suma = 0, llenas = 0;
+    for (const [r, c] of run.cells) {
+      const v = S.celdas[r][c].val;
+      if (v) {
+        llenas++;
+        suma += v;
+        if (vistos[v]) { dup.add(kk(r, c)); dup.add(vistos[v]); }
+        vistos[v] = kk(r, c);
+      }
+    }
+    if (llenas === run.cells.length && suma !== run.sum) {
+      for (const [r, c] of run.cells) malsuma.add(kk(r, c));
+    }
+  }
+  $$('.kc.blanca').forEach((el) => {
+    const d = celda(el.dataset.k);
+    el.textContent = d.val || '';
+    el.classList.toggle('sel', el.dataset.k === S.sel);
+    el.classList.toggle('runsel', runSel.has(el.dataset.k) && el.dataset.k !== S.sel);
+    el.classList.toggle('dup', dup.has(el.dataset.k));
+    el.classList.toggle('malsuma', malsuma.has(el.dataset.k));
+  });
+}
+
+function tecla(v) {
+  if (S.done || !S.sel) return;
+  const d = celda(S.sel);
+  d.val = (v === 0 || d.val === v) ? 0 : v;
+  vibrate(10);
+  paint();
+  checkWin();
+}
+
+function usePista() {
+  if (S.done || S.pistas <= 0) return;
+  let k2 = S.sel;
+  if (!k2 || celda(k2).val === celda(k2).sol) {
+    const malas = [];
+    for (let r = 0; r < S.H; r++) for (let c = 0; c < S.W; c++) {
+      const d = S.celdas[r][c];
+      if (!d.negra && d.val !== d.sol) malas.push(kk(r, c));
+    }
+    if (!malas.length) return;
+    k2 = malas[randInt(malas.length)];
+  }
+  S.pistas--;
+  $('#pistas-n').textContent = S.pistas;
+  if (S.pistas <= 0) $('#t-pista').disabled = true;
+  S.sel = k2;
+  celda(k2).val = celda(k2).sol;
+  vibrate(20);
+  paint();
+  checkWin();
+}
+
+function checkWin() {
+  // gana con cualquier llenado válido: sumas correctas y sin repetidos
+  for (let r = 0; r < S.H; r++) for (let c = 0; c < S.W; c++) {
+    const d = S.celdas[r][c];
+    if (!d.negra && !d.val) return;
+  }
+  for (const run of S.runs) {
+    const vals = run.cells.map(([r, c]) => S.celdas[r][c].val);
+    if (new Set(vals).size !== vals.length) return;
+    if (vals.reduce((a, b) => a + b, 0) !== run.sum) return;
+  }
+  S.done = true;
+  clock.stop();
+  const secs = clock.seconds;
+  const k = 'kak.best.' + S.diff;
+  const best = store.get(k, null);
+  const isRecord = !best || secs < best;
+  if (isRecord) {
+    store.set(k, secs);
+    store.set('kak.hub', `Mejor ${fmtTime(secs)} · ${DIFF_LABEL[S.diff]}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡Cuadró todo!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.runs.length}</div><div class="l">bloques</div></div>
+    </div>
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Nuevo mejor tiempo!</span></p>'
+      : (best ? `<p style="text-align:center;">Tu mejor tiempo: <b>${fmtTime(best)}</b></p>` : '')}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otro kakuro</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+/* Teclado físico */
+addEventListener('keydown', (e) => {
+  if (!$('.board')) return;
+  if (e.key >= '1' && e.key <= '9') tecla(Number(e.key));
+  else if (e.key === 'Backspace' || e.key === '0' || e.key === 'Delete') tecla(0);
+});
+
+renderSetup();
+</script>
+</body>
+</html>

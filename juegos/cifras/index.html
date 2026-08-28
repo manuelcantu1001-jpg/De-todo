@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Combina los números con las cuatro operaciones hasta dar con el objetivo." />
+<title>Cifras</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E75%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .target { text-align: center; padding: 10px 0 2px; }
+  .target .tv {
+    display: inline-block; font-family: var(--title-font); font-size: 46px; font-weight: 700;
+    color: var(--accent-ink); background: var(--accent); border-radius: 16px; padding: 4px 26px;
+    box-shadow: var(--shadow); font-variant-numeric: tabular-nums;
+  }
+  .target .tl { font-size: 11.5px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--bg-sub); margin-top: 6px; }
+  .numszone { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 14px 14px 0; }
+  .ntile {
+    min-width: 58px; height: 52px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--tile-border);
+    background: var(--tile-bg); color: var(--tile-ink);
+    box-shadow: 0 3px 0 var(--tile-border), inset 0 1px 0 rgba(255,255,255,.65);
+    font-family: var(--title-font); font-size: 24px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums;
+  }
+  .ntile.sel { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); box-shadow: 0 3px 0 color-mix(in srgb, var(--accent) 60%, black); }
+  .ntile.gone { display: none; }
+  .ntile.nuevo { animation: popIn .25s ease; }
+  .opsrow { display: flex; gap: 10px; justify-content: center; padding: 14px 0 0; }
+  .op {
+    width: 56px; height: 50px; border: none; border-radius: 12px; background: var(--card);
+    box-shadow: var(--shadow); font-size: 24px; font-weight: 700; color: var(--second); cursor: pointer;
+  }
+  .op.sel { background: var(--second); color: #fff; }
+  .hist { padding: 14px 24px 0; font-size: 15px; font-weight: 600; color: var(--sub); text-align: center; min-height: 22px; }
+  .hist .paso { display: block; padding: 2px 0; font-variant-numeric: tabular-nums; }
+  .hist b { color: var(--ink); }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 8px; justify-content: center; padding-top: 14px; flex-wrap: wrap; }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13px; padding: 10px 16px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+  .tool:disabled { opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const CFG = {
+  facil:   { nums: 4, grandes: 1, ops: 2, min: 25,  max: 150 },
+  normal:  { nums: 5, grandes: 1, ops: 3, min: 100, max: 500 },
+  dificil: { nums: 6, grandes: 2, ops: 4, min: 100, max: 999 },
+  experto: { nums: 6, grandes: 2, ops: 5, min: 250, max: 999 },
+};
+const GRANDES = [25, 50, 75, 100];
+
+const S = {
+  diff: store.get('cif.diff', 'normal'),
+  objetivo: 0, solucion: [],
+  tiles: [],            // {v, vivo}
+  selA: -1, op: null,
+  pasos: [],            // {a, op, b, r, tileIdx}
+  done: false,
+};
+const clock = makeClock(() => $('#clock'));
+
+const REGLAS = `<p>Combina los números con <b>+ − × ÷</b> hasta llegar <b>exactamente</b> al objetivo. No es obligatorio usarlos todos.</p>
+<p><b>Toca un número, una operación y otro número</b>: ambos se gastan y aparece el resultado como ficha nueva, lista para seguir operando. <b>Deshacer</b> revierte el último paso.</p>
+<p>Solo valen restas con resultado positivo y divisiones exactas. Todos los objetivos tienen solución (si te rindes, te la enseñamos). El reloj corre: tu mejor tiempo queda guardado.</p>`;
+
+/* ── Generación: el objetivo nace de operar los números ─────────────── */
+function generar() {
+  const c = CFG[S.diff];
+  for (let intento = 0; intento < 400; intento++) {
+    const nums = [];
+    const g = shuffle(GRANDES).slice(0, c.grandes);
+    nums.push(...g);
+    while (nums.length < c.nums) nums.push(1 + randInt(10));
+    // opera al azar para fabricar el objetivo
+    let pool = nums.map((v) => ({ v }));
+    const pasos = [];
+    let ok = true;
+    for (let k = 0; k < c.ops; k++) {
+      const vivos = pool.filter((x) => !x.usado);
+      if (vivos.length < 2) { ok = false; break; }
+      const a = vivos[randInt(vivos.length)];
+      let b = vivos[randInt(vivos.length)];
+      let guard = 0;
+      while (b === a && guard++ < 20) b = vivos[randInt(vivos.length)];
+      if (b === a) { ok = false; break; }
+      const opciones = [];
+      opciones.push({ op: '+', r: a.v + b.v });
+      opciones.push({ op: '×', r: a.v * b.v });
+      if (a.v > b.v) opciones.push({ op: '−', r: a.v - b.v });
+      if (b.v > a.v) opciones.push({ op: '−', r: b.v - a.v, swap: true });
+      if (b.v > 1 && a.v % b.v === 0) opciones.push({ op: '÷', r: a.v / b.v });
+      if (a.v > 1 && b.v % a.v === 0) opciones.push({ op: '÷', r: b.v / a.v, swap: true });
+      const el = opciones.filter((o) => o.r > 0 && o.r <= 9999 && Number.isInteger(o.r));
+      if (!el.length) { ok = false; break; }
+      const o = el[randInt(el.length)];
+      const x = o.swap ? b : a, y = o.swap ? a : b;
+      x.usado = y.usado = true;
+      const nuevo = { v: o.r };
+      pool.push(nuevo);
+      pasos.push(`${x.v} ${o.op} ${y.v} = ${o.r}`);
+    }
+    if (!ok) continue;
+    const objetivo = pool.filter((x) => !x.usado).slice(-1)[0].v;
+    if (objetivo < c.min || objetivo > c.max) continue;
+    if (nums.includes(objetivo)) continue;
+    S.objetivo = objetivo;
+    S.solucion = pasos;
+    S.tiles = shuffle(nums).map((v) => ({ v, vivo: true, base: true }));
+    return true;
+  }
+  return false;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  clock.stop();
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('cif.best.' + d, null);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Cifras', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => {
+    const c = CFG[S.diff];
+    $('#d-hint').textContent = `${c.nums} números · objetivo entre ${c.min} y ${c.max}`;
+  };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('cif.diff', v); hint(); });
+  hint();
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  if (!generar()) return;
+  S.selA = -1; S.op = null; S.pasos = []; S.done = false;
+  renderPlay();
+  clock.start();
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Cifras', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="target"><div class="tv">${S.objetivo}</div><div class="tl">Objetivo</div></div>
+    <div class="numszone" id="nums"></div>
+    <div class="opsrow" id="ops">
+      ${['+', '−', '×', '÷'].map((o) => `<button class="op" data-op="${o}">${o}</button>`).join('')}
+    </div>
+    <div class="hist" id="hist"></div>
+    <div class="msg" id="msg"></div>
+    <div class="tools">
+      <button class="tool" id="t-undo">Deshacer</button>
+      <button class="tool" id="t-rendir">Ver solución</button>
+      <button class="tool" id="t-nueva">Nueva</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#nums').onclick = (e) => {
+    const el = e.target.closest('.ntile');
+    if (el) tapNum(Number(el.dataset.i));
+  };
+  $('#ops').onclick = (e) => {
+    const el = e.target.closest('.op');
+    if (el) tapOp(el.dataset.op);
+  };
+  $('#t-undo').onclick = deshacer;
+  $('#t-rendir').onclick = rendirse;
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+  paint();
+}
+
+function paint(nuevoIdx) {
+  $('#nums').innerHTML = S.tiles.map((t, i) =>
+    `<div class="ntile ${t.vivo ? '' : 'gone'} ${S.selA === i ? 'sel' : ''} ${i === nuevoIdx ? 'nuevo' : ''}" data-i="${i}">${t.v}</div>`).join('');
+  $$('.op').forEach((el) => el.classList.toggle('sel', el.dataset.op === S.op));
+  $('#hist').innerHTML = S.pasos.map((p) => `<span class="paso">${p.a} ${p.op} ${p.b} = <b>${p.r}</b></span>`).join('');
+}
+
+function tapNum(i) {
+  if (S.done || !S.tiles[i].vivo) return;
+  if (S.selA < 0 || !S.op) {
+    S.selA = (S.selA === i) ? -1 : i;
+    S.op = S.selA < 0 ? null : S.op;
+    paint();
+    return;
+  }
+  if (i === S.selA) { S.selA = -1; S.op = null; paint(); return; }
+  operar(S.selA, i);
+}
+
+function tapOp(op) {
+  if (S.done || S.selA < 0) return;
+  S.op = (S.op === op) ? null : op;
+  paint();
+}
+
+function operar(ia, ib) {
+  const a = S.tiles[ia].v, b = S.tiles[ib].v;
+  let r = null;
+  if (S.op === '+') r = a + b;
+  else if (S.op === '×') r = a * b;
+  else if (S.op === '−') { if (a > b) r = a - b; }
+  else if (S.op === '÷') { if (b > 0 && a % b === 0 && b !== 1) r = a / b; else if (b === 1) r = a; }
+  if (r === null || r <= 0) {
+    aviso(S.op === '−' ? 'La resta debe dar positivo' : 'La división debe ser exacta');
+    vibrate(50);
+    return;
+  }
+  S.tiles[ia].vivo = false;
+  S.tiles[ib].vivo = false;
+  S.tiles.push({ v: r, vivo: true });
+  S.pasos.push({ a, op: S.op, b, r, ia, ib, idx: S.tiles.length - 1 });
+  S.selA = -1; S.op = null;
+  vibrate(12);
+  paint(S.tiles.length - 1);
+  if (r === S.objetivo) win();
+}
+
+function deshacer() {
+  if (S.done || !S.pasos.length) return;
+  const p = S.pasos.pop();
+  S.tiles.splice(p.idx, 1);
+  S.tiles[p.ia].vivo = true;
+  S.tiles[p.ib].vivo = true;
+  S.selA = -1; S.op = null;
+  paint();
+}
+
+function aviso(t) {
+  const m = $('#msg');
+  m.className = 'msg err';
+  m.textContent = t;
+  setTimeout(() => { if (m.textContent === t) { m.textContent = ''; m.className = 'msg'; } }, 1500);
+}
+
+function rendirse() {
+  if (S.done) return;
+  S.done = true;
+  clock.stop();
+  openModal(`
+    <h3>Una forma de llegar</h3>
+    <p style="text-align:center;">${S.solucion.map((p) => `<b>${esc(p)}</b>`).join('<br>')}</p>
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otro objetivo</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+function win() {
+  S.done = true;
+  clock.stop();
+  const secs = clock.seconds;
+  const k = 'cif.best.' + S.diff;
+  const best = store.get(k, null);
+  const isRecord = !best || secs < best;
+  if (isRecord) {
+    store.set(k, secs);
+    store.set('cif.hub', `Mejor ${fmtTime(secs)} · ${DIFF_LABEL[S.diff]}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡${S.objetivo} exacto!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.pasos.length}</div><div class="l">operaciones</div></div>
+    </div>
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Nuevo mejor tiempo!</span></p>'
+      : (best ? `<p style="text-align:center;">Tu mejor tiempo: <b>${fmtTime(best)}</b></p>` : '')}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otro objetivo</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>
