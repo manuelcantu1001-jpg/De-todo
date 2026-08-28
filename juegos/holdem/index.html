@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Texas Hold'em mano a mano contra la app: ciegas, faroles y todo el bote." />
+<title>Texas Hold'em</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E♠%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .zona { padding: 10px 16px 0; }
+  .zona .quien { font-size: 12px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--bg-sub); display: flex; justify-content: space-between; align-items: center; }
+  .zona .quien b { color: var(--bg-ink); font-size: 13px; text-transform: none; letter-spacing: 0; }
+  .boton-d { display: inline-block; width: 18px; height: 18px; border-radius: 999px; background: var(--warn); color: #fff; font-size: 11px; font-weight: 800; text-align: center; line-height: 18px; margin-left: 6px; }
+  .cartas { display: flex; gap: 7px; padding-top: 7px; min-height: 74px; }
+  .cartas.centro { justify-content: center; min-height: 80px; }
+  .carta {
+    width: 50px; height: 70px; border-radius: 8px; background: var(--tile-bg);
+    border: 1px solid var(--tile-border); box-shadow: 0 2px 0 var(--tile-border);
+    display: flex; flex-direction: column; justify-content: space-between; padding: 5px 6px;
+    font-weight: 800; color: var(--ink); animation: popIn .22s ease;
+  }
+  .carta .r { font-size: 17px; line-height: 1; }
+  .carta .s { font-size: 18px; line-height: 1; align-self: flex-end; }
+  .carta.roja { color: #C0392B; }
+  .carta.dorso { background: repeating-linear-gradient(45deg, var(--accent), var(--accent) 5px, color-mix(in srgb, var(--accent) 80%, black) 5px, color-mix(in srgb, var(--accent) 80%, black) 10px); border-color: transparent; }
+  .bote { text-align: center; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); padding-top: 6px; }
+  .bote b { color: var(--bg-ink); font-size: 16px; }
+  .narra { text-align: center; min-height: 20px; padding-top: 8px; font-size: 13.5px; font-weight: 700; color: var(--accent); }
+  .acciones { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; padding-top: 12px; }
+  .acciones .fila { display: flex; gap: 10px; }
+  .acciones .fila .btn { flex: 1; padding: 14px 10px; font-size: 15px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const SB = 10, BB = 20, STACK = 1000;
+const PALOS = ['♠', '♥', '♦', '♣'];
+const NOMBRE = ['Carta alta', 'Par', 'Doble par', 'Trío', 'Escalera', 'Color', 'Full', 'Póker', 'Escalera de color'];
+const IA = {
+  facil:   { n: 60,  margen: -0.08, sube: 0.78, farol: 0.02, abre: 0.62 },
+  normal:  { n: 120, margen: 0.00,  sube: 0.68, farol: 0.06, abre: 0.55 },
+  dificil: { n: 200, margen: 0.03,  sube: 0.64, farol: 0.10, abre: 0.52 },
+  experto: { n: 300, margen: 0.05,  sube: 0.60, farol: 0.14, abre: 0.50 },
+};
+
+const S = {
+  diff: store.get('holdem.diff', 'normal'),
+  stack: { yo: STACK, app: STACK },
+  dealer: 'yo', hole: { yo: [], app: [] }, board: [], mazo: [],
+  street: 0, pot: 0, cont: { yo: 0, app: 0 }, acted: { yo: false, app: false },
+  raises: 0, enMano: false, muestraApp: false, pensando: false,
+};
+
+const REGLAS = `<p>Texas Hold'em <b>mano a mano</b>: dos cartas tuyas, cinco comunes, y la mejor mano de cinco gana el bote. Ciegas de $${SB}/$${BB}, fichas iniciales $${STACK}.</p>
+<p>En tu turno puedes <b>retirarte</b>, <b>pasar / igualar</b> o <b>subir</b>. Hay cuatro rondas de apuestas: antes del flop, en el flop, en el turn y en el river.</p>
+<p>El duelo se acaba cuando alguien se queda <b>sin fichas</b>. La dificultad cambia qué tan fino calcula (y qué tanto farolea) el rival. Tu marca: duelos ganados.</p>`;
+
+/* ── Cartas y evaluación ─────────────────────────────────────────────── */
+const cartaHTML = (c, oculta) => oculta
+  ? '<div class="carta dorso"></div>'
+  : `<div class="carta ${c.s === 1 || c.s === 2 ? 'roja' : ''}"><span class="r">${c.r === 14 ? 'A' : c.r === 13 ? 'K' : c.r === 12 ? 'Q' : c.r === 11 ? 'J' : c.r}</span><span class="s">${PALOS[c.s]}</span></div>`;
+
+function eval5(cs) {
+  const rs = cs.map((c) => c.r).sort((a, b) => b - a);
+  const flush = cs.every((c) => c.s === cs[0].s);
+  const cnt = {};
+  for (const r of rs) cnt[r] = (cnt[r] || 0) + 1;
+  const g = Object.entries(cnt).map(([r, n]) => [+r, n]).sort((a, b) => b[1] - a[1] || b[0] - a[0]);
+  const uniq = [...new Set(rs)];
+  let esc = 0;
+  if (uniq.length === 5) {
+    if (uniq[0] - uniq[4] === 4) esc = uniq[0];
+    else if (uniq[0] === 14 && uniq[1] === 5) esc = 5;
+  }
+  let cat, tb;
+  if (esc && flush) { cat = 8; tb = [esc]; }
+  else if (g[0][1] === 4) { cat = 7; tb = [g[0][0], g[1][0]]; }
+  else if (g[0][1] === 3 && g[1][1] === 2) { cat = 6; tb = [g[0][0], g[1][0]]; }
+  else if (flush) { cat = 5; tb = rs; }
+  else if (esc) { cat = 4; tb = [esc]; }
+  else if (g[0][1] === 3) { cat = 3; tb = [g[0][0], g[1][0], g[2][0]]; }
+  else if (g[0][1] === 2 && g[1][1] === 2) { cat = 2; tb = [g[0][0], g[1][0], g[2][0]]; }
+  else if (g[0][1] === 2) { cat = 1; tb = [g[0][0], g[1][0], g[2][0], g[3][0]]; }
+  else { cat = 0; tb = rs; }
+  let s = cat;
+  for (let i = 0; i < 5; i++) s = s * 15 + (tb[i] || 0);
+  return s;
+}
+function eval7(cs) {
+  let mejor = 0;
+  for (let i = 0; i < 7; i++) for (let j = i + 1; j < 7; j++) {
+    const m = [];
+    for (let k = 0; k < 7; k++) if (k !== i && k !== j) m.push(cs[k]);
+    const v = eval5(m);
+    if (v > mejor) mejor = v;
+  }
+  return mejor;
+}
+const catDe = (score) => Math.floor(score / Math.pow(15, 5));
+
+function equity(hole, board, n) {
+  const usadas = new Set([...hole, ...board].map((c) => c.r * 4 + c.s));
+  const resto = [];
+  for (let s = 0; s < 4; s++) for (let r = 2; r <= 14; r++) if (!usadas.has(r * 4 + s)) resto.push({ r, s });
+  const need = 2 + (5 - board.length);
+  let win = 0;
+  for (let k = 0; k < n; k++) {
+    for (let i = 0; i < need; i++) {
+      const j = i + randInt(resto.length - i);
+      [resto[i], resto[j]] = [resto[j], resto[i]];
+    }
+    const b2 = board.concat(resto.slice(2, need));
+    const a = eval7(hole.concat(b2)), o = eval7([resto[0], resto[1]].concat(b2));
+    win += a > o ? 1 : a === o ? 0.5 : 0;
+  }
+  return win / n;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML("Texas Hold'em", '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel del rival</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="bests"><div class="b"><div class="bn">${store.get('holdem.wins', 0)}</div><div class="bl">Duelos ganados</div></div></div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('holdem.diff', v); });
+  $('#new').onclick = () => { S.stack = { yo: STACK, app: STACK }; S.dealer = Math.random() < .5 ? 'yo' : 'app'; renderMesa(); nuevaMano(); };
+  bindHowto(REGLAS);
+}
+
+function renderMesa() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML("Texas Hold'em", `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
+    <div class="zona">
+      <div class="quien"><span>La app <span class="boton-d" id="d-app" style="display:none;">D</span></span><b id="st-app"></b></div>
+      <div class="cartas" id="c-app"></div>
+    </div>
+    <div class="zona">
+      <div class="cartas centro" id="c-board"></div>
+      <div class="bote">Bote <b id="pot"></b></div>
+      <div class="narra" id="narra"></div>
+    </div>
+    <div class="zona">
+      <div class="quien"><span>Tú <span class="boton-d" id="d-yo" style="display:none;">D</span></span><b id="st-yo"></b></div>
+      <div class="cartas" id="c-yo"></div>
+    </div>
+    <div class="acciones">
+      <div class="fila">
+        <button class="btn btn-ghost" id="b-fold">Retirarse</button>
+        <button class="btn btn-soft" id="b-call"></button>
+        <button class="btn btn-primary" id="b-raise"></button>
+      </div>
+      <div class="fila"><button class="btn btn-ghost" id="b-salir">Salir del duelo</button></div>
+    </div>
+  </div>`;
+  $('#b-fold').onclick = () => miAccion('fold');
+  $('#b-call').onclick = () => miAccion('call');
+  $('#b-raise').onclick = () => miAccion('raise');
+  $('#b-salir').onclick = renderSetup;
+}
+
+function narra(t) { const el = $('#narra'); if (el) el.textContent = t || ''; }
+
+function paint() {
+  $('#c-app').innerHTML = S.hole.app.map((c) => cartaHTML(c, !S.muestraApp)).join('');
+  $('#c-yo').innerHTML = S.hole.yo.map((c) => cartaHTML(c)).join('');
+  $('#c-board').innerHTML = S.board.map((c) => cartaHTML(c)).join('') || '<span style="color:var(--faint);font-weight:600;font-size:13px;align-self:center;">— aún sin cartas comunes —</span>';
+  $('#st-yo').textContent = '$' + (S.stack.yo - S.cont.yo);
+  $('#st-app').textContent = '$' + (S.stack.app - S.cont.app);
+  $('#pot').textContent = '$' + (S.pot + S.cont.yo + S.cont.app);
+  $('#d-yo').style.display = S.dealer === 'yo' ? '' : 'none';
+  $('#d-app').style.display = S.dealer === 'app' ? '' : 'none';
+  const miTurno = S.enMano && S.turno === 'yo' && !S.pensando;
+  const toCall = S.cont.app - S.cont.yo;
+  $('#b-fold').disabled = !miTurno;
+  $('#b-call').disabled = !miTurno;
+  $('#b-call').textContent = toCall > 0 ? `Igualar $${Math.min(toCall, S.stack.yo - S.cont.yo)}` : 'Pasar';
+  const sub = subidaDe('yo');
+  $('#b-raise').disabled = !miTurno || !sub;
+  $('#b-raise').textContent = sub ? `Subir a $${sub}` : 'Subir';
+}
+
+/* ── Motor de la mano ────────────────────────────────────────────────── */
+function nuevaMano() {
+  S.mazo = [];
+  for (let s = 0; s < 4; s++) for (let r = 2; r <= 14; r++) S.mazo.push({ r, s });
+  S.mazo = shuffle(S.mazo);
+  S.hole.yo = [S.mazo.pop(), S.mazo.pop()];
+  S.hole.app = [S.mazo.pop(), S.mazo.pop()];
+  S.board = []; S.street = 0; S.pot = 0; S.muestraApp = false;
+  const sb = S.dealer, bb = sb === 'yo' ? 'app' : 'yo';
+  S.cont = { yo: 0, app: 0 };
+  S.cont[sb] = Math.min(SB, S.stack[sb]);
+  S.cont[bb] = Math.min(BB, S.stack[bb]);
+  S.acted = { yo: false, app: false };
+  S.raises = 1;
+  S.enMano = true;
+  S.turno = sb;
+  narra('');
+  paint();
+  siguiente();
+}
+
+const otro = (q) => q === 'yo' ? 'app' : 'yo';
+
+function subidaDe(q) {
+  if (S.raises >= 4) return 0;
+  const toCall = S.cont[otro(q)] - S.cont[q];
+  const bote = S.pot + S.cont.yo + S.cont.app;
+  const inc = toCall > 0 ? Math.max(2 * toCall, BB * 2) : Math.max(BB, Math.round(bote / 20) * 10);
+  let objetivo = S.cont[otro(q)] + inc;
+  const topeYo = S.cont[q] + (S.stack[q] - S.cont[q]);
+  const topeOtro = S.cont[otro(q)] + (S.stack[otro(q)] - S.cont[otro(q)]);
+  objetivo = Math.min(objetivo, topeYo, topeOtro);
+  return objetivo > S.cont[otro(q)] ? objetivo : 0;
+}
+
+function miAccion(tipo) {
+  if (!S.enMano || S.turno !== 'yo' || S.pensando) return;
+  accion('yo', tipo);
+}
+
+function accion(q, tipo) {
+  const opp = otro(q);
+  const toCall = S.cont[opp] - S.cont[q];
+  if (tipo === 'fold') return finPorRetiro(opp, q);
+  if (tipo === 'raise') {
+    const obj = subidaDe(q);
+    if (!obj) tipo = 'call';
+    else {
+      S.cont[q] = obj;
+      S.raises++;
+      S.acted[q] = true; S.acted[opp] = false;
+      narra(q === 'app' ? `La app sube a $${obj}` : `Subes a $${obj}`);
+      vibrate(10);
+      paint();
+      S.turno = opp;
+      return siguiente();
+    }
+  }
+  // call / check
+  S.cont[q] += Math.max(0, Math.min(toCall, S.stack[q] - S.cont[q]));
+  S.acted[q] = true;
+  if (S.cont[q] < S.cont[opp] && S.stack[q] - S.cont[q] === 0) S.cont[opp] = S.cont[q]; // all-in corto: sobrante devuelto
+  narra(q === 'app' ? (toCall > 0 ? 'La app iguala' : 'La app pasa') : (toCall > 0 ? 'Igualas' : 'Pasas'));
+  paint();
+  if (S.cont.yo === S.cont.app && S.acted.yo && S.acted.app) return cerrarCalle();
+  S.turno = opp;
+  siguiente();
+}
+
+function siguiente() {
+  if (!S.enMano) return;
+  paint();
+  if (S.turno === 'app') {
+    S.pensando = true;
+    setTimeout(() => {
+      S.pensando = false;
+      if (!S.enMano) return;
+      accion('app', decideApp());
+    }, 650 + randInt(650));
+  }
+}
+
+function decideApp() {
+  const P = IA[S.diff];
+  const toCall = S.cont.yo - S.cont.app;
+  const eq = equity(S.hole.app, S.board, P.n);
+  const bote = S.pot + S.cont.yo + S.cont.app;
+  if (toCall <= 0) {
+    if (eq > P.abre + (Math.random() - 0.5) * 0.06) return 'raise';
+    if (Math.random() < P.farol) return 'raise';
+    return 'call';
+  }
+  const odds = toCall / (bote + toCall);
+  if (eq > P.sube && Math.random() < 0.8) return 'raise';
+  if (Math.random() < P.farol * 0.5) return 'raise';
+  if (eq < odds + P.margen) return Math.random() < 0.12 ? 'call' : 'fold';
+  return 'call';
+}
+
+function cerrarCalle() {
+  S.pot += S.cont.yo + S.cont.app;
+  S.stack.yo -= S.cont.yo; S.stack.app -= S.cont.app;
+  S.cont = { yo: 0, app: 0 };
+  const allin = S.stack.yo === 0 || S.stack.app === 0;
+  if (S.street === 3) return muestra();
+  S.street++;
+  S.board.push(S.mazo.pop());
+  if (S.street === 1) { S.board.push(S.mazo.pop()); S.board.push(S.mazo.pop()); }
+  if (allin) {
+    S.muestraApp = true;
+    paint();
+    narra('Todo dentro: se reparte la mesa…');
+    return setTimeout(cerrarCalle, 1100);
+  }
+  S.acted = { yo: false, app: false };
+  S.raises = 0;
+  S.turno = otro(S.dealer);
+  narra('');
+  paint();
+  siguiente();
+}
+
+function finPorRetiro(ganador, retirado) {
+  S.enMano = false;
+  const bote = S.pot + S.cont.yo + S.cont.app;
+  S.stack.yo -= S.cont.yo; S.stack.app -= S.cont.app;
+  S.stack[ganador] += bote;
+  narra(retirado === 'yo' ? 'Te retiras' : 'La app se retira');
+  finMano(ganador === 'yo' ? `Te llevas $${bote}` : `La app se lleva $${bote}`,
+    retirado === 'yo' ? 'Te retiraste antes de ver más cartas.' : 'La app tiró sus cartas.', ganador);
+}
+
+function muestra() {
+  S.muestraApp = true;
+  const vy = eval7(S.hole.yo.concat(S.board)), va = eval7(S.hole.app.concat(S.board));
+  let ganador, titulo, porque;
+  if (vy > va) { ganador = 'yo'; S.stack.yo += S.pot; titulo = `Te llevas $${S.pot}`; }
+  else if (va > vy) { ganador = 'app'; S.stack.app += S.pot; titulo = `La app se lleva $${S.pot}`; }
+  else { ganador = null; S.stack.yo += S.pot / 2; S.stack.app += S.pot / 2; titulo = 'Bote repartido'; }
+  porque = `Tu ${NOMBRE[catDe(vy)].toLowerCase()} contra ${NOMBRE[catDe(va)].toLowerCase()} de la app.`;
+  S.enMano = false;
+  paint();
+  finMano(titulo, porque, ganador);
+}
+
+function finMano(titulo, porque, ganador) {
+  if (ganador === 'yo') { confetti(); vibrate([30, 60, 30]); }
+  setTimeout(() => {
+    if (S.stack.yo <= 0 || S.stack.app <= 0) return finDuelo();
+    openModal(`
+      <h3>${esc(titulo)}</h3>
+      <p style="text-align:center;">${esc(porque)}</p>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">$${S.stack.yo}</div><div class="l">tus fichas</div></div>
+        <div class="stat"><div class="n">$${S.stack.app}</div><div class="l">la app</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Siguiente mano</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); S.dealer = otro(S.dealer); nuevaMano(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 1300);
+}
+
+function finDuelo() {
+  const gane = S.stack.app <= 0;
+  if (gane) {
+    const wins = store.get('holdem.wins', 0) + 1;
+    store.set('holdem.wins', wins);
+    store.set('hold.hub', 'Duelos ganados: ' + wins);
+    confetti(); vibrate([30, 60, 30, 60, 30]);
+  }
+  openModal(`
+    <h3>${gane ? '¡Ganaste el duelo!' : 'La app te dejó sin fichas'}</h3>
+    <p style="text-align:center;">${gane ? 'Le sacaste todas las fichas a la app.' : 'A la próxima: obsérvale los faroles.'}</p>
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otro duelo</button>
+      <button class="btn btn-ghost" id="m-out">Salir</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); S.stack = { yo: STACK, app: STACK }; S.dealer = Math.random() < .5 ? 'yo' : 'app'; nuevaMano(); };
+  $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>

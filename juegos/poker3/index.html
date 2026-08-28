@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Póker de 3 cartas contra la casa, con apuesta Pareja Plus." />
+<title>Póker 3 cartas</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E♣%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .lado { padding: 12px 18px 0; }
+  .lado .quien { font-size: 12px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--bg-sub); display: flex; justify-content: space-between; }
+  .lado .quien b { color: var(--bg-ink); font-size: 13px; text-transform: none; letter-spacing: 0; }
+  .cartas { display: flex; gap: 8px; padding-top: 8px; min-height: 92px; justify-content: center; }
+  .carta {
+    width: 62px; height: 88px; border-radius: 9px; background: var(--tile-bg);
+    border: 1px solid var(--tile-border); box-shadow: 0 2px 0 var(--tile-border);
+    display: flex; flex-direction: column; justify-content: space-between; padding: 6px 7px;
+    font-weight: 800; color: var(--ink); animation: popIn .22s ease;
+  }
+  .carta .r { font-size: 21px; line-height: 1; }
+  .carta .s { font-size: 23px; line-height: 1; align-self: flex-end; }
+  .carta.roja { color: #C0392B; }
+  .carta.dorso { background: repeating-linear-gradient(45deg, var(--second), var(--second) 6px, color-mix(in srgb, var(--second) 80%, black) 6px, color-mix(in srgb, var(--second) 80%, black) 12px); border-color: transparent; }
+  .fichas { display: flex; justify-content: center; gap: 16px; padding: 14px 0 0; font-size: 13px; font-weight: 700; color: var(--bg-sub); flex-wrap: wrap; }
+  .fichas b { color: var(--bg-ink); font-size: 15px; }
+  .acciones { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; padding-top: 14px; }
+  .acciones .fila { display: flex; gap: 10px; }
+  .acciones .fila .btn { flex: 1; }
+  .msg-mesa { text-align: center; padding-top: 12px; font-size: 15px; font-weight: 700; color: var(--bg-ink); min-height: 22px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const PALOS = ['♠', '♥', '♦', '♣'];
+const BANCA_INICIAL = 200;
+const NOMBRE_MANO = ['Carta alta', 'Par', 'Color', 'Escalera', 'Trío', 'Escalera de color'];
+
+const S = {
+  banca: store.get('poker3.banca', BANCA_INICIAL),
+  ante: store.get('poker3.ante', 10),
+  pplus: store.get('poker3.pplus', 5),
+  tu: [], casa: [], oculta: true, fase: 'apuesta',
+};
+
+const REGLAS = `<p>Tres cartas para ti y tres para la casa. Tras ver las tuyas, decide: <b>Jugar</b> (pones otra apuesta igual al ante) o <b>Retirarte</b> (pierdes el ante).</p>
+<p>La casa solo «califica» con <b>reina o mejor</b>; si no califica, te paga el ante y la otra apuesta se devuelve. Manos, de menor a mayor: par, color, escalera, trío y escalera de color (¡aquí la escalera gana al color!).</p>
+<p>La apuesta <b>Pareja Plus</b> va aparte y paga según tu mano, juegue o no la casa: par 1:1, color 3:1, escalera 6:1, trío 30:1 y escalera de color 40:1. Tu marca es la banca máxima.</p>`;
+
+const cartaHTML = (c, oculta) => oculta
+  ? '<div class="carta dorso"></div>'
+  : `<div class="carta ${c.s === 1 || c.s === 2 ? 'roja' : ''}"><span class="r">${c.r === 14 ? 'A' : c.r === 13 ? 'K' : c.r === 12 ? 'Q' : c.r === 11 ? 'J' : c.r}</span><span class="s">${PALOS[c.s]}</span></div>`;
+
+function reparteMazo() {
+  const m = [];
+  for (let s = 0; s < 4; s++) for (let r = 2; r <= 14; r++) m.push({ r, s });
+  return shuffle(m);
+}
+
+function rank3(m) {
+  let rs = m.map((c) => c.r).sort((a, b) => b - a);
+  const color = m[0].s === m[1].s && m[1].s === m[2].s;
+  let esc = rs[0] - rs[1] === 1 && rs[1] - rs[2] === 1;
+  if (!esc && rs[0] === 14 && rs[1] === 3 && rs[2] === 2) { esc = true; rs = [3, 2, 1]; }
+  const trio = rs[0] === rs[2];
+  const par = !trio && (rs[0] === rs[1] || rs[1] === rs[2]);
+  let cat = 0;
+  if (esc && color) cat = 5;
+  else if (trio) cat = 4;
+  else if (esc) cat = 3;
+  else if (color) cat = 2;
+  else if (par) cat = 1;
+  if (par) {
+    const p = rs[0] === rs[1] ? rs[0] : rs[1];
+    const k = rs[0] === rs[1] ? rs[2] : rs[0];
+    return [cat, p, k, 0];
+  }
+  return [cat, ...rs];
+}
+const cmp = (a, b) => { for (let i = 0; i < a.length; i++) { if (a[i] !== b[i]) return a[i] - b[i]; } return 0; };
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  const max = store.get('poker3.max', 0);
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Póker 3 cartas', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 4px 18px;">
+        <div class="row">
+          <div><div class="row-title">Ante</div><div class="row-hint">Tu apuesta base</div></div>
+          <div class="stepper">
+            <button id="an-menos">−</button><div class="val" id="an-val">$${S.ante}</div><button id="an-mas">+</button>
+          </div>
+        </div>
+        <div class="row">
+          <div><div class="row-title">Pareja Plus</div><div class="row-hint">$0 para no jugarla</div></div>
+          <div class="stepper">
+            <button id="pp-menos">−</button><div class="val" id="pp-val">$${S.pplus}</div><button id="pp-mas">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="bests">
+        <div class="b"><div class="bn">$${S.banca}</div><div class="bl">Tu banca</div></div>
+        <div class="b"><div class="bn">${max ? '$' + max : '—'}</div><div class="bl">Banca máxima</div></div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Repartir</button>
+      ${S.banca < 10 ? '<button class="btn btn-ghost" id="repo">Reponer banca ($' + BANCA_INICIAL + ')</button>' : ''}
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  $('#an-menos').onclick = () => { S.ante = Math.max(5, S.ante - 5); store.set('poker3.ante', S.ante); $('#an-val').textContent = '$' + S.ante; };
+  $('#an-mas').onclick = () => { S.ante = Math.min(50, S.ante + 5); store.set('poker3.ante', S.ante); $('#an-val').textContent = '$' + S.ante; };
+  $('#pp-menos').onclick = () => { S.pplus = Math.max(0, S.pplus - 5); store.set('poker3.pplus', S.pplus); $('#pp-val').textContent = '$' + S.pplus; };
+  $('#pp-mas').onclick = () => { S.pplus = Math.min(50, S.pplus + 5); store.set('poker3.pplus', S.pplus); $('#pp-val').textContent = '$' + S.pplus; };
+  $('#new').onclick = repartir;
+  const repo = $('#repo');
+  if (repo) repo.onclick = () => { S.banca = BANCA_INICIAL; store.set('poker3.banca', S.banca); renderSetup(); };
+  bindHowto(REGLAS);
+}
+
+function repartir() {
+  const necesario = S.ante * 2 + S.pplus; // ante + posible jugar + pareja plus
+  if (S.banca < necesario) {
+    if (S.banca < 10) return;
+    S.pplus = 0;
+    if (S.banca < S.ante * 2) S.ante = Math.max(5, Math.floor(S.banca / 10) * 5);
+  }
+  const mazo = reparteMazo();
+  S.tu = mazo.slice(0, 3);
+  S.casa = mazo.slice(3, 6);
+  S.oculta = true; S.fase = 'decision';
+  renderMesa();
+}
+
+function renderMesa() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Póker 3 cartas', '')}
+    <div class="lado">
+      <div class="quien"><span>La casa</span><b id="n-casa"></b></div>
+      <div class="cartas" id="c-casa"></div>
+    </div>
+    <div class="msg-mesa" id="msg-mesa"></div>
+    <div class="lado">
+      <div class="quien"><span>Tú</span><b id="n-tu"></b></div>
+      <div class="cartas" id="c-tu"></div>
+    </div>
+    <div class="fichas">
+      <span>Banca <b id="f-banca"></b></span><span>Ante <b>$${S.ante}</b></span>
+      ${S.pplus ? `<span>Pareja+ <b>$${S.pplus}</b></span>` : ''}
+    </div>
+    <div class="acciones">
+      <div class="fila" id="botones">
+        <button class="btn btn-ghost" id="b-fuera">Retirarse</button>
+        <button class="btn btn-primary" id="b-jugar">Jugar ($${S.ante} más)</button>
+      </div>
+      <div class="fila"><button class="btn btn-ghost" id="b-salir">Salir</button></div>
+    </div>
+  </div>`;
+  $('#b-jugar').onclick = jugar;
+  $('#b-fuera').onclick = retirarse;
+  $('#b-salir').onclick = renderSetup;
+  paint();
+}
+
+function paint() {
+  $('#c-casa').innerHTML = S.casa.map((c) => cartaHTML(c, S.oculta)).join('');
+  $('#c-tu').innerHTML = S.tu.map((c) => cartaHTML(c)).join('');
+  $('#n-tu').textContent = NOMBRE_MANO[rank3(S.tu)[0]];
+  $('#n-casa').textContent = S.oculta ? '' : NOMBRE_MANO[rank3(S.casa)[0]];
+  $('#f-banca').textContent = '$' + S.banca;
+  const decidiendo = S.fase === 'decision';
+  $('#b-jugar').disabled = !decidiendo;
+  $('#b-fuera').disabled = !decidiendo;
+}
+
+function retirarse() {
+  if (S.fase !== 'decision') return;
+  S.fase = 'fin';
+  const perdida = S.ante + S.pplus;
+  cerrar(-perdida, 'Te retiraste', `Pierdes el ante${S.pplus ? ' y la Pareja Plus' : ''}.`, []);
+}
+
+function jugar() {
+  if (S.fase !== 'decision') return;
+  S.fase = 'muestra';
+  S.oculta = false;
+  paint();
+  vibrate(10);
+  setTimeout(() => {
+    const rt = rank3(S.tu), rc = rank3(S.casa);
+    const califica = rc[0] > 0 || rc[1] >= 12;
+    const lineas = [];
+    let delta = 0;
+    // Pareja Plus (va aparte)
+    if (S.pplus) {
+      const PAGA = { 1: 1, 2: 3, 3: 6, 4: 30, 5: 40 };
+      if (rt[0] > 0) { const g = S.pplus * PAGA[rt[0]]; delta += g; lineas.push(`Pareja Plus (${NOMBRE_MANO[rt[0]].toLowerCase()}): +$${g}`); }
+      else { delta -= S.pplus; lineas.push(`Pareja Plus: −$${S.pplus}`); }
+    }
+    // Bono del ante por mano grande (pase lo que pase)
+    const BONO = { 3: 1, 4: 4, 5: 5 };
+    if (BONO[rt[0]]) { const g = S.ante * BONO[rt[0]]; delta += g; lineas.push(`Bono del ante: +$${g}`); }
+    let titulo;
+    if (!califica) {
+      delta += S.ante;
+      titulo = 'La casa no califica';
+      lineas.push(`Ante pagado: +$${S.ante} · tu segunda apuesta se devuelve`);
+    } else {
+      const c = cmp(rt, rc);
+      if (c > 0) { delta += S.ante * 2; titulo = '¡Ganaste!'; lineas.push(`Ante y jugada pagados: +$${S.ante * 2}`); }
+      else if (c < 0) { delta -= S.ante * 2; titulo = 'Gana la casa'; lineas.push(`Pierdes ante y jugada: −$${S.ante * 2}`); }
+      else { titulo = 'Empate'; lineas.push('Apuestas devueltas'); }
+    }
+    cerrar(delta, titulo, `Tu ${NOMBRE_MANO[rank3(S.tu)[0]].toLowerCase()} contra ${NOMBRE_MANO[rank3(S.casa)[0]].toLowerCase()} de la casa.`, lineas);
+  }, 900);
+}
+
+function cerrar(delta, titulo, porque, lineas) {
+  S.fase = 'fin';
+  S.banca += delta;
+  store.set('poker3.banca', S.banca);
+  const max = store.get('poker3.max', 0);
+  const isRecord = S.banca > max;
+  if (isRecord) {
+    store.set('poker3.max', S.banca);
+    store.set('p3.hub', `Banca máxima: $${S.banca}`);
+  }
+  if (delta > 0) { confetti(); vibrate([30, 60, 30]); } else if (delta < 0) vibrate([70, 50, 70]);
+  $('#msg-mesa').textContent = titulo;
+  setTimeout(() => {
+    const quebrado = S.banca < 10;
+    openModal(`
+      <h3>${titulo}</h3>
+      <p style="text-align:center;">${esc(porque)}</p>
+      ${lineas.length ? `<p style="text-align:center;">${lineas.map(esc).join('<br>')}</p>` : ''}
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${delta > 0 ? '+$' + delta : delta < 0 ? '−$' + (-delta) : '$0'}</div><div class="l">esta mano</div></div>
+        <div class="stat"><div class="n">$${S.banca}</div><div class="l">banca${isRecord ? ' · récord' : ''}</div></div>
+      </div>
+      <div class="m-actions">
+        ${quebrado
+          ? '<button class="btn btn-primary" id="m-repo">Reponer banca ($' + BANCA_INICIAL + ')</button>'
+          : '<button class="btn btn-primary" id="m-again">Otra mano</button>'}
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    const again = $('#m-again');
+    if (again) again.onclick = () => { closeModal(); repartir(); };
+    const repo = $('#m-repo');
+    if (repo) repo.onclick = () => { S.banca = BANCA_INICIAL; store.set('poker3.banca', S.banca); closeModal(); repartir(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 1000);
+}
+
+renderSetup();
+</script>
+</body>
+</html>
