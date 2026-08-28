@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Apaga todas las luces: cada toque invierte la casilla y sus vecinas." />
+<title>Luces fuera</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E✸%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .lwrap { display: flex; justify-content: center; padding: 22px 16px 0; }
+  .lgrid { display: grid; gap: 8px; width: min(88vw, 360px); }
+  .lc {
+    aspect-ratio: 1; border: none; border-radius: 14px; cursor: pointer; padding: 0;
+    background: var(--soft); box-shadow: inset 0 2px 4px rgba(60,50,30,.12); transition: all .14s;
+  }
+  .lc.on {
+    background: var(--warn); box-shadow: 0 0 22px -2px var(--warn), var(--shadow);
+  }
+  .marcador { display: flex; justify-content: center; gap: 20px; padding-top: 18px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
+  .marcador b { color: var(--bg-ink); font-size: 15px; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const CFG = {
+  facil:   { n: 4, mezcla: 5 },
+  normal:  { n: 5, mezcla: 9 },
+  dificil: { n: 5, mezcla: 15 },
+  experto: { n: 6, mezcla: 22 },
+};
+
+const S = {
+  diff: store.get('luces.diff', 'normal'),
+  n: 0, luz: null, moves: 0, jugando: false,
+};
+
+const REGLAS = `<p>Apaga <b>todas las luces</b>. Cada toque invierte esa casilla <b>y sus cuatro vecinas</b> (la de arriba, abajo, izquierda y derecha).</p>
+<p>El tablero se revuelve con toques al azar, así que <b>siempre tiene solución</b>. Tu marca es apagarlo en la menor cantidad de movimientos.</p>
+<p>Pista clásica: fíjate en qué luces de la fila de arriba siguen prendidas y «persíguelas» tocando justo debajo.</p>`;
+
+function renderSetup() {
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('luces.best.' + d, 0);
+    return `<div class="b"><div class="bn">${b || '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Luces fuera', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div><div class="row-hint" id="d-hint"></div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Menos movimientos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => { $('#d-hint').textContent = `${CFG[S.diff].n}×${CFG[S.diff].n}`; };
+  hint();
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('luces.diff', v); hint(); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function toggle(luz, n, i) {
+  const r = Math.floor(i / n), c = i % n;
+  luz[i] = !luz[i];
+  if (r > 0) luz[i - n] = !luz[i - n];
+  if (r < n - 1) luz[i + n] = !luz[i + n];
+  if (c > 0) luz[i - 1] = !luz[i - 1];
+  if (c < n - 1) luz[i + 1] = !luz[i + 1];
+}
+
+function startGame() {
+  const { n, mezcla } = CFG[S.diff];
+  S.n = n;
+  do {
+    S.luz = new Array(n * n).fill(false);
+    for (let k = 0; k < mezcla; k++) toggle(S.luz, n, randInt(n * n));
+  } while (!S.luz.includes(true));
+  S.moves = 0; S.jugando = true;
+  renderPlay();
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Luces fuera', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
+    <div class="marcador"><span>Movimientos <b id="mv">0</b></span><span>Prendidas <b id="on">0</b></span></div>
+    <div class="lwrap">
+      <div class="lgrid" id="lgrid" style="grid-template-columns: repeat(${S.n}, 1fr);">
+        ${S.luz.map((_, i) => `<button class="lc" data-i="${i}"></button>`).join('')}
+      </div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-otra">Revolver otra vez</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#lgrid').onclick = (e) => {
+    const b = e.target.closest('.lc');
+    if (b) tap(Number(b.dataset.i));
+  };
+  $('#t-otra').onclick = startGame;
+  $('#t-salir').onclick = () => { S.jugando = false; renderSetup(); };
+  paint();
+}
+
+function paint() {
+  $$('.lc').forEach((el) => el.classList.toggle('on', S.luz[Number(el.dataset.i)]));
+  $('#mv').textContent = S.moves;
+  $('#on').textContent = S.luz.filter(Boolean).length;
+}
+
+function tap(i) {
+  if (!S.jugando) return;
+  toggle(S.luz, S.n, i);
+  S.moves++;
+  vibrate(8);
+  paint();
+  if (!S.luz.includes(true)) ganar();
+}
+
+function ganar() {
+  S.jugando = false;
+  const best = store.get('luces.best.' + S.diff, 0);
+  const isRecord = !best || S.moves < best;
+  if (isRecord) {
+    store.set('luces.best.' + S.diff, S.moves);
+    store.set('luz.hub', `Mejor: ${S.moves} mov.`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  setTimeout(() => {
+    openModal(`
+      <h3>${isRecord ? '¡Récord!' : '¡Todas apagadas!'}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${S.moves}</div><div class="l">movimientos</div></div>
+        <div class="stat"><div class="n">${isRecord ? S.moves : best}</div><div class="l">mejor</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otro tablero</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 600);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

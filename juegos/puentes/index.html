@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Puentes (Hashiwokakero): conecta todas las islas con la cantidad exacta de puentes." />
+<title>Puentes</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E⌒%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .pwrap { display: flex; justify-content: center; padding: 14px 12px 0; }
+  .pwrap svg { width: min(94vw, 420px); height: auto; touch-action: manipulation; }
+  .isla { fill: var(--card); stroke: var(--tile-border); stroke-width: 1.5; filter: drop-shadow(0 1px 2px rgba(60,50,30,.18)); }
+  .isla.lista { fill: var(--accent-soft); stroke: var(--accent); }
+  .isla.pasada { fill: var(--bad-soft); stroke: var(--bad); }
+  .num { font-family: var(--title-font); font-weight: 700; font-size: 15px; fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+  .puente { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
+  .strip { stroke: transparent; stroke-width: 20; cursor: pointer; }
+  .leyenda { text-align: center; padding-top: 12px; font-size: 12.5px; color: var(--bg-sub); font-weight: 600; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const CFG = {
+  facil:   { n: 7, islas: 6 },
+  normal:  { n: 7, islas: 9 },
+  dificil: { n: 9, islas: 13 },
+  experto: { n: 9, islas: 17 },
+};
+const U = 44;
+
+const S = {
+  diff: store.get('puentes.diff', 'normal'),
+  n: 0, islas: [], aristas: [], cruces: [], cuenta: [],
+  clock: makeClock(() => $('#clk')), jugando: false,
+};
+
+const REGLAS = `<p>Conecta las <b>islas</b> con puentes horizontales o verticales hasta que cada número tenga <b>exactamente esa cantidad</b> de puentes.</p>
+<p>Toca <b>entre dos islas</b> para poner un puente; otro toque lo hace doble y el tercero lo quita. Los puentes <b>no pueden cruzarse</b> y entre cada par cabe un máximo de dos.</p>
+<p>Para ganar, además, todas las islas deben quedar <b>conectadas entre sí</b> por los puentes. Verde: número completo · rojo: te pasaste.</p>`;
+
+/* ── Generador ───────────────────────────────────────────────────────── */
+function genPuzzle() {
+  const { n, islas: meta } = CFG[S.diff];
+  while (true) {
+    const isla = new Map();     // idx -> id
+    const lista = [];           // {r,c}
+    const ocupada = new Set();  // celdas con puente del generador
+    const grado = [];
+    const pares = new Map();    // "a-b" -> nº de puentes de la solución
+    const addPar = (a, b, cnt) => { const k = Math.min(a, b) + '-' + Math.max(a, b); pares.set(k, (pares.get(k) || 0) + cnt); };
+    const addIsla = (r, c) => { lista.push({ r, c }); grado.push(0); isla.set(r * n + c, lista.length - 1); return lista.length - 1; };
+    addIsla(randInt(n), randInt(n));
+    const DIRS = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+    let intentos = 0;
+    while (lista.length < meta && intentos++ < 600) {
+      const a = randInt(lista.length);
+      const [dr, dc] = DIRS[randInt(4)];
+      const dist = 2 + randInt(3);
+      const r2 = lista[a].r + dr * dist, c2 = lista[a].c + dc * dist;
+      if (r2 < 0 || r2 >= n || c2 < 0 || c2 >= n) continue;
+      if (isla.has(r2 * n + c2) || ocupada.has(r2 * n + c2)) continue;
+      let libre = true;
+      for (let k = 1; k < dist; k++) {
+        const idx = (lista[a].r + dr * k) * n + (lista[a].c + dc * k);
+        if (isla.has(idx) || ocupada.has(idx)) { libre = false; break; }
+      }
+      if (!libre) continue;
+      const b = addIsla(r2, c2);
+      const cnt = 1 + randInt(2);
+      grado[a] += cnt; grado[b] += cnt; addPar(a, b, cnt);
+      for (let k = 1; k < dist; k++) ocupada.add((lista[a].r + dr * k) * n + (lista[a].c + dc * k));
+    }
+    if (lista.length < Math.max(5, meta - 2)) continue;
+    // Puentes extra entre islas alineadas con camino libre (crean ciclos)
+    for (let a = 0; a < lista.length; a++) for (let b = a + 1; b < lista.length; b++) {
+      const A = lista[a], B = lista[b];
+      if (A.r !== B.r && A.c !== B.c) continue;
+      if (Math.random() > 0.25) continue;
+      const dr = Math.sign(B.r - A.r), dc = Math.sign(B.c - A.c);
+      const dist = Math.abs(B.r - A.r) + Math.abs(B.c - A.c);
+      if (dist < 2) continue;
+      let libre = true;
+      for (let k = 1; k < dist; k++) {
+        const idx = (A.r + dr * k) * n + (A.c + dc * k);
+        if (isla.has(idx) || ocupada.has(idx)) { libre = false; break; }
+      }
+      if (!libre) continue;
+      const cnt = 1 + randInt(2);
+      grado[a] += cnt; grado[b] += cnt; addPar(a, b, cnt);
+      for (let k = 1; k < dist; k++) ocupada.add((A.r + dr * k) * n + (A.c + dc * k));
+    }
+    // Aristas candidatas para el jugador: vecino más cercano en cada dirección
+    const aristas = [];
+    const vista = new Set();
+    for (let a = 0; a < lista.length; a++) {
+      for (const [dr, dc] of DIRS) {
+        let r = lista[a].r + dr, c = lista[a].c + dc;
+        while (r >= 0 && r < n && c >= 0 && c < n && !isla.has(r * n + c)) { r += dr; c += dc; }
+        if (r < 0 || r >= n || c < 0 || c >= n) continue;
+        const b = isla.get(r * n + c);
+        if (Math.abs(lista[a].r - r) + Math.abs(lista[a].c - c) < 2) continue;
+        const key = Math.min(a, b) + '-' + Math.max(a, b);
+        if (vista.has(key)) continue;
+        vista.add(key);
+        aristas.push({ a: Math.min(a, b), b: Math.max(a, b) });
+      }
+    }
+    // Cruces entre aristas (horizontal × vertical)
+    const cruces = aristas.map(() => []);
+    for (let i = 0; i < aristas.length; i++) for (let j = i + 1; j < aristas.length; j++) {
+      const E = aristas[i], F = aristas[j];
+      const eH = lista[E.a].r === lista[E.b].r, fH = lista[F.a].r === lista[F.b].r;
+      if (eH === fH) continue;
+      const [h, v, hi, vi] = eH ? [E, F, i, j] : [F, E, j, i];
+      const hr = lista[h.a].r, hc1 = Math.min(lista[h.a].c, lista[h.b].c), hc2 = Math.max(lista[h.a].c, lista[h.b].c);
+      const vc = lista[v.a].c, vr1 = Math.min(lista[v.a].r, lista[v.b].r), vr2 = Math.max(lista[v.a].r, lista[v.b].r);
+      if (vc > hc1 && vc < hc2 && hr > vr1 && hr < vr2) { cruces[hi].push(vi); cruces[vi].push(hi); }
+    }
+    S.n = n;
+    S.islas = lista.map((p, i) => ({ ...p, clue: grado[i] }));
+    S.aristas = aristas; S.cruces = cruces;
+    S.cuenta = aristas.map(() => 0);
+    S.solCuenta = aristas.map((e) => pares.get(e.a + '-' + e.b) || 0); // solución conocida
+    return;
+  }
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  S.clock.stop();
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('puentes.best.' + d, 0);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Puentes', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div><div class="row-hint" id="d-hint"></div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => { $('#d-hint').textContent = `${CFG[S.diff].islas} islas aprox.`; };
+  hint();
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('puentes.diff', v); hint(); });
+  $('#new').onclick = () => { genPuzzle(); S.jugando = true; renderPlay(); S.clock.start(); };
+  bindHowto(REGLAS);
+}
+
+function centro(i) { return [S.islas[i].c * U + U / 2, S.islas[i].r * U + U / 2]; }
+
+function renderPlay() {
+  const size = S.n * U;
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Puentes', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clk">0:00</span>`)}
+    <div class="pwrap">
+      <svg id="tablero" viewBox="0 0 ${size} ${size}">
+        <g id="g-puentes"></g>
+        <g id="g-strips">
+          ${S.aristas.map((e, i) => {
+            const [x1, y1] = centro(e.a), [x2, y2] = centro(e.b);
+            return `<line class="strip" data-e="${i}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"></line>`;
+          }).join('')}
+        </g>
+        <g id="g-islas">
+          ${S.islas.map((p, i) => {
+            const [x, y] = centro(i);
+            return `<circle class="isla" data-i="${i}" cx="${x}" cy="${y}" r="15"></circle><text class="num" x="${x}" y="${y}">${p.clue}</text>`;
+          }).join('')}
+        </g>
+      </svg>
+    </div>
+    <div class="leyenda">Toca entre dos islas para tender un puente</div>
+    <div class="tools">
+      <button class="tool" id="t-limpiar">Limpiar</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#g-strips').onclick = (e) => {
+    const s = e.target.closest('.strip');
+    if (s) tap(Number(s.dataset.e));
+  };
+  $('#t-limpiar').onclick = () => { S.cuenta.fill(0); paint(); };
+  $('#t-salir').onclick = () => { S.jugando = false; renderSetup(); };
+  paint();
+}
+
+function paint() {
+  const g = $('#g-puentes');
+  g.innerHTML = S.aristas.map((e, i) => {
+    const c = S.cuenta[i];
+    if (!c) return '';
+    const [x1, y1] = centro(e.a), [x2, y2] = centro(e.b);
+    const H = y1 === y2;
+    const off = c === 2 ? 3.5 : 0;
+    let out = '';
+    for (let k = 0; k < c; k++) {
+      const d = c === 2 ? (k === 0 ? -off : off) : 0;
+      out += H
+        ? `<line class="puente" x1="${x1}" y1="${y1 + d}" x2="${x2}" y2="${y2 + d}"></line>`
+        : `<line class="puente" x1="${x1 + d}" y1="${y1}" x2="${x2 + d}" y2="${y2}"></line>`;
+    }
+    return out;
+  }).join('');
+  const grados = S.islas.map(() => 0);
+  S.aristas.forEach((e, i) => { grados[e.a] += S.cuenta[i]; grados[e.b] += S.cuenta[i]; });
+  $$('.isla').forEach((el) => {
+    const i = Number(el.dataset.i);
+    el.classList.toggle('lista', grados[i] === S.islas[i].clue);
+    el.classList.toggle('pasada', grados[i] > S.islas[i].clue);
+  });
+}
+
+function tap(i) {
+  if (!S.jugando) return;
+  if (S.cuenta[i] === 0 && S.cruces[i].some((j) => S.cuenta[j] > 0)) {
+    vibrate([50, 40, 50]);
+    return;
+  }
+  S.cuenta[i] = (S.cuenta[i] + 1) % 3;
+  vibrate(8);
+  paint();
+  if (resuelto()) ganar();
+}
+
+function resuelto() {
+  const grados = S.islas.map(() => 0);
+  S.aristas.forEach((e, i) => { grados[e.a] += S.cuenta[i]; grados[e.b] += S.cuenta[i]; });
+  if (grados.some((g, i) => g !== S.islas[i].clue)) return false;
+  // Conectividad
+  const ady = S.islas.map(() => []);
+  S.aristas.forEach((e, i) => { if (S.cuenta[i] > 0) { ady[e.a].push(e.b); ady[e.b].push(e.a); } });
+  const vista = new Set([0]);
+  const cola = [0];
+  while (cola.length) {
+    const a = cola.pop();
+    for (const b of ady[a]) if (!vista.has(b)) { vista.add(b); cola.push(b); }
+  }
+  return vista.size === S.islas.length;
+}
+
+function ganar() {
+  S.jugando = false;
+  S.clock.stop();
+  const t = S.clock.seconds;
+  const best = store.get('puentes.best.' + S.diff, 0);
+  const isRecord = !best || t < best;
+  if (isRecord) {
+    store.set('puentes.best.' + S.diff, t);
+    store.set('pue.hub', `Mejor: ${fmtTime(t)}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  setTimeout(() => {
+    openModal(`
+      <h3>${isRecord ? '¡Récord!' : '¡Todas conectadas!'}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${fmtTime(t)}</div><div class="l">tiempo</div></div>
+        <div class="stat"><div class="n">${fmtTime(isRecord ? t : best)}</div><div class="l">mejor</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otro tablero</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); genPuzzle(); S.jugando = true; renderPlay(); S.clock.start(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 600);
+}
+
+renderSetup();
+</script>
+</body>
+</html>
