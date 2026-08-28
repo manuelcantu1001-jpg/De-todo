@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="description" content="Encadena — el juego de las terminaciones. Palabras encadenadas por su final (o su inicio), para dos, contra la app o en solitario." />
+<title>Encadena · El juego de las terminaciones</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3EE%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Estilos propios de Encadena (lo compartido vive en comun/estilo.css) */
+  .setup { padding: max(28px, env(safe-area-inset-top)) 22px 28px; position: relative; }
+  .setup-home { position: absolute; left: 14px; top: max(14px, env(safe-area-inset-top)); }
+  .brand .howto {
+    background: none; border: none; color: var(--accent); font-weight: 600; font-size: 13.5px;
+    cursor: pointer; margin-top: 8px; padding: 4px 8px;
+  }
+  .start-hint { font-size: 13px; color: var(--bg-sub); margin-top: 8px; padding-left: 4px; min-height: 18px; }
+  .start-hint b { color: var(--accent); }
+  .start-hint .few { color: var(--bad); font-weight: 600; }
+
+  .play-head { padding: max(18px, env(safe-area-inset-top)) 20px 14px; text-align: center; position: relative; }
+  .play-head .quit {
+    position: absolute; left: 14px; top: max(18px, env(safe-area-inset-top)); width: 36px; height: 36px;
+    border-radius: 999px; border: none; cursor: pointer; font-size: 16px; font-weight: 600;
+    background: color-mix(in srgb, var(--bg-ink) 8%, transparent); color: var(--bg-ink);
+  }
+  .play-head .kicker {
+    font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--bg-sub); margin-bottom: 10px;
+  }
+  .ending-tiles { display: flex; gap: 7px; justify-content: center; align-items: center; }
+  .ending-tiles .tile {
+    min-width: 48px; height: 56px; padding: 0 6px; border-radius: 9px;
+    background: var(--tile-bg); color: var(--tile-ink);
+    border: 1px solid var(--tile-border);
+    box-shadow: 0 3px 0 var(--tile-border), inset 0 1px 0 rgba(255,255,255,.65);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--title-font); font-size: 32px; font-weight: 600;
+  }
+  .ending-tiles .dash { font-family: var(--title-font); font-size: 30px; color: var(--faint); padding: 0 2px; }
+
+  .turnbar {
+    display: flex; align-items: center; justify-content: space-between; margin: 0 16px 10px;
+    padding: 10px 16px; border-radius: 999px; background: color-mix(in srgb, var(--bg-ink) 7%, transparent);
+  }
+  .turnbar .who { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--bg-ink); }
+  .turnbar .dot { width: 9px; height: 9px; border-radius: 999px; background: var(--accent); }
+  .turnbar .right { display: flex; align-items: center; gap: 12px; }
+  .turnbar .clock { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 16px; color: var(--bg-ink); }
+  .turnbar .clock.low { color: var(--bad); animation: pulse 1s infinite; }
+  .hearts { display: flex; gap: 4px; }
+  .hearts svg { display: block; }
+  .hearts .lost { opacity: .25; }
+  .hearts .just-lost { animation: heartPop .5s ease; }
+  @keyframes heartPop { 0% { transform: scale(1.4); } 100% { transform: scale(1); } }
+
+  .chain { padding: 4px 16px 8px; display: flex; flex-direction: column; gap: 8px; }
+  .bubble-row { display: flex; }
+  .bubble-row.left { justify-content: flex-start; }
+  .bubble-row.right { justify-content: flex-end; }
+  .bubble {
+    max-width: 80%; background: var(--card); border-radius: var(--radius); padding: 11px 16px;
+    box-shadow: var(--shadow); animation: popIn .25s ease;
+  }
+  .bubble .by { font-size: 10.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 1px; }
+  .bubble .word { font-size: 19px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+  .bubble .note { font-size: 11px; color: var(--sub); margin-top: 2px; }
+  .bubble.think { color: var(--sub); font-style: italic; font-size: 15px; }
+
+  .dock { padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--border); }
+  .dock .msg { margin-bottom: 8px; }
+  .dock .line { display: flex; gap: 8px; }
+  .dock input { flex: 1; min-width: 0; padding: 14px 16px; font-size: 17px; }
+  .dock .send {
+    width: 52px; flex-shrink: 0; border-radius: var(--radius); border: none;
+    background: var(--accent); color: var(--accent-ink); font-size: 22px; cursor: pointer;
+  }
+  .dock .send:disabled { opacity: .45; cursor: default; }
+  .dock .giveup {
+    width: 100%; margin-top: 8px; background: none; border: none; color: var(--bad);
+    font-weight: 600; font-size: 14.5px; cursor: pointer; padding: 6px;
+  }
+  .dock .waiting { text-align: center; color: var(--bg-sub); font-size: 15px; padding: 14px 0; }
+
+  .scoreboard {
+    display: inline-flex; align-items: center; gap: 16px; margin-top: 20px;
+    background: var(--card); border-radius: 999px; padding: 12px 24px; box-shadow: var(--shadow);
+  }
+  .scoreboard .num { font-family: var(--title-font); font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1; }
+  .scoreboard .num.win { color: var(--accent); }
+  .scoreboard .lbl { font-size: 11px; font-weight: 600; color: var(--sub); margin-top: 2px; }
+  .scoreboard .sep { color: var(--faint); font-weight: 700; }
+  .recap {
+    background: var(--card); border-radius: calc(var(--radius) + 2px); padding: 6px 18px;
+    box-shadow: var(--shadow); text-align: left; max-height: 200px; overflow-y: auto;
+  }
+  .recap .r { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .recap .r:last-child { border-bottom: none; }
+  .recap .w { font-size: 15.5px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+  .recap .b { font-size: 12.5px; color: var(--sub); align-self: center; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script src="../../dicc-es.js"></script>
+<script>
+'use strict';
+
+/* Adaptadores sobre el diccionario compartido */
+const candidates = (affix, match, used, maxRank) => Dicc.where((e) =>
+  e.n.length > affix.length &&
+  (match === 'inicio' ? e.n.startsWith(affix) : e.n.endsWith(affix)) &&
+  !used.has(e.n), maxRank);
+const countFor = (affix, match) => candidates(affix, match, new Set(), Infinity).length;
+const randomCommon = (minLen) => { const e = Dicc.random({ minLen, maxRank: 9000 }); return e ? e.w : null; };
+
+/* ── Léxico completo (~635.000 formas ya normalizadas, comprimido) ───── */
+const Lex = (() => {
+  let txt = null, done = false, promise = null;
+  async function fetchBuf() {
+    if (window.LEXICO_ES_B64) return (await fetch('data:application/gzip;base64,' + window.LEXICO_ES_B64)).arrayBuffer();
+    const r = await fetch('../../lexico-es.txt.gz');
+    if (!r.ok) throw new Error('http ' + r.status);
+    return r.arrayBuffer();
+  }
+  function load() {
+    if (promise) return promise;
+    promise = (async () => {
+      try {
+        const buf = await fetchBuf();
+        const u8 = new Uint8Array(buf);
+        let out;
+        if (u8[0] === 0x1f && u8[1] === 0x8b) {
+          if (typeof DecompressionStream === 'undefined') throw new Error('sin DecompressionStream');
+          out = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+        } else {
+          out = new TextDecoder().decode(buf);
+        }
+        txt = '\n' + out + '\n';
+      } catch (e) { /* sin léxico seguimos con frecuentes + juez/IA */ }
+      done = true;
+    })();
+    return promise;
+  }
+  return {
+    ready: load,
+    settled: () => done,
+    loaded: () => !!txt,
+    has: (n) => !!txt && txt.includes('\n' + n + '\n'),
+  };
+})();
+
+/* Palabras de arranque con encanto, por si el diccionario no carga. */
+const SEED = ['faustino', 'corazón', 'mariposa', 'tornillo', 'escarabajo', 'melodía', 'naranja', 'relámpago',
+  'bicicleta', 'ventanal', 'sombrero', 'aguacate', 'pingüino', 'calendario', 'caracol', 'castillo',
+  'montaña', 'farola', 'pelota', 'camino', 'botella', 'canela', 'molino', 'laguna'];
+
+/* ── Árbitro IA opcional (si el entorno ofrece window.claude) ────────── */
+const AI = {
+  available: () => !!(window.claude && window.claude.complete),
+  async exists(word) {
+    try {
+      const out = await window.claude.complete(
+        `Eres árbitro de un juego de palabras en español. ¿«${word}» es válida? ` +
+        `Cuenta como válida: cualquier palabra del español (incluye conjugaciones, plurales, diminutivos) ` +
+        `y nombres propios reales (apellidos, ciudades, países, nombres de personas conocidas). ` +
+        `Responde SOLO JSON: {"valida": true|false, "nota": "máx 4 palabras"}.`
+      );
+      const m = String(out).match(/\{[\s\S]*\}/);
+      if (!m) return null;
+      const j = JSON.parse(m[0]);
+      return { valid: !!j.valida, nota: j.nota || '' };
+    } catch (e) { return null; }
+  },
+};
+
+/* ── Estado ──────────────────────────────────────────────────────────── */
+const DIFF_RANK = { facil: 6000, normal: 16000, experta: Infinity };
+const PLAYER_LABEL = { A: 'Jugador 1', B: 'Jugador 2', tu: 'Tú', app: 'App' };
+
+const S = {
+  phase: 'setup',
+  cfg: null,
+  suffix: '',
+  chain: [],       // [{word, by, note}]
+  turn: 'A',
+  lives: {},
+  scores: {},
+  round: 1,
+  result: null,    // {loser, reason}
+};
+const P = { time: 0, tick: null, busy: false, thinking: false };
+
+const defCfg = {
+  mode: '2p', match: 'fin', suffixLen: 3,
+  livesOn: true, lives: 3, timerOn: false, timerSec: 15,
+  difficulty: 'normal', start: '',
+};
+let setupCfg = Object.assign({}, defCfg, store.get('enc.cfg', {}));
+setupCfg.start = '';
+
+/* ── Reglas ──────────────────────────────────────────────────────────── */
+const isPre = () => S.cfg.match === 'inicio';
+const reasonFor = (p, kind) => p === 'tu'
+  ? { tiempo: 'se te acabó el tiempo', vidas: 'te quedaste sin vidas', rindio: 'te rendiste' }[kind]
+  : { tiempo: 'agotó su tiempo', vidas: 'se quedó sin vidas', rindio: 'se rindió' }[kind];
+const affixOf = (word, cfg) => {
+  const n = norm(word);
+  return cfg.match === 'inicio' ? n.slice(0, cfg.suffixLen) : n.slice(-cfg.suffixLen);
+};
+const matchesAffix = (n) => isPre() ? n.startsWith(S.suffix) : n.endsWith(S.suffix);
+const usedSet = () => new Set(S.chain.map((c) => norm(c.word)));
+const playerOrder = () => S.cfg.mode === '2p' ? ['A', 'B'] : S.cfg.mode === 'app' ? ['tu', 'app'] : ['tu'];
+const nextPlayer = (p) => { const o = playerOrder(); return o[(o.indexOf(p) + 1) % o.length]; };
+const playerColor = (p) => (p === 'A' || p === 'tu') ? 'var(--accent)' : 'var(--second)';
+
+function randomStart(cfg) {
+  if (Dicc.ready()) {
+    for (let i = 0; i < 80; i++) {
+      const w = randomCommon(cfg.suffixLen + 2);
+      if (!w) break;
+      const a = affixOf(w, cfg);
+      if (candidates(a, cfg.match, new Set([norm(w)]), 16000).length >= 8) return w;
+    }
+  }
+  return SEED[Math.floor(Math.random() * SEED.length)];
+}
+
+function begin(cfg, opts = {}) {
+  S.cfg = cfg;
+  S.suffix = affixOf(cfg.start, cfg);
+  const seedBy = opts.seedBy || (cfg.mode === '2p' ? 'A' : 'tu');
+  S.chain = [{ word: cap(cfg.start.trim()), by: seedBy, seed: true }];
+  S.turn = opts.firstTurn || (cfg.mode === '2p' ? 'B' : cfg.mode === 'app' ? 'app' : 'tu');
+  S.lives = {};
+  for (const p of playerOrder()) S.lives[p] = cfg.lives;
+  if (!opts.keepScore) { S.scores = {}; for (const p of playerOrder()) S.scores[p] = 0; S.round = 1; }
+  S.result = null;
+  P.busy = false; P.thinking = false;
+  S.phase = 'play';
+  render();
+  if (S.turn === 'app') appTurn();
+  else startTimer();
+}
+
+function endRound(loser, reason) {
+  stopTimer();
+  P.thinking = false;
+  S.result = { loser, reason };
+  if (S.cfg.mode !== 'solo') {
+    const winner = playerOrder().find((p) => p !== loser);
+    if (winner) S.scores[winner] = (S.scores[winner] || 0) + 1;
+  }
+  let newRecord = false;
+  if (S.cfg.mode === 'solo') {
+    const streak = S.chain.length - 1;
+    const best = store.get('enc.best', 0);
+    if (streak > best) { store.set('enc.best', streak); store.set('enc.hub', 'Mejor racha: ' + streak); newRecord = streak > 0; }
+    S.result.newRecord = newRecord;
+  }
+  S.phase = 'end';
+  render();
+  const humanWon = S.cfg.mode === '2p' ? true : S.cfg.mode === 'app' ? loser === 'app' : newRecord;
+  if (humanWon) { confetti(); vibrate([30, 60, 30]); }
+}
+
+function anotherRound() {
+  const cfg = Object.assign({}, S.cfg, { start: randomStart(S.cfg) });
+  const loser = S.result ? S.result.loser : playerOrder()[0];
+  const winner = playerOrder().find((p) => p !== loser) || loser;
+  S.round += 1;
+  begin(cfg, { keepScore: true, seedBy: winner, firstTurn: S.cfg.mode === 'solo' ? 'tu' : loser });
+}
+
+/* ── Timer ───────────────────────────────────────────────────────────── */
+function startTimer() {
+  stopTimer();
+  if (!S.cfg || !S.cfg.timerOn || S.phase !== 'play' || S.turn === 'app') return;
+  P.time = S.cfg.timerSec;
+  updateTimerUI();
+  P.tick = setInterval(() => {
+    if (P.busy || P.thinking) return;
+    P.time -= 1;
+    updateTimerUI();
+    if (P.time <= 0) { stopTimer(); onTimeout(); }
+  }, 1000);
+}
+function stopTimer() { if (P.tick) { clearInterval(P.tick); P.tick = null; } }
+function updateTimerUI() {
+  const el = $('#clock');
+  if (!el) return;
+  el.textContent = P.time + 's';
+  el.classList.toggle('low', P.time <= 5);
+}
+function onTimeout() {
+  vibrate(80);
+  if (S.cfg.livesOn) {
+    const dead = loseLife(S.turn);
+    if (!dead) { setMsg('err', '¡Se acabó el tiempo! Pierdes una vida'); startTimer(); }
+    else endRound(S.turn, reasonFor(S.turn, 'tiempo'));
+  } else {
+    endRound(S.turn, reasonFor(S.turn, 'tiempo'));
+  }
+}
+
+/* ── Vidas ───────────────────────────────────────────────────────────── */
+function loseLife(p) {
+  S.lives[p] = (S.lives[p] ?? 0) - 1;
+  updateHearts(true);
+  return S.lives[p] <= 0;
+}
+
+/* ── Turno de la app ─────────────────────────────────────────────────── */
+async function appTurn() {
+  P.thinking = true;
+  showThinking(true);
+  const used = usedSet();
+  const maxRank = DIFF_RANK[S.cfg.difficulty] || DIFF_RANK.normal;
+  let word = null;
+  if (Dicc.ready()) {
+    const cands = candidates(S.suffix, S.cfg.match, used, maxRank);
+    if (cands.length) {
+      // sesgo hacia palabras comunes, sin ser predecible
+      const idx = Math.floor(Math.pow(Math.random(), 1.6) * cands.length);
+      word = cands[idx].w;
+    }
+  }
+  if (!word && AI.available()) {
+    try {
+      const where = isPre() ? `que empiece exactamente con «${S.suffix}»` : `que termine exactamente en «${S.suffix}»`;
+      const out = await window.claude.complete(
+        `Dame UNA sola palabra en español ${where}. No uses ninguna de estas: ${[...used].join(', ')}. ` +
+        `Responde SOLO la palabra en minúsculas, sin puntuación.`
+      );
+      const w = String(out || '').trim().split(/\s+/)[0].replace(/[^A-Za-zÁÉÍÓÚÜáéíóúüñÑ]/g, '');
+      if (w && matchesAffix(norm(w)) && !used.has(norm(w))) word = w;
+    } catch (e) {}
+  }
+  await delay(650 + Math.random() * 900);
+  P.thinking = false;
+  if (S.phase !== 'play') return;
+  showThinking(false);
+  if (!word) { endRound('app', 'no encontró más palabras'); return; }
+  pushWord(word, 'app', null);
+  S.turn = 'tu';
+  updateTurnBar();
+  renderDock();
+  startTimer();
+}
+
+/* ── Jugada humana ───────────────────────────────────────────────────── */
+function pushWord(word, by, note) {
+  S.chain.push({ word: cap(String(word).trim()), by, note });
+  appendChainItem(S.chain.length - 1);
+}
+
+async function submitWord() {
+  const input = $('#draft');
+  if (!input || P.busy) return;
+  const raw = input.value.trim();
+  if (!raw) return;
+  const n = norm(raw);
+  if (!n) return;
+  if (!matchesAffix(n)) {
+    rejectWord(isPre() ? `No empieza con ${S.suffix}‑` : `No termina en ‑${S.suffix}`);
+    return;
+  }
+  if (usedSet().has(n)) { rejectWord('Esa palabra ya se dijo'); return; }
+
+  if (Dicc.has(n)) { acceptWord(raw, null); return; }
+
+  // No es de las frecuentes: consultar el léxico completo
+  if (!Lex.settled()) {
+    P.busy = true;
+    setMsg('check', 'Comprobando…');
+    await Lex.ready();
+    P.busy = false;
+    if (S.phase !== 'play') return;
+  }
+  if (Lex.has(n)) { acceptWord(raw, null); return; }
+
+  if (S.cfg.mode === '2p') { openJudge(raw); return; }
+
+  if (AI.available()) {
+    P.busy = true;
+    setMsg('check', 'Comprobando…');
+    const res = await AI.exists(raw);
+    P.busy = false;
+    if (S.phase !== 'play') return;
+    if (res && res.valid) { acceptWord(raw, res.nota || 'Válida según la IA'); return; }
+    if (res && !res.valid) { rejectWord(res.nota ? `No válida · ${res.nota}` : 'Esa palabra no parece existir'); return; }
+  }
+  if (!Lex.loaded()) { acceptWord(raw, 'Aceptada sin comprobar'); return; }
+  rejectWord('No la encuentro en el diccionario');
+}
+
+function acceptWord(raw, note) {
+  const by = S.turn;
+  pushWord(raw, by, note);
+  const input = $('#draft');
+  if (input) input.value = '';
+  const send = $('#send');
+  if (send) send.disabled = true;
+  if (S.cfg.mode === 'solo') { updateTurnBar(); startTimer(); }
+  else {
+    S.turn = nextPlayer(by);
+    updateTurnBar();
+    renderDock();
+    if (S.turn === 'app') { stopTimer(); appTurn(); }
+    else startTimer();
+  }
+  setMsg('ok', note ? `¡Válida! · ${note}` : '¡Válida!');
+  setTimeout(() => { if (S.phase === 'play') setMsg(null); }, 1600);
+}
+
+function rejectWord(text) {
+  vibrate(60);
+  const input = $('#draft');
+  if (input) { input.classList.remove('shake'); void input.offsetWidth; input.classList.add('shake'); }
+  if (S.cfg.livesOn) {
+    const dead = loseLife(S.turn);
+    setMsg('err', text + ' · −1 vida');
+    if (dead) { setTimeout(() => endRound(S.turn, reasonFor(S.turn, 'vidas')), 650); return; }
+  } else {
+    setMsg('err', text);
+  }
+}
+
+/* ── Juez rival (2 jugadores, palabra fuera del diccionario) ─────────── */
+function openJudge(raw) {
+  P.busy = true;
+  const rival = PLAYER_LABEL[nextPlayer(S.turn)];
+  const k = S.suffix.length;
+  const d = cap(raw.trim());
+  const hi = isPre()
+    ? `<span class="hi">${esc(d.slice(0, k))}</span>${esc(d.slice(k))}`
+    : `${esc(d.slice(0, -k))}<span class="hi">${esc(d.slice(-k))}</span>`;
+  openModal(`
+    <h3>¿Se acepta?</h3>
+    <div class="m-word">${hi}</div>
+    <p>No está en el diccionario del juego. <b>${esc(rival)}</b> decide: los nombres propios reales
+    (personas, apellidos, lugares) también valen.</p>
+    <div class="m-actions">
+      <button class="btn btn-primary" id="j-yes">Sí, vale</button>
+      <button class="btn btn-danger-ghost" id="j-no">No existe</button>
+    </div>
+  `);
+  $('#j-yes').onclick = () => { closeModal(); P.busy = false; acceptWord(raw, 'Aceptada por ' + rival); };
+  $('#j-no').onclick = () => { closeModal(); P.busy = false; rejectWord('Rechazada por ' + rival); };
+}
+
+/* ── Reglas y abandono ─────────────────────────────────────────────── */
+function openRules() {
+  openModal(`
+    <h3>Cómo se juega</h3>
+    <p>La primera palabra fija la <b>terminación</b> (o el <b>inicio</b>): con «Faustino» y 3 letras,
+    todas las palabras deben acabar en <b>‑ino</b>.</p>
+    <p>Por turnos, cada quien dice una palabra nueva que encaje. Valen conjugaciones, plurales y
+    <b>nombres propios reales</b>. No se puede repetir palabra.</p>
+    <p>El juego conoce unas 635.000 formas del español. En <b>1 vs 1</b>, si una palabra no aparece,
+    el rival decide (ahí entran los nombres propios); en Solo y Vs. app decide el diccionario.</p>
+    <p>Una palabra inválida (o quedarte sin tiempo) te cuesta una <b>vida</b>. Si te rindes o te quedas
+    sin vidas, pierdes la ronda. En modo <b>Solo</b>, encadena tantas como puedas.</p>
+    <div class="m-actions"><button class="btn btn-primary" id="m-ok">Entendido</button></div>
+  `, closeModal);
+  $('#m-ok').onclick = closeModal;
+}
+
+function confirmQuit() {
+  P.busy = true;
+  openModal(`
+    <h3>¿Abandonar la partida?</h3>
+    <p>Se perderá la ronda en curso.</p>
+    <div class="m-actions">
+      <button class="btn btn-danger-ghost" id="q-yes">Sí, salir</button>
+      <button class="btn btn-soft" id="q-no">Seguir jugando</button>
+    </div>
+  `, () => { closeModal(); P.busy = false; });
+  $('#q-yes').onclick = () => { closeModal(); stopTimer(); S.phase = 'setup'; S.cfg = null; render(); };
+  $('#q-no').onclick = () => { closeModal(); P.busy = false; };
+}
+
+/* ── UI: pantalla de ajustes ─────────────────────────────────────────── */
+function segHTML(id, options, value) {
+  return `<div class="seg" id="${id}">` + options.map((o) =>
+    `<button data-v="${o.v}" class="${o.v === value ? 'sel' : ''}" ${o.off ? 'disabled' : ''}>` +
+    `${o.label}${o.off ? `<span class="pronto">${typeof o.off === 'string' ? o.off : 'pronto'}</span>` : ''}</button>`).join('') + `</div>`;
+}
+function stepperHTML(id, value, fmt) {
+  return `<div class="stepper" id="${id}">
+    <button data-d="-1" aria-label="menos">−</button>
+    <div class="val">${fmt ? fmt(value) : value}</div>
+    <button data-d="1" aria-label="más">+</button>
+  </div>`;
+}
+function toggleHTML(id, on) {
+  return `<button class="toggle ${on ? 'on' : ''}" id="${id}" role="switch" aria-checked="${on}"><span class="knob"></span></button>`;
+}
+
+function renderSetup() {
+  const c = setupCfg;
+  const soloOk = Dicc.ready() || AI.available();
+  if (!soloOk && (c.mode === 'app' || c.mode === 'solo')) c.mode = '2p';
+  const app = $('#app');
+  app.innerHTML = `
+  <div class="screen setup scroll">
+    <a class="backbtn setup-home" href="../../" aria-label="Volver al inicio">${SVGI.back}</a>
+    <div class="brand">
+      <h1>Encadena</h1>
+      <div class="tag">El juego de las terminaciones</div>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+
+    <div class="card" style="padding: 4px 18px; margin-bottom: 16px;">
+      <div class="row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+        <div class="row-title">Modo de juego</div>
+        ${segHTML('seg-mode', [
+          { v: '2p', label: '1 vs 1' },
+          { v: 'app', label: 'Vs. app', off: soloOk ? false : 'sin datos' },
+          { v: 'solo', label: 'Solo', off: soloOk ? false : 'sin datos' },
+          { v: 'online', label: 'Online', off: true },
+        ], c.mode)}
+      </div>
+      ${c.mode === 'app' ? `
+      <div class="row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+        <div class="row-title">Dificultad de la app</div>
+        ${segHTML('seg-diff', [
+          { v: 'facil', label: 'Fácil' }, { v: 'normal', label: 'Normal' }, { v: 'experta', label: 'Experta' },
+        ], c.difficulty)}
+      </div>` : ''}
+      <div class="row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+        <div class="row-title">Encadenar por</div>
+        ${segHTML('seg-match', [{ v: 'fin', label: 'El final' }, { v: 'inicio', label: 'El inicio' }], c.match)}
+      </div>
+      <div class="row">
+        <div>
+          <div class="row-title">Letras que cuentan</div>
+          <div class="row-hint">Todos repiten las ${c.match === 'inicio' ? 'primeras' : 'últimas'} ${c.suffixLen} letras</div>
+        </div>
+        ${stepperHTML('st-len', c.suffixLen)}
+      </div>
+      <div class="row">
+        <div>
+          <div class="row-title">Vidas</div>
+          <div class="row-hint">Pierdes una por palabra inválida</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          ${c.livesOn ? stepperHTML('st-lives', c.lives) : ''}
+          ${toggleHTML('tg-lives', c.livesOn)}
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <div class="row-title">Tiempo por turno</div>
+          <div class="row-hint">${c.timerOn ? c.timerSec + ' segundos' : 'Sin prisa'}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          ${c.timerOn ? stepperHTML('st-timer', c.timerSec, (v) => v + 's') : ''}
+          ${toggleHTML('tg-timer', c.timerOn)}
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:auto;">
+      <div class="label-sm">Palabra inicial</div>
+      <input class="field" id="start-word" value="${esc(c.start)}" placeholder="Ej. Faustino"
+        autocapitalize="none" autocomplete="off" enterkeyhint="go" />
+      <div class="start-hint" id="start-hint"></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px;">
+      <button class="btn btn-primary" id="go" disabled>Empezar partida</button>
+      <button class="btn btn-soft" id="go-random">Palabra al azar</button>
+    </div>
+  </div>`;
+
+  const saveCfg = () => store.set('enc.cfg', {
+    mode: c.mode, match: c.match, suffixLen: c.suffixLen, livesOn: c.livesOn,
+    lives: c.lives, timerOn: c.timerOn, timerSec: c.timerSec, difficulty: c.difficulty,
+  });
+
+  // tema
+  $('#howto').onclick = openRules;
+
+  // segmentados
+  const bindSeg = (id, key) => {
+    const el = $('#' + id); if (!el) return;
+    el.querySelectorAll('button').forEach((b) => b.onclick = () => {
+      if (b.disabled) return;
+      c[key] = b.dataset.v; saveCfg(); renderSetup();
+    });
+  };
+  bindSeg('seg-mode', 'mode');
+  bindSeg('seg-diff', 'difficulty');
+  bindSeg('seg-match', 'match');
+
+  // steppers
+  const bindStep = (id, key, min, max) => {
+    const el = $('#' + id); if (!el) return;
+    el.querySelectorAll('button').forEach((b) => b.onclick = () => {
+      c[key] = Math.min(max, Math.max(min, c[key] + Number(b.dataset.d) * (key === 'timerSec' ? 5 : 1)));
+      saveCfg(); renderSetup();
+    });
+  };
+  bindStep('st-len', 'suffixLen', 2, 5);
+  bindStep('st-lives', 'lives', 1, 5);
+  bindStep('st-timer', 'timerSec', 5, 60);
+
+  // toggles
+  const bindToggle = (id, key) => {
+    const el = $('#' + id); if (!el) return;
+    el.onclick = () => { c[key] = !c[key]; saveCfg(); renderSetup(); };
+  };
+  bindToggle('tg-lives', 'livesOn');
+  bindToggle('tg-timer', 'timerOn');
+
+  // palabra inicial
+  const input = $('#start-word');
+  const hint = $('#start-hint');
+  const go = $('#go');
+  const refreshHint = () => {
+    c.start = input.value;
+    const n = norm(input.value);
+    const ok = n.length > c.suffixLen;
+    go.disabled = !ok;
+    if (!input.value.trim()) { hint.innerHTML = ''; return; }
+    if (!ok) { hint.innerHTML = `Necesita más de ${c.suffixLen} letras`; return; }
+    const a = affixOf(input.value, c);
+    const shown = c.match === 'inicio' ? `${a}‑` : `‑${a}`;
+    let extra = '';
+    if (Dicc.ready()) {
+      const count = countFor(a, c.match);
+      extra = count < 5 ? ` · <span class="few">solo ${count} en el diccionario</span>`
+        : ` · ${count} palabras posibles`;
+    }
+    hint.innerHTML = (c.match === 'inicio' ? 'Inicio: ' : 'Terminación: ') + `<b>${esc(shown)}</b>` + extra;
+  };
+  input.oninput = refreshHint;
+  input.onkeydown = (e) => { if (e.key === 'Enter' && !go.disabled) startFromSetup(false); };
+  refreshHint();
+  go.onclick = () => startFromSetup(false);
+  $('#go-random').onclick = () => startFromSetup(true);
+}
+
+function startFromSetup(random) {
+  const c = setupCfg;
+  const start = random ? randomStart(c) : c.start.trim();
+  if (!start || norm(start).length <= c.suffixLen) return;
+  begin(Object.assign({}, c, { start }));
+}
+
+/* ── UI: pantalla de juego ───────────────────────────────────────────── */
+function endingHTML() {
+  const tiles = S.suffix.toUpperCase().split('').map((ch) => `<div class="tile">${esc(ch)}</div>`).join('');
+  const dash = '<span class="dash">\u2011</span>';
+  return `<div class="ending-tiles">${isPre() ? tiles + dash : dash + tiles}</div>`;
+}
+
+function heartsHTML(total, left) {
+  let h = '<div class="hearts" id="hearts">';
+  for (let i = 0; i < total; i++) {
+    const lost = i >= left;
+    h += `<svg class="${lost ? 'lost' : ''}" width="18" height="18" viewBox="0 0 24 24">
+      <path d="M12 21s-7.5-4.9-10-9.2C.6 9 1.4 5.6 4.3 4.6 6.3 3.9 8.4 4.7 12 8c3.6-3.3 5.7-4.1 7.7-3.4 2.9 1 3.7 4.4 2.3 7.2C19.5 16.1 12 21 12 21z"
+        fill="${lost ? 'none' : 'var(--bad)'}" stroke="var(--bad)" stroke-width="1.6"/></svg>`;
+  }
+  return h + '</div>';
+}
+
+function chainItemHTML(c, i) {
+  const mine = c.by === 'A' || c.by === 'tu';
+  const col = playerColor(c.by);
+  const k = S.suffix.length;
+  const w = c.word;
+  const hi = isPre()
+    ? `<span style="color:${col}">${esc(w.slice(0, k))}</span>${esc(w.slice(k))}`
+    : `${esc(w.slice(0, -k))}<span style="color:${col}">${esc(w.slice(-k))}</span>`;
+  return `<div class="bubble-row ${mine ? 'left' : 'right'}">
+    <div class="bubble" style="border-${mine ? 'left' : 'right'}: 3px solid ${col}">
+      <div class="by" style="color:${col}">${c.seed ? 'Inicio · ' : ''}${PLAYER_LABEL[c.by]}</div>
+      <div class="word">${hi}</div>
+      ${c.note ? `<div class="note">${esc(c.note)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderPlay() {
+  const app = $('#app');
+  app.innerHTML = `
+  <div class="screen">
+    <div class="play-head">
+      <button class="quit" id="quit" aria-label="Abandonar partida">✕</button>
+      <div class="kicker">${isPre() ? 'Empieza con' : 'Termina en'}</div>
+      ${endingHTML()}
+    </div>
+    <div class="turnbar">
+      <div class="who"><span class="dot" id="turn-dot"></span><span id="turn-label"></span></div>
+      <div class="right">
+        <span id="hearts-slot"></span>
+        ${S.cfg.timerOn ? '<span class="clock" id="clock"></span>' : ''}
+      </div>
+    </div>
+    <div class="scroll chain" id="chain">
+      ${S.chain.map((c, i) => chainItemHTML(c, i)).join('')}
+    </div>
+    <div class="dock" id="dock"></div>
+  </div>`;
+  $('#quit').onclick = confirmQuit;
+  updateTurnBar();
+  renderDock();
+  scrollChain();
+}
+
+function updateTurnBar() {
+  const lbl = $('#turn-label'), dot = $('#turn-dot');
+  if (!lbl) return;
+  if (S.cfg.mode === 'solo') {
+    lbl.textContent = `Racha: ${S.chain.length - 1}`;
+    dot.style.background = 'var(--accent)';
+  } else {
+    lbl.textContent = S.turn === 'tu' ? 'Tu turno' : S.turn === 'app' ? 'Turno de la app' : 'Turno de ' + PLAYER_LABEL[S.turn];
+    dot.style.background = playerColor(S.turn);
+  }
+  updateHearts(false);
+}
+
+function updateHearts(justLost) {
+  const slot = $('#hearts-slot');
+  if (!slot) return;
+  if (!S.cfg.livesOn) { slot.innerHTML = ''; return; }
+  slot.innerHTML = heartsHTML(S.cfg.lives, Math.max(0, S.lives[S.turn] ?? S.cfg.lives));
+  if (justLost) {
+    const svgs = slot.querySelectorAll('svg');
+    const idx = Math.max(0, S.lives[S.turn] ?? 0);
+    if (svgs[idx]) svgs[idx].classList.add('just-lost');
+  }
+}
+
+function renderDock() {
+  const dock = $('#dock');
+  if (!dock) return;
+  if (S.turn === 'app') {
+    dock.innerHTML = `<div class="msg" id="msg"></div><div class="waiting">Esperando a la app…</div>`;
+    return;
+  }
+  const ph = isPre() ? `palabra con ${S.suffix}‑` : `palabra en ‑${S.suffix}`;
+  dock.innerHTML = `
+    <div class="msg" id="msg"></div>
+    <div class="line">
+      <input id="draft" class="field" placeholder="${esc(ph)}" autocapitalize="none" autocomplete="off"
+        autocorrect="off" spellcheck="false" enterkeyhint="send" />
+      <button class="send" id="send" aria-label="Enviar palabra" disabled>↑</button>
+    </div>
+    <button class="giveup" id="giveup">No me la sé · me rindo</button>`;
+  const input = $('#draft'), send = $('#send');
+  input.oninput = () => { send.disabled = !input.value.trim() || P.busy; };
+  input.onkeydown = (e) => { if (e.key === 'Enter') submitWord(); };
+  send.onclick = submitWord;
+  $('#giveup').onclick = () => endRound(S.turn, S.cfg.mode === 'solo' ? 'fin de la racha' : reasonFor(S.turn, 'rindio'));
+  setTimeout(() => { try { input.focus({ preventScroll: true }); } catch (e) {} }, 60);
+}
+
+function setMsg(type, text) {
+  const el = $('#msg');
+  if (!el) return;
+  if (!type) { el.className = 'msg'; el.innerHTML = ''; return; }
+  el.className = 'msg ' + type;
+  el.innerHTML = (type === 'check' ? '<span style="margin-right:6px">◌</span>' : '') + esc(text);
+}
+
+function appendChainItem(i) {
+  const chain = $('#chain');
+  if (!chain) return;
+  chain.insertAdjacentHTML('beforeend', chainItemHTML(S.chain[i], i));
+  scrollChain();
+}
+
+function showThinking(on) {
+  const chain = $('#chain');
+  if (!chain) return;
+  const cur = $('#thinking');
+  if (on && !cur) {
+    chain.insertAdjacentHTML('beforeend',
+      `<div class="bubble-row right" id="thinking"><div class="bubble think">La app piensa…</div></div>`);
+    scrollChain();
+  } else if (!on && cur) cur.remove();
+}
+
+function scrollChain() {
+  const chain = $('#chain');
+  if (chain) chain.scrollTop = chain.scrollHeight;
+}
+
+/* ── UI: pantalla final ──────────────────────────────────────────────── */
+function renderEnd() {
+  const app = $('#app');
+  const cfg = S.cfg, r = S.result;
+  const solo = cfg.mode === 'solo';
+  const order = playerOrder();
+  const winner = order.find((p) => p !== r.loser);
+  let title, why;
+  const reasonLine = r.loser === 'tu' ? cap(r.reason)
+    : r.loser === 'app' ? 'La app ' + r.reason
+    : `${PLAYER_LABEL[r.loser]} ${r.reason}`;
+  if (solo) {
+    title = `Aguantaste ${S.chain.length - 1}`;
+    why = (S.chain.length - 1) === 1 ? 'palabra' : 'palabras seguidas';
+  } else if (cfg.mode === 'app') {
+    title = r.loser === 'app' ? '¡Ganaste!' : 'Ganó la app';
+    why = reasonLine;
+  } else {
+    title = r.loser === 'A' ? 'Ganó el Jugador 2' : 'Ganó el Jugador 1';
+    why = reasonLine;
+  }
+  const affixShown = isPre() ? S.suffix + '‑' : '‑' + S.suffix;
+  const best = store.get('enc.best', 0);
+
+  app.innerHTML = `
+  <div class="screen end scroll">
+    <div class="kicker">Fin de la ${solo ? 'racha' : 'partida'}${S.round > 1 ? ` · Ronda ${S.round}` : ''}</div>
+    <h2>${esc(title)}</h2>
+    <div class="why">${esc(why)}</div>
+    ${solo
+      ? (r.newRecord ? `<span class="record">🏆 ¡Nueva mejor racha!</span>`
+        : (best > 0 ? `<div class="why" style="margin-top:6px">Tu mejor racha: ${best}</div>` : ''))
+      : `<div class="scoreboard">${order.map((p, i) => `
+          ${i === 1 ? '<span class="sep">–</span>' : ''}
+          <div><div class="num ${p === winner ? 'win' : ''}">${S.scores[p] || 0}</div>
+          <div class="lbl">${PLAYER_LABEL[p]}</div></div>`).join('')}
+        </div>`}
+    <div class="stats">
+      <div class="stat"><div class="n">${S.chain.length}</div><div class="l">palabras</div></div>
+      <div class="stat"><div class="n">${esc(affixShown)}</div><div class="l">${isPre() ? 'inicio' : 'terminación'}</div></div>
+    </div>
+    <div class="recap">
+      ${S.chain.map((c) => `<div class="r"><span class="w">${esc(c.word)}</span>
+        <span class="b">${c.seed ? 'inicio' : PLAYER_LABEL[c.by]}</span></div>`).join('')}
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" id="again">Otra ronda</button>
+      <div class="again-hint">${solo ? 'Palabra nueva al azar' : 'Palabra nueva · empieza quien perdió'}</div>
+      ${navigator.share ? '<button class="btn btn-soft" id="share">Compartir resultado</button>' : ''}
+      <button class="btn btn-ghost" id="newgame">Cambiar ajustes</button>
+    </div>
+  </div>`;
+
+  $('#again').onclick = anotherRound;
+  $('#newgame').onclick = () => { S.phase = 'setup'; S.cfg = null; render(); };
+  const share = $('#share');
+  if (share) share.onclick = () => {
+    const words = S.chain.map((c) => c.word).join(' → ');
+    const head = solo ? `Encadené ${S.chain.length - 1} palabras en ${affixShown}` : `${title} con ${affixShown} (${S.chain.length} palabras)`;
+    try { navigator.share({ title: 'Encadena', text: `${head} 🔗\n${words}\n¿Te atreves?` }); } catch (e) {}
+  };
+}
+
+/* ── Render raíz ─────────────────────────────────────────────────────── */
+function render() {
+  closeModal();
+  if (S.phase === 'setup') renderSetup();
+  else if (S.phase === 'play') renderPlay();
+  else renderEnd();
+}
+
+Lex.ready();
+render();
+</script>
+</body>
+</html>

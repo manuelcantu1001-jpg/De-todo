@@ -1,7 +1,7 @@
 {
-  "name": "Encadena",
-  "short_name": "Encadena",
-  "description": "El juego de las terminaciones",
+  "name": "Juegos",
+  "short_name": "Juegos",
+  "description": "Pasatiempos en español: palabras, números y clásicos",
   "lang": "es",
   "start_url": "./",
   "scope": "./",

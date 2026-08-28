@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Crucigrama en español con pistas propias y cuatro dificultades." />
+<title>Crucigrama</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3EC%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .boardwrap { display: flex; justify-content: center; padding: 8px 12px 4px; }
+  .board { display: grid; gap: 2px; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  .cw {
+    background: var(--card); border: 1px solid var(--tile-border); border-radius: 5px;
+    position: relative; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: var(--ink); cursor: pointer;
+  }
+  .cw sup {
+    position: absolute; top: 1px; left: 3px; font-size: 8px; font-weight: 700;
+    color: var(--sub); line-height: 1;
+  }
+  .cw.actslot { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, var(--tile-border)); }
+  .cw.actcell { background: var(--accent); color: var(--accent-ink); }
+  .cw.actcell sup { color: color-mix(in srgb, var(--accent-ink) 75%, transparent); }
+  .cw.bad { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
+  .cw.ok { color: var(--accent); }
+  .cx { visibility: hidden; }
+  .cluebar {
+    display: flex; align-items: center; gap: 6px; margin: 6px 10px 0;
+    background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: 8px 8px;
+  }
+  .cluebar button {
+    width: 40px; height: 40px; flex-shrink: 0; border: none; border-radius: 10px;
+    background: var(--soft); color: var(--ink); font-size: 20px; cursor: pointer; font-weight: 700;
+  }
+  .cluebar .ctext { flex: 1; text-align: center; font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.3; }
+  .cluebar .ctext .cnum { color: var(--accent); font-weight: 700; }
+  .cluebar .ctext small { display: block; color: var(--sub); font-weight: 500; font-size: 11px; margin-top: 1px; }
+  .clues-list { max-height: 46vh; overflow-y: auto; text-align: left; }
+  .clues-list h4 { margin: 10px 0 4px; font-size: 12px; letter-spacing: .8px; text-transform: uppercase; color: var(--sub); }
+  .clues-list .ci { padding: 7px 4px; font-size: 14px; color: var(--ink); border-bottom: 1px solid var(--border); cursor: pointer; }
+  .clues-list .ci.done { color: var(--faint); text-decoration: line-through; }
+  .clues-list .ci b { color: var(--accent); }
+  .tools-mini { display: flex; gap: 8px; justify-content: center; margin-top: 6px; }
+  .tool {
+    border: none; cursor: pointer; font-weight: 700; font-size: 12.5px; padding: 8px 14px;
+    border-radius: 999px; background: var(--soft); color: var(--sub);
+  }
+  .tool:disabled { opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script src="pistas-es.js"></script>
+<script>
+'use strict';
+
+/* ── Configuración ───────────────────────────────────────────────────── */
+const CFG = {
+  facil:   { n: 6,  tiers: ['facil'],            maxLen: 8,  maxSide: 11 },
+  normal:  { n: 9,  tiers: ['facil', 'media'],   maxLen: 10, maxSide: 13 },
+  dificil: { n: 11, tiers: ['media'],            maxLen: 11, maxSide: 15 },
+  experto: { n: 13, tiers: ['media', 'dificil'], maxLen: 12, maxSide: 16 },
+};
+
+/* ── Estado ──────────────────────────────────────────────────────────── */
+const S = {
+  diff: store.get('cru.diff', 'normal'),
+  W: 0, H: 0,
+  cells: null,       // Map "r,c" -> {ch, val, num, slots:[]}
+  slots: [],         // {id, dir, r, c, len, word, display, clue, num}
+  act: null,         // {slot, idx}
+  pistas: 3, done: false,
+};
+const clock = makeClock(() => $('#clock'));
+const key = (r, c) => r + ',' + c;
+
+/* ── Generador (palabras cruzadas) ───────────────────────────────────── */
+function bankFor(cfg) {
+  let all = [];
+  for (const t of cfg.tiers) all = all.concat(window.PISTAS_ES[t] || []);
+  return all
+    .map(([w, clue]) => ({ w, clue, n: norm(w) }))
+    .filter((e) => e.n.length >= 3 && e.n.length <= cfg.maxLen);
+}
+
+function tryBuild(words, maxSide, wordsNeeded) {
+  const cells = new Map();   // "r,c" -> ch
+  const placed = [];
+  const at = (r, c) => cells.get(key(r, c)) || '';
+  let bR0 = 0, bR1 = 0, bC0 = 0, bC1 = 0;   // caja envolvente actual
+
+  function dimAfter(n, r0, c0, dr, dc) {
+    const r1 = r0 + dr * (n.length - 1), c1 = c0 + dc * (n.length - 1);
+    const h = Math.max(bR1, r0, r1) - Math.min(bR0, r0, r1) + 1;
+    const w = Math.max(bC1, c0, c1) - Math.min(bC0, c0, c1) + 1;
+    return Math.max(h, w);
+  }
+
+  function fits(n, r0, c0, dr, dc) {
+    // celda anterior y posterior deben estar libres
+    if (at(r0 - dr, c0 - dc) || at(r0 + dr * n.length, c0 + dc * n.length)) return -1;
+    let crosses = 0;
+    for (let k = 0; k < n.length; k++) {
+      const r = r0 + dr * k, c = c0 + dc * k;
+      const ex = at(r, c);
+      if (ex) {
+        if (ex !== n[k]) return -1;
+        crosses++;
+      } else {
+        // sin vecinos laterales pegados (perpendicular a la dirección)
+        if (at(r + dc, c + dr) || at(r - dc, c - dr)) return -1;
+      }
+    }
+    return crosses;
+  }
+
+  function put(e, r0, c0, dr, dc) {
+    for (let k = 0; k < e.n.length; k++) cells.set(key(r0 + dr * k, c0 + dc * k), e.n[k]);
+    placed.push({ ...e, r: r0, c: c0, dr, dc });
+    const r1 = r0 + dr * (e.n.length - 1), c1 = c0 + dc * (e.n.length - 1);
+    bR0 = Math.min(bR0, r0, r1); bR1 = Math.max(bR1, r0, r1);
+    bC0 = Math.min(bC0, c0, c1); bC1 = Math.max(bC1, c0, c1);
+  }
+
+  put(words[0], 0, 0, 0, 1);
+  const need = Math.min(wordsNeeded, words.length);
+  for (let i = 1; i < words.length && placed.length < need; i++) {
+    const e = words[i];
+    const options = [];
+    for (const p of placed) {
+      for (let pk = 0; pk < p.n.length; pk++) {
+        const ch = p.n[pk];
+        for (let ek = 0; ek < e.n.length; ek++) {
+          if (e.n[ek] !== ch) continue;
+          const dr = p.dr === 0 ? 1 : 0, dc = p.dr === 0 ? 0 : 1; // perpendicular
+          const r0 = (p.r + p.dr * pk) - dr * ek;
+          const c0 = (p.c + p.dc * pk) - dc * ek;
+          const cr = fits(e.n, r0, c0, dr, dc);
+          if (cr > 0) {
+            const dim = dimAfter(e.n, r0, c0, dr, dc);
+            if (dim <= maxSide) options.push({ r0, c0, dr, dc, score: cr * 100 - dim });
+          }
+        }
+      }
+    }
+    if (!options.length) continue;   // esta palabra no cruza: probar con la siguiente
+    options.sort((a, b) => b.score - a.score);
+    const o = options[randInt(Math.min(3, options.length))];
+    put(e, o.r0, o.c0, o.dr, o.dc);
+  }
+  if (placed.length < need) return null;
+
+  // caja envolvente
+  let rMin = 1e9, rMax = -1e9, cMin = 1e9, cMax = -1e9;
+  for (const k2 of cells.keys()) {
+    const [r, c] = k2.split(',').map(Number);
+    rMin = Math.min(rMin, r); rMax = Math.max(rMax, r);
+    cMin = Math.min(cMin, c); cMax = Math.max(cMax, c);
+  }
+  const H = rMax - rMin + 1, W = cMax - cMin + 1;
+  if (W > maxSide || H > maxSide) return null;
+  return { placed, rMin, cMin, W, H };
+}
+
+function generate() {
+  const cfg = CFG[S.diff];
+  const bank = bankFor(cfg);
+  for (let attempt = 0; attempt < 120; attempt++) {
+    const sample = shuffle(bank).slice(0, cfg.n + 10)
+      .sort((a, b) => b.n.length - a.n.length);
+    // evita repetidas normalizadas
+    const seen = new Set();
+    const words = [];
+    for (const e of sample) {
+      if (seen.has(e.n)) continue;
+      seen.add(e.n);
+      words.push(e);
+    }
+    if (words.length < cfg.n) continue;
+    const built = tryBuild(words, cfg.maxSide, cfg.n);
+    if (built) { finishBuild(built); return true; }
+  }
+  return false;
+}
+
+function finishBuild({ placed, rMin, cMin, W, H }) {
+  S.W = W; S.H = H;
+  S.cells = new Map();
+  S.slots = placed.map((p, id) => ({
+    id, dir: p.dr === 0 ? 'H' : 'V',
+    r: p.r - rMin, c: p.c - cMin, len: p.n.length,
+    word: p.n, display: p.w, clue: p.clue, num: 0,
+  }));
+  for (const sl of S.slots) {
+    for (let k = 0; k < sl.len; k++) {
+      const r = sl.r + (sl.dir === 'V' ? k : 0), c = sl.c + (sl.dir === 'H' ? k : 0);
+      const kk = key(r, c);
+      if (!S.cells.has(kk)) S.cells.set(kk, { ch: sl.word[k].toUpperCase(), val: '', num: 0, slots: [] });
+      S.cells.get(kk).slots.push(sl.id);
+    }
+  }
+  // numeración: recorrido por filas de las celdas donde inicia alguna palabra
+  let num = 0;
+  const starts = new Map();
+  for (const sl of S.slots) starts.set(key(sl.r, sl.c), true);
+  for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+    const kk = key(r, c);
+    if (starts.has(kk)) {
+      num++;
+      S.cells.get(kk).num = num;
+      for (const sl of S.slots) if (sl.r === r && sl.c === c) sl.num = num;
+    }
+  }
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  clock.stop();
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('cru.best.' + d, null);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Crucigrama', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+    </div>
+  </div>`;
+  const hint = () => { $('#d-hint').textContent = `${CFG[S.diff].n} palabras cruzadas con sus pistas`; };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('cru.diff', v); hint(); });
+  hint();
+  $('#new').onclick = startGame;
+}
+
+function startGame() {
+  if (!generate()) {
+    openModal('<h3>Vaya</h3><p>No pude cruzar las palabras, intenta otra vez.</p><div class="m-actions"><button class="btn btn-primary" id="m-x">Cerrar</button></div>');
+    $('#m-x').onclick = closeModal;
+    return;
+  }
+  S.pistas = 3; S.done = false;
+  S.act = { slot: S.slots.find((s) => s.num === 1) || S.slots[0], idx: 0 };
+  renderPlay();
+  clock.start();
+}
+
+function renderPlay() {
+  const cell = Math.min(42, Math.floor(378 / S.W), Math.floor(360 / S.H));
+  const rows = [];
+  for (let r = 0; r < S.H; r++) {
+    for (let c = 0; c < S.W; c++) {
+      const d = S.cells.get(key(r, c));
+      rows.push(d
+        ? `<div class="cw" data-k="${key(r, c)}" style="width:${cell}px;height:${cell}px;font-size:${Math.floor(cell * .52)}px;">${d.num ? `<sup>${d.num}</sup>` : ''}<span></span></div>`
+        : `<div class="cx" style="width:${cell}px;height:${cell}px;"></div>`);
+    }
+  }
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Crucigrama', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="scroll">
+      <div class="boardwrap"><div class="board" id="board" style="grid-template-columns: repeat(${S.W}, ${cell}px);">${rows.join('')}</div></div>
+      <div class="tools-mini">
+        <button class="tool" id="t-lista">Todas las pistas</button>
+        <button class="tool" id="t-rev">Revelar letra · <span id="pistas-n">${S.pistas}</span></button>
+        <button class="tool" id="t-salir">Salir</button>
+      </div>
+    </div>
+    <div class="cluebar">
+      <button id="c-prev" aria-label="Pista anterior">‹</button>
+      <div class="ctext" id="ctext"></div>
+      <button id="c-next" aria-label="Pista siguiente">›</button>
+    </div>
+    <div class="kbd" id="kbd">
+      ${['QWERTYUIOP', 'ASDFGHJKLÑ'].map((row) =>
+        `<div class="krow">${[...row].map((ch) => `<button data-ch="${ch}">${ch}</button>`).join('')}</div>`).join('')}
+      <div class="krow">${[...'ZXCVBNM'].map((ch) => `<button data-ch="${ch}">${ch}</button>`).join('')}
+        <button class="wide" data-ch="←" aria-label="Borrar"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H9l-6 6 6 6h11a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"></path><path d="M17 10l-4 4M13 10l4 4"></path></svg></button>
+      </div>
+    </div>
+  </div>`;
+  $('#board').onclick = (e) => {
+    const el = e.target.closest('.cw');
+    if (el) tapCell(el.dataset.k);
+  };
+  $('#kbd').onclick = (e) => {
+    const b = e.target.closest('button');
+    if (b) pressKey(b.dataset.ch);
+  };
+  $('#c-prev').onclick = () => cycleSlot(-1);
+  $('#c-next').onclick = () => cycleSlot(1);
+  $('#ctext').onclick = showClueList;
+  $('#t-lista').onclick = showClueList;
+  $('#t-rev').onclick = revealLetter;
+  $('#t-salir').onclick = renderSetup;
+  paint();
+}
+
+function slotCells(sl) {
+  const out = [];
+  for (let k = 0; k < sl.len; k++) {
+    out.push(key(sl.r + (sl.dir === 'V' ? k : 0), sl.c + (sl.dir === 'H' ? k : 0)));
+  }
+  return out;
+}
+
+function slotIsCorrect(sl) {
+  return slotCells(sl).every((kk) => {
+    const d = S.cells.get(kk);
+    return d.val && d.val === d.ch;
+  });
+}
+
+function paint() {
+  const actCells = S.act ? slotCells(S.act.slot) : [];
+  const actKey = actCells[S.act ? S.act.idx : 0];
+  $$('.cw').forEach((el) => {
+    const d = S.cells.get(el.dataset.k);
+    el.querySelector('span').textContent = d.val;
+    el.classList.toggle('actslot', actCells.includes(el.dataset.k));
+    el.classList.toggle('actcell', el.dataset.k === actKey);
+  });
+  const sl = S.act ? S.act.slot : null;
+  if (sl) {
+    $('#ctext').innerHTML = `<span class="cnum">${sl.num} ${sl.dir === 'H' ? 'Horizontal' : 'Vertical'}</span> · ${esc(sl.clue)}<small>${sl.len} letras</small>`;
+  }
+}
+
+function tapCell(kk) {
+  const d = S.cells.get(kk);
+  if (!d) return;
+  const cur = S.act;
+  let slotId = d.slots[0];
+  if (d.slots.length > 1 && cur && d.slots.includes(cur.slot.id)) {
+    // volver a tocar la celda activa alterna dirección
+    const curCells = slotCells(cur.slot);
+    if (curCells[cur.idx] === kk) {
+      slotId = d.slots.find((id) => id !== cur.slot.id);
+    } else slotId = cur.slot.id;
+  } else if (d.slots.length > 1) {
+    const h = d.slots.map((id) => S.slots[id]).find((s) => s.dir === 'H');
+    slotId = h ? h.id : d.slots[0];
+  }
+  const sl = S.slots[slotId];
+  S.act = { slot: sl, idx: slotCells(sl).indexOf(kk) };
+  clearBad();
+  paint();
+}
+
+function cycleSlot(d) {
+  const ordered = S.slots.slice().sort((a, b) => (a.dir === b.dir ? a.num - b.num : a.dir === 'H' ? -1 : 1));
+  const i = ordered.findIndex((s) => s.id === S.act.slot.id);
+  const nx = ordered[(i + d + ordered.length) % ordered.length];
+  S.act = { slot: nx, idx: 0 };
+  clearBad();
+  paint();
+}
+
+function pressKey(ch) {
+  if (S.done || !S.act) return;
+  const cells = slotCells(S.act.slot);
+  const kk = cells[S.act.idx];
+  const d = S.cells.get(kk);
+  clearBad();
+  if (ch === '←') {
+    if (d.val) d.val = '';
+    else if (S.act.idx > 0) {
+      S.act.idx--;
+      S.cells.get(cells[S.act.idx]).val = '';
+    }
+  } else {
+    d.val = ch;
+    if (S.act.idx < cells.length - 1) S.act.idx++;
+    else maybeNextSlot();
+  }
+  paint();
+  checkFull();
+}
+
+function maybeNextSlot() {
+  // si la palabra quedó completa, salta a la siguiente incompleta
+  if (!slotCells(S.act.slot).every((kk) => S.cells.get(kk).val)) return;
+  const pending = S.slots.filter((s) => !slotCells(s).every((kk) => S.cells.get(kk).val));
+  if (pending.length) {
+    const sl = pending[0];
+    const cells = slotCells(sl);
+    S.act = { slot: sl, idx: cells.findIndex((kk) => !S.cells.get(kk).val) };
+  }
+}
+
+function clearBad() {
+  $$('.cw.bad').forEach((el) => el.classList.remove('bad'));
+}
+
+function checkFull() {
+  for (const d of S.cells.values()) if (!d.val) return;
+  // tablero lleno: comprobar
+  let allOk = true;
+  $$('.cw').forEach((el) => {
+    const d = S.cells.get(el.dataset.k);
+    if (d.val !== d.ch) { el.classList.add('bad'); allOk = false; }
+  });
+  if (allOk) win();
+  else { vibrate([40, 60, 40]); }
+}
+
+function revealLetter() {
+  if (S.done || S.pistas <= 0 || !S.act) return;
+  const cells = slotCells(S.act.slot);
+  let kk = cells[S.act.idx];
+  let d = S.cells.get(kk);
+  if (d.val === d.ch) {
+    // busca alguna celda incorrecta o vacía
+    const all = [...S.cells.entries()].filter(([, x]) => x.val !== x.ch);
+    if (!all.length) return;
+    [kk, d] = all[randInt(all.length)];
+  }
+  S.pistas--;
+  $('#pistas-n').textContent = S.pistas;
+  if (S.pistas <= 0) $('#t-rev').disabled = true;
+  d.val = d.ch;
+  vibrate(20);
+  paint();
+  checkFull();
+}
+
+function showClueList() {
+  const item = (sl) => `<div class="ci ${slotIsCorrect(sl) ? 'done' : ''}" data-id="${sl.id}"><b>${sl.num}.</b> ${esc(sl.clue)} <span style="color:var(--faint)">(${sl.len})</span></div>`;
+  const hs = S.slots.filter((s) => s.dir === 'H').sort((a, b) => a.num - b.num);
+  const vs = S.slots.filter((s) => s.dir === 'V').sort((a, b) => a.num - b.num);
+  openModal(`
+    <h3>Pistas</h3>
+    <div class="clues-list">
+      <h4>Horizontales</h4>${hs.map(item).join('')}
+      <h4>Verticales</h4>${vs.map(item).join('')}
+    </div>
+    <div class="m-actions"><button class="btn btn-soft" id="m-x">Cerrar</button></div>
+  `, closeModal);
+  $('#m-x').onclick = closeModal;
+  $$('.ci').forEach((el) => el.onclick = () => {
+    const sl = S.slots[Number(el.dataset.id)];
+    S.act = { slot: sl, idx: 0 };
+    closeModal();
+    paint();
+  });
+}
+
+function win() {
+  S.done = true;
+  clock.stop();
+  const secs = clock.seconds;
+  const k = 'cru.best.' + S.diff;
+  const best = store.get(k, null);
+  const isRecord = !best || secs < best;
+  if (isRecord) {
+    store.set(k, secs);
+    store.set('cru.hub', `Mejor ${fmtTime(secs)} · ${DIFF_LABEL[S.diff]}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡Crucigrama resuelto!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.slots.length}</div><div class="l">palabras</div></div>
+    </div>
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Nuevo mejor tiempo!</span></p>'
+      : (best ? `<p style="text-align:center;">Tu mejor tiempo: <b>${fmtTime(best)}</b></p>` : '')}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otro crucigrama</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+/* Teclado físico */
+addEventListener('keydown', (e) => {
+  if (!$('#board') || S.done) return;
+  const k = e.key.toUpperCase();
+  if (/^[A-ZÑ]$/.test(k)) pressKey(k);
+  else if (e.key === 'Backspace') { pressKey('←'); e.preventDefault(); }
+});
+
+renderSetup();
+</script>
+</body>
+</html>

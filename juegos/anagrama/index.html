@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Ordena las letras revueltas: cinco palabras por partida." />
+<title>Anagramas</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='26' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3EÑA%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .zone { padding: 18px 16px 0; display: flex; flex-direction: column; gap: 22px; align-items: center; }
+  .ttile {
+    min-width: 46px; height: 54px; padding: 0 6px; border-radius: 9px; border: 1px solid var(--tile-border);
+    background: var(--tile-bg); color: var(--tile-ink);
+    box-shadow: 0 3px 0 var(--tile-border), inset 0 1px 0 rgba(255,255,255,.65);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--title-font); font-size: 28px; font-weight: 600; cursor: pointer;
+    transition: transform .1s;
+  }
+  .ttile:active { transform: scale(.93); }
+  .ttile.hole { background: transparent; border: 1.5px dashed var(--tile-border); box-shadow: none; color: transparent; cursor: default; }
+  .ttile.ghost { opacity: 0; pointer-events: none; }
+  .slots .ttile.filled { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, var(--tile-border)); color: var(--accent); }
+  .slots, .rack { display: flex; gap: 7px; justify-content: center; flex-wrap: wrap; }
+  .slots.good .ttile.filled { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .roundrow { display: flex; justify-content: center; gap: 18px; font-size: 13.5px; font-weight: 600; color: var(--sub); padding-top: 4px; }
+  .roundrow b { color: var(--ink); }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 18px; }
+  .tool {
+    border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px;
+    border-radius: 999px; background: var(--soft); color: var(--sub);
+  }
+  .tool:disabled { opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script src="../../dicc-es.js"></script>
+<script>
+'use strict';
+
+const CFG = {
+  facil:   { minLen: 4, maxLen: 5, maxRank: 4000 },
+  normal:  { minLen: 6, maxLen: 6, maxRank: 8000 },
+  dificil: { minLen: 7, maxLen: 7, maxRank: 15000 },
+  experto: { minLen: 8, maxLen: 9, maxRank: 30000 },
+};
+const ROUNDS = 5;
+
+const S = {
+  diff: store.get('ana.diff', 'normal'),
+  round: 0, hits: 0, pistas: 3,
+  target: null,          // {w, n}
+  rack: [],              // [{ch, used}]  letras con tilde tal cual
+  placed: [],            // índices del rack en orden de colocación
+  done: false,
+};
+const clock = makeClock(() => $('#clock'));
+
+function renderSetup() {
+  clock.stop();
+  const b = store.get('ana.best.' + S.diff, null);
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Anagramas', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="bests" id="bests"></div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar (${ROUNDS} palabras)</button>
+    </div>
+  </div>`;
+  const paintBests = () => {
+    const b2 = store.get('ana.best.' + S.diff, null);
+    $('#bests').innerHTML = `<div class="b"><div class="bn">${b2 ? b2.hits + '/' + ROUNDS : '—'}</div><div class="bl">Mejor partida</div></div>
+      <div class="b"><div class="bn">${b2 ? fmtTime(b2.secs) : '—'}</div><div class="bl">Su tiempo</div></div>`;
+  };
+  const hint = () => {
+    const c = CFG[S.diff];
+    $('#d-hint').textContent = `Palabras de ${c.minLen === c.maxLen ? c.minLen : c.minLen + ' a ' + c.maxLen} letras`;
+  };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('ana.diff', v); hint(); paintBests(); });
+  hint(); paintBests();
+  $('#new').onclick = startGame;
+}
+
+function startGame() {
+  S.round = 0; S.hits = 0; S.pistas = 3; S.done = false;
+  nextRound(true);
+  clock.start();
+}
+
+function nextRound(first) {
+  const c = CFG[S.diff];
+  let e = null, guard = 0;
+  do { e = Dicc.random({ minLen: c.minLen, maxLen: c.maxLen, maxRank: c.maxRank, minRank: 200 }); }
+  while (guard++ < 50 && (!e || (S.target && e.n === S.target.n)));
+  S.target = e;
+  const chars = [...e.w];
+  let mixed;
+  let tries = 0;
+  do { mixed = shuffle(chars); } while (tries++ < 20 && mixed.join('') === chars.join(''));
+  S.rack = mixed.map((ch) => ({ ch, used: false }));
+  S.placed = [];
+  S.round++;
+  if (first) renderPlay(); else paintZone();
+  updateStatus();
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Anagramas', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="roundrow">
+      <span>Palabra <b id="rnd">1</b> / ${ROUNDS}</span>
+      <span>Aciertos <b id="hits">0</b></span>
+    </div>
+    <div class="zone">
+      <div class="slots" id="slots"></div>
+      <div class="rack" id="rack"></div>
+      <div class="msg" id="msg"></div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-mezclar">Mezclar</button>
+      <button class="tool" id="t-pista">Pista · <span id="pistas-n">3</span></button>
+      <button class="tool" id="t-saltar">Saltar</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#slots').onclick = (e) => {
+    const el = e.target.closest('.ttile.filled');
+    if (el) removeAt(Number(el.dataset.p));
+  };
+  $('#rack').onclick = (e) => {
+    const el = e.target.closest('.ttile');
+    if (el && !el.classList.contains('ghost')) place(Number(el.dataset.i));
+  };
+  $('#t-mezclar').onclick = () => {
+    const free = S.rack.filter((t) => !t.used);
+    const mixedFree = shuffle(free);
+    let k = 0;
+    S.rack = S.rack.map((t) => t.used ? t : mixedFree[k++]);
+    paintZone();
+  };
+  $('#t-pista').onclick = usePista;
+  $('#t-saltar').onclick = () => {
+    flashMsg('err', 'Era «' + cap(S.target.w) + '»');
+    setTimeout(() => endOrNext(), 900);
+  };
+  $('#t-salir').onclick = renderSetup;
+  paintZone();
+}
+
+function updateStatus() {
+  const r = $('#rnd'), h = $('#hits');
+  if (r) r.textContent = S.round;
+  if (h) h.textContent = S.hits;
+}
+
+function paintZone() {
+  const L = S.target.n.length;
+  $('#slots').innerHTML = Array.from({ length: L }, (_, i) => {
+    const p = S.placed[i];
+    const filled = p !== undefined;
+    return `<div class="ttile ${filled ? 'filled' : 'hole'}" data-p="${i}">${filled ? esc(S.rack[p].ch.toUpperCase()) : '·'}</div>`;
+  }).join('');
+  $('#rack').innerHTML = S.rack.map((t, i) =>
+    `<div class="ttile ${t.used ? 'ghost' : ''}" data-i="${i}">${esc(t.ch.toUpperCase())}</div>`).join('');
+}
+
+function place(i) {
+  if (S.rack[i].used || S.done) return;
+  S.rack[i].used = true;
+  S.placed.push(i);
+  vibrate(10);
+  paintZone();
+  if (S.placed.length === S.target.n.length) check();
+}
+
+function removeAt(pos) {
+  if (S.done || pos >= S.placed.length) return;
+  const i = S.placed[pos];
+  S.rack[i].used = false;
+  S.placed.splice(pos, 1);
+  paintZone();
+}
+
+function check() {
+  const formed = S.placed.map((i) => S.rack[i].ch).join('');
+  const fn = norm(formed);
+  const ok = fn === S.target.n || Dicc.has(fn);
+  if (ok) {
+    S.hits++;
+    updateStatus();
+    $('#slots').classList.add('good');
+    flashMsg('ok', fn === S.target.n ? '¡Exacta!' : `¡Válida! (la mía era «${cap(S.target.w)}»)`);
+    vibrate([20, 40, 20]);
+    setTimeout(() => { $('#slots') && $('#slots').classList.remove('good'); endOrNext(); }, 950);
+  } else {
+    flashMsg('err', 'Esa no la conozco');
+    vibrate(50);
+    const slots = $('#slots');
+    slots.classList.remove('shake'); void slots.offsetWidth; slots.classList.add('shake');
+  }
+}
+
+function usePista() {
+  if (S.done || S.pistas <= 0) return;
+  // devuelve todo y coloca la siguiente letra correcta
+  const want = S.target.n;
+  let k = 0;
+  while (k < S.placed.length && norm(S.rack[S.placed[k]].ch) === want[k]) k++;
+  while (S.placed.length > k) removeAt(S.placed.length - 1);
+  const idx = S.rack.findIndex((t) => !t.used && norm(t.ch) === want[k]);
+  if (idx < 0) return;
+  S.pistas--;
+  $('#pistas-n').textContent = S.pistas;
+  if (S.pistas <= 0) $('#t-pista').disabled = true;
+  place(idx);
+}
+
+function flashMsg(type, text) {
+  const m = $('#msg');
+  m.className = 'msg ' + type;
+  m.textContent = text;
+  setTimeout(() => { const x = $('#msg'); if (x && x.textContent === text) { x.textContent = ''; x.className = 'msg'; } }, 1600);
+}
+
+function endOrNext() {
+  if (S.round >= ROUNDS) return finish();
+  nextRound(false);
+}
+
+function finish() {
+  S.done = true;
+  clock.stop();
+  const secs = clock.seconds;
+  const key = 'ana.best.' + S.diff;
+  const prev = store.get(key, null);
+  const isRecord = !prev || S.hits > prev.hits || (S.hits === prev.hits && secs < prev.secs);
+  if (isRecord) {
+    store.set(key, { hits: S.hits, secs });
+    store.set('ana.hub', `Mejor ${S.hits}/${ROUNDS} · ${fmtTime(secs)}`);
+  }
+  if (S.hits >= 4) { confetti(); vibrate([30, 60, 30]); }
+  openModal(`
+    <h3>${S.hits === ROUNDS ? '¡Todas!' : S.hits + ' de ' + ROUNDS}</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${S.hits}/${ROUNDS}</div><div class="l">aciertos</div></div>
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+    </div>
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Mejor partida!</span></p>' : ''}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otra partida</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>

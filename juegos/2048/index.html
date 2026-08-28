@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="2048: desliza, suma fichas y llega a la grande." />
+<title>2048</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='40' font-size='18' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E2048%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .scorerow { display: flex; justify-content: center; gap: 12px; padding: 10px 16px 0; }
+  .scorerow .b { flex: 0 1 130px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 8px; text-align: center; }
+  .scorerow .bn { font-family: var(--title-font); font-size: 22px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .scorerow .bl { font-size: 10.5px; color: var(--sub); font-weight: 600; margin-top: 1px; }
+  .boardwrap { display: flex; justify-content: center; padding: 14px 12px 4px; }
+  .board {
+    display: grid; gap: 8px; background: var(--soft); padding: 8px; border-radius: 16px;
+    box-shadow: var(--shadow); touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  .t2 {
+    border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    font-family: var(--title-font); font-weight: 700; color: var(--ink);
+    background: color-mix(in srgb, var(--card) 55%, var(--soft));
+  }
+  .t2.pop { animation: t2pop .16s ease; }
+  @keyframes t2pop { 0% { transform: scale(.6); } 100% { transform: scale(1); } }
+  .t2[data-v="2"]    { background: #FFFDF6; }
+  .t2[data-v="4"]    { background: #F7EED9; }
+  .t2[data-v="8"]    { background: #F2DFB8; }
+  .t2[data-v="16"]   { background: #EFCF95; }
+  .t2[data-v="32"]   { background: #E9B872; color: #4A3A22; }
+  .t2[data-v="64"]   { background: #DC9A50; color: #fff; }
+  .t2[data-v="128"]  { background: #CB7B3E; color: #fff; }
+  .t2[data-v="256"]  { background: #C25B36; color: #fff; }
+  .t2[data-v="512"]  { background: #7FA98C; color: #fff; }
+  .t2[data-v="1024"] { background: #3E9174; color: #fff; }
+  .t2[data-v="2048"] { background: #0E7A5C; color: #fff; box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent); }
+  .t2[data-v="4096"], .t2[data-v="8192"], .t2[data-v="16384"] { background: #221F19; color: #fff; }
+  .tools { margin: 10px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* La dificultad es el tamaño: más chico, más difícil. */
+const CFG = {
+  facil:   { size: 5 },
+  normal:  { size: 4 },
+  experto: { size: 3 },
+};
+
+const S = {
+  diff: store.get('m2048.diff', 'normal'),
+  size: 4, grid: null, score: 0, over: false, won: false, keepGoing: false,
+};
+
+function renderSetup() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('2048', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Tamaño del tablero</div></div>
+        ${diffSegHTML('seg-d', S.diff, ['facil', 'normal', 'experto'])}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="bests" id="bests"></div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+    </div>
+  </div>`;
+  const paintBests = () => {
+    const b = store.get('m2048.best.' + S.diff, 0);
+    $('#bests').innerHTML = `<div class="b"><div class="bn">${b || '—'}</div><div class="bl">Récord de puntos</div></div>`;
+  };
+  const hint = () => {
+    const c = CFG[S.diff];
+    $('#d-hint').textContent = `${c.size}×${c.size} — ${S.diff === 'facil' ? 'más espacio, más aire' : S.diff === 'normal' ? 'el clásico' : 'casi sin espacio: brutal'}`;
+  };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('m2048.diff', v); hint(); paintBests(); });
+  hint(); paintBests();
+  $('#new').onclick = startGame;
+}
+
+function startGame() {
+  S.size = CFG[S.diff].size;
+  S.grid = new Array(S.size * S.size).fill(0);
+  S.score = 0; S.over = false; S.won = false; S.keepGoing = false;
+  addTile(); addTile();
+  renderPlay();
+}
+
+function addTile() {
+  const empty = S.grid.map((v, i) => v ? -1 : i).filter((i) => i >= 0);
+  if (!empty.length) return;
+  S.grid[empty[randInt(empty.length)]] = Math.random() < .9 ? 2 : 4;
+}
+
+function renderPlay() {
+  const cell = Math.min(88, Math.floor((Math.min(400, innerWidth * .94) - 16 - (S.size - 1) * 8) / S.size));
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('2048', `<span class="chip">${S.size}×${S.size}</span>`)}
+    <div class="scorerow">
+      <div class="b"><div class="bn" id="score">0</div><div class="bl">Puntos</div></div>
+      <div class="b"><div class="bn" id="best">${store.get('m2048.best.' + S.diff, 0)}</div><div class="bl">Récord</div></div>
+    </div>
+    <div class="boardwrap">
+      <div class="board" id="board" style="grid-template-columns: repeat(${S.size}, ${cell}px); grid-auto-rows: ${cell}px;"></div>
+    </div>
+    <div class="row-hint" style="text-align:center;">Desliza para mover las fichas</div>
+    <div class="tools">
+      <button class="tool" id="t-nueva">Nueva</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+  bindSwipe();
+  paint(new Set());
+}
+
+function paint(changed) {
+  const cellFs = (v) => v < 100 ? '30px' : v < 1000 ? '24px' : '19px';
+  $('#board').innerHTML = S.grid.map((v, i) =>
+    `<div class="t2 ${changed.has(i) && v ? 'pop' : ''}" data-v="${v || ''}" style="font-size:${cellFs(v)}">${v || ''}</div>`).join('');
+  $('#score').textContent = S.score;
+}
+
+/* Mueve una línea hacia el inicio y fusiona iguales. */
+function slideLine(vals) {
+  const a = vals.filter((v) => v);
+  const out = [];
+  let gained = 0;
+  for (let i = 0; i < a.length; i++) {
+    if (i + 1 < a.length && a[i] === a[i + 1]) {
+      out.push(a[i] * 2);
+      gained += a[i] * 2;
+      i++;
+    } else out.push(a[i]);
+  }
+  while (out.length < vals.length) out.push(0);
+  return { out, gained };
+}
+
+function doMove(dir) {   // 0← 1→ 2↑ 3↓
+  if (S.over) return;
+  const n = S.size;
+  const before = S.grid.join(',');
+  const changed = new Set();
+  let gained = 0;
+  const lines = [];
+  for (let k = 0; k < n; k++) {
+    const idxs = [];
+    for (let j = 0; j < n; j++) {
+      if (dir === 0) idxs.push(k * n + j);
+      else if (dir === 1) idxs.push(k * n + (n - 1 - j));
+      else if (dir === 2) idxs.push(j * n + k);
+      else idxs.push((n - 1 - j) * n + k);
+    }
+    lines.push(idxs);
+  }
+  for (const idxs of lines) {
+    const r = slideLine(idxs.map((i) => S.grid[i]));
+    gained += r.gained;
+    idxs.forEach((i, j) => {
+      if (S.grid[i] !== r.out[j]) changed.add(i);
+      S.grid[i] = r.out[j];
+    });
+  }
+  if (S.grid.join(',') === before) return;
+  S.score += gained;
+  addTile();
+  paint(changed);
+  vibrate(8);
+  const best = store.get('m2048.best.' + S.diff, 0);
+  if (S.score > best) {
+    store.set('m2048.best.' + S.diff, S.score);
+    store.set('m2048.hub', `Récord: ${S.score} pts`);
+    $('#best').textContent = S.score;
+  }
+  if (!S.won && S.grid.includes(2048)) {
+    S.won = true;
+    confetti(); vibrate([30, 60, 30]);
+    openModal(`
+      <h3>¡2048!</h3>
+      <p style="text-align:center;">Llegaste a la ficha grande con <b>${S.score}</b> puntos.</p>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-go">Seguir jugando</button>
+        <button class="btn btn-ghost" id="m-new">Nueva partida</button>
+      </div>
+    `);
+    $('#m-go').onclick = closeModal;
+    $('#m-new').onclick = () => { closeModal(); startGame(); };
+    return;
+  }
+  if (!canMove()) gameOver();
+}
+
+function canMove() {
+  const n = S.size;
+  for (let i = 0; i < n * n; i++) {
+    if (!S.grid[i]) return true;
+    const r = Math.floor(i / n), c = i % n;
+    if (c + 1 < n && S.grid[i] === S.grid[i + 1]) return true;
+    if (r + 1 < n && S.grid[i] === S.grid[i + n]) return true;
+  }
+  return false;
+}
+
+function gameOver() {
+  S.over = true;
+  vibrate([80, 60, 80]);
+  setTimeout(() => {
+    openModal(`
+      <h3>Sin movimientos</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${S.score}</div><div class="l">puntos</div></div>
+        <div class="stat"><div class="n">${Math.max(...S.grid)}</div><div class="l">ficha mayor</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-diff">Cambiar tamaño</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+  }, 500);
+}
+
+function bindSwipe() {
+  const board = $('#board');
+  let start = null;
+  board.addEventListener('pointerdown', (e) => { start = { x: e.clientX, y: e.clientY }; board.setPointerCapture(e.pointerId); });
+  board.addEventListener('pointerup', (e) => {
+    if (!start) return;
+    const dx = e.clientX - start.x, dy = e.clientY - start.y;
+    start = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    if (Math.abs(dx) > Math.abs(dy)) doMove(dx > 0 ? 1 : 0);
+    else doMove(dy > 0 ? 3 : 2);
+  });
+}
+
+addEventListener('keydown', (e) => {
+  if (!$('#board')) return;
+  const d = { ArrowLeft: 0, ArrowRight: 1, ArrowUp: 2, ArrowDown: 3 }[e.key];
+  if (d !== undefined) { doMove(d); e.preventDefault(); }
+});
+
+renderSetup();
+</script>
+</body>
+</html>

@@ -21,7 +21,7 @@ jobs:
         run: |
           mkdir _site
           cp index.html dicc-es.js lexico-es.txt.gz manifest.webmanifest sw.js _site/
-          cp -r icons _site/
+          cp -r icons comun juegos _site/
           touch _site/.nojekyll
       - name: Publicar en la rama gh-pages
         env:

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Sopa de letras en español con cuatro dificultades y palabras del diccionario." />
+<title>Sopa de letras</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .board {
+    margin: 6px auto 0; width: min(96vw, 400px); aspect-ratio: 1;
+    background: var(--card); border-radius: 14px; box-shadow: var(--shadow);
+    display: grid; padding: 6px; gap: 0; touch-action: none; user-select: none; -webkit-user-select: none;
+    position: relative;
+  }
+  .lc {
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: var(--ink); border-radius: 7px; position: relative; z-index: 1;
+  }
+  .lc.selpath { background: var(--accent); color: var(--accent-ink); }
+  .lc.f0 { background: var(--accent-soft); color: var(--accent); }
+  .lc.f1 { background: var(--second-soft); color: var(--second); }
+  .lc.f2 { background: #E9E6F9; color: #6A5AD0; }
+  .lc.f3 { background: var(--warn-soft); color: var(--warn); }
+  .lc.f4 { background: #DFF0F2; color: #1F7F8A; }
+  .lc.flash { animation: flashHint 1.2s ease; }
+  @keyframes flashHint { 0%, 60% { background: var(--warn-soft); color: var(--warn); } 100% { } }
+  .words { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 14px 16px 6px; }
+  .wchip {
+    font-size: 13.5px; font-weight: 600; color: var(--ink); background: var(--card);
+    border-radius: 999px; padding: 7px 14px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 6px;
+  }
+  .wchip.hit { color: var(--faint); text-decoration: line-through; box-shadow: none; background: var(--soft); }
+  .wchip .dot { width: 8px; height: 8px; border-radius: 999px; }
+  .tools { margin: 10px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
+  .tool {
+    border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 10px 18px;
+    border-radius: 999px; background: var(--soft); color: var(--sub);
+  }
+  .tool:disabled { opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script src="../../dicc-es.js"></script>
+<script>
+'use strict';
+
+/* ── Configuración por dificultad ────────────────────────────────────── */
+const CFG = {
+  facil:   { size: 8,  n: 6,  dirs: [[0, 1], [1, 0]], maxRank: 4000,  minLen: 4, maxLen: 7 },
+  normal:  { size: 10, n: 8,  dirs: [[0, 1], [1, 0], [0, -1], [-1, 0]], maxRank: 10000, minLen: 4, maxLen: 9 },
+  dificil: { size: 12, n: 10, dirs: [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1]], maxRank: 20000, minLen: 5, maxLen: 10 },
+  experto: { size: 14, n: 12, dirs: [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]], maxRank: 32000, minLen: 5, maxLen: 11 },
+};
+const FILLER = 'AAAAEEEEEIIIOOOUSSRRNNLLDCCTUMPBGVYQHFZJ';
+const FCOLORS = 5;
+
+/* ── Estado ──────────────────────────────────────────────────────────── */
+const S = {
+  diff: store.get('sopa.diff', 'normal'),
+  size: 0, grid: [], words: [],    // words: [{w, n, cells:[i...], found, color}]
+  drag: null, foundCount: 0, pistas: 3, done: false,
+};
+const clock = makeClock(() => $('#clock'));
+
+/* ── Generación ──────────────────────────────────────────────────────── */
+function pickWords(cfg) {
+  const pool = Dicc.where((e) =>
+    e.n.length >= cfg.minLen && e.n.length <= cfg.maxLen && /^[a-zñ]+$/.test(e.n), cfg.maxRank);
+  const out = [];
+  const used = new Set();
+  let guard = 0;
+  while (out.length < cfg.n && guard++ < 4000) {
+    const e = pool[randInt(pool.length)];
+    if (!e || used.has(e.n)) continue;
+    if (out.some((o) => o.n.includes(e.n) || e.n.includes(o.n))) continue;
+    used.add(e.n);
+    out.push({ w: e.w, n: e.n });
+  }
+  return out.sort((a, b) => b.n.length - a.n.length);
+}
+
+function generate() {
+  const cfg = CFG[S.diff];
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const size = cfg.size;
+    const grid = new Array(size * size).fill('');
+    const words = pickWords(cfg);
+    let ok = true;
+    for (const wd of words) {
+      const L = wd.n.length;
+      let placed = false;
+      for (let t = 0; t < 300 && !placed; t++) {
+        const [dr, dc] = cfg.dirs[randInt(cfg.dirs.length)];
+        const r0 = randInt(size), c0 = randInt(size);
+        const rEnd = r0 + dr * (L - 1), cEnd = c0 + dc * (L - 1);
+        if (rEnd < 0 || rEnd >= size || cEnd < 0 || cEnd >= size) continue;
+        const cells = [];
+        let fits = true;
+        for (let k = 0; k < L; k++) {
+          const i = (r0 + dr * k) * size + (c0 + dc * k);
+          const ch = wd.n[k].toUpperCase();
+          if (grid[i] && grid[i] !== ch) { fits = false; break; }
+          cells.push(i);
+        }
+        if (!fits) continue;
+        cells.forEach((i, k) => { grid[i] = wd.n[k].toUpperCase(); });
+        wd.cells = cells;
+        placed = true;
+      }
+      if (!placed) { ok = false; break; }
+    }
+    if (!ok) continue;
+    for (let i = 0; i < grid.length; i++) {
+      if (!grid[i]) grid[i] = FILLER[randInt(FILLER.length)];
+    }
+    S.size = size;
+    S.grid = grid;
+    S.words = words.map((w, k) => ({ ...w, found: false, color: k % FCOLORS }));
+    return true;
+  }
+  return false;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  clock.stop();
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('sopa.best.' + d, null);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Sopa de letras', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+    </div>
+  </div>`;
+  const hint = () => {
+    const c = CFG[S.diff];
+    $('#d-hint').textContent = `Tablero ${c.size}×${c.size} · ${c.n} palabras · ${c.dirs.length} direcciones`;
+  };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('sopa.diff', v); hint(); });
+  hint();
+  $('#new').onclick = startGame;
+}
+
+function startGame() {
+  if (!generate()) { openModal('<h3>Vaya</h3><p>No pude armar el tablero, intenta de nuevo.</p><div class="m-actions"><button class="btn btn-primary" onclick="closeModal()">Cerrar</button></div>'); return; }
+  S.foundCount = 0; S.pistas = 3; S.done = false; S.drag = null;
+  renderPlay();
+  clock.start();
+}
+
+function renderPlay() {
+  const size = S.size;
+  const fs = Math.max(12, Math.floor(340 / size * 0.55));
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Sopa de letras', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="scroll">
+      <div class="board" id="board" style="grid-template-columns: repeat(${size}, 1fr); font-size: ${fs}px;">
+        ${S.grid.map((ch, i) => `<div class="lc" data-i="${i}">${ch}</div>`).join('')}
+      </div>
+      <div class="words" id="words"></div>
+      <div class="tools">
+        <button class="tool" id="t-pista">Pista · <span id="pistas-n">3</span></button>
+        <button class="tool" id="t-nueva">Nueva</button>
+        <button class="tool" id="t-salir">Salir</button>
+      </div>
+    </div>
+  </div>`;
+  paintWords();
+  bindDrag();
+  $('#t-pista').onclick = usePista;
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+}
+
+function paintWords() {
+  $('#words').innerHTML = S.words.map((w, k) => `
+    <span class="wchip ${w.found ? 'hit' : ''}" data-k="${k}">
+      ${w.found ? `<span class="dot" style="background: currentColor;"></span>` : ''}${esc(cap(w.w))}
+    </span>`).join('');
+}
+
+/* ── Selección por arrastre ──────────────────────────────────────────── */
+function cellFromPoint(x, y) {
+  const b = $('#board').getBoundingClientRect();
+  const pad = 6;
+  const cw = (b.width - pad * 2) / S.size;
+  const c = Math.floor((x - b.left - pad) / cw);
+  const r = Math.floor((y - b.top - pad) / cw);
+  if (r < 0 || r >= S.size || c < 0 || c >= S.size) return -1;
+  return r * S.size + c;
+}
+
+function pathBetween(a, b) {
+  const size = S.size;
+  const r0 = Math.floor(a / size), c0 = a % size;
+  const r1 = Math.floor(b / size), c1 = b % size;
+  let dr = r1 - r0, dc = c1 - c0;
+  // ajusta al eje/diagonal más cercano
+  if (dr !== 0 && dc !== 0 && Math.abs(Math.abs(dr) - Math.abs(dc)) > 0) {
+    if (Math.abs(dr) > Math.abs(dc) * 2) dc = 0;
+    else if (Math.abs(dc) > Math.abs(dr) * 2) dr = 0;
+    else { const L = Math.min(Math.abs(dr), Math.abs(dc)); dr = Math.sign(dr) * L; dc = Math.sign(dc) * L; }
+  }
+  const L = Math.max(Math.abs(dr), Math.abs(dc));
+  const sr = Math.sign(dr), sc = Math.sign(dc);
+  const cells = [];
+  for (let k = 0; k <= L; k++) {
+    const r = r0 + sr * k, c = c0 + sc * k;
+    if (r < 0 || r >= size || c < 0 || c >= size) break;
+    cells.push(r * size + c);
+  }
+  return cells;
+}
+
+function bindDrag() {
+  const board = $('#board');
+  board.addEventListener('pointerdown', (e) => {
+    const i = cellFromPoint(e.clientX, e.clientY);
+    if (i < 0 || S.done) return;
+    S.drag = { from: i, cells: [i] };
+    board.setPointerCapture(e.pointerId);
+    paintPath();
+  });
+  board.addEventListener('pointermove', (e) => {
+    if (!S.drag) return;
+    const i = cellFromPoint(e.clientX, e.clientY);
+    if (i < 0) return;
+    S.drag.cells = pathBetween(S.drag.from, i);
+    paintPath();
+  });
+  const finish = () => {
+    if (!S.drag) return;
+    const cells = S.drag.cells;
+    S.drag = null;
+    tryMatch(cells);
+    paintPath();
+  };
+  board.addEventListener('pointerup', finish);
+  board.addEventListener('pointercancel', finish);
+}
+
+function paintPath() {
+  const on = new Set(S.drag ? S.drag.cells : []);
+  $$('.lc').forEach((el) => el.classList.toggle('selpath', on.has(Number(el.dataset.i))));
+}
+
+function tryMatch(cells) {
+  if (!cells || cells.length < 2) return;
+  const sFwd = cells.map((i) => S.grid[i]).join('').toLowerCase();
+  const sBck = sFwd.split('').reverse().join('');
+  for (const w of S.words) {
+    if (w.found) continue;
+    if (w.n === sFwd || w.n === sBck) {
+      w.found = true;
+      S.foundCount++;
+      for (const i of cells) {
+        const el = $(`.lc[data-i="${i}"]`);
+        el.classList.remove('f0', 'f1', 'f2', 'f3', 'f4');
+        el.classList.add('f' + w.color);
+      }
+      vibrate(25);
+      paintWords();
+      if (S.foundCount === S.words.length) win();
+      return;
+    }
+  }
+  vibrate(50);
+}
+
+function usePista() {
+  if (S.pistas <= 0 || S.done) return;
+  const left = S.words.filter((w) => !w.found);
+  if (!left.length) return;
+  const w = left[randInt(left.length)];
+  S.pistas--;
+  $('#pistas-n').textContent = S.pistas;
+  if (S.pistas <= 0) $('#t-pista').disabled = true;
+  const el = $(`.lc[data-i="${w.cells[0]}"]`);
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  vibrate(20);
+}
+
+function win() {
+  S.done = true;
+  clock.stop();
+  const secs = clock.seconds;
+  const key = 'sopa.best.' + S.diff;
+  const best = store.get(key, null);
+  const isRecord = !best || secs < best;
+  if (isRecord) {
+    store.set(key, secs);
+    store.set('sopa.hub', `Mejor ${fmtTime(secs)} · ${DIFF_LABEL[S.diff]}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡Todas encontradas!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.words.length}</div><div class="l">palabras</div></div>
+    </div>
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Nuevo mejor tiempo!</span></p>'
+      : (best ? `<p style="text-align:center;">Tu mejor tiempo: <b>${fmtTime(best)}</b></p>` : '')}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otra sopa</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>

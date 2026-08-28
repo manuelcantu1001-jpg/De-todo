@@ -1,82 +1,69 @@
-# Encadena · El juego de las terminaciones
+# Juegos · Pasatiempos en español
 
-Juego de palabras en español: la primera palabra fija una **terminación** (o un **inicio**)
-y, por turnos, cada quien dice una palabra nueva que encaje. Con «Faustino» y 3 letras,
-todo debe acabar en **‑ino**: camino, destino, adivino…
+Colección propia de juegos de pasatiempos, al estilo de las apps de «mil juegos»
+pero hecha en casa: **sin anuncios, sin conexión y con el mismo lenguaje de diseño**
+en todos los juegos.
 
-Es una app web sin dependencias: abre [`index.html`](index.html) en el navegador y juega.
-Instalada como PWA (menú del navegador → «Añadir a pantalla de inicio») funciona a pantalla
-completa y sin conexión.
+**Juega en** <https://manuelcantu1001-jpg.github.io/De-todo/> — y desde ahí,
+«Añadir a pantalla de inicio» la instala como app en el teléfono.
 
-## Cómo se juega
+## Los juegos
 
-- La palabra inicial define las letras que cuentan (2 a 5, configurable).
-- Valen conjugaciones, plurales, diminutivos y **nombres propios reales**.
-- No se puede repetir palabra. Una palabra inválida cuesta una **vida**.
-- Si te rindes, agotas tu tiempo o te quedas sin vidas, pierdes la ronda.
+| Juego | Tipo | Dificultades |
+|---|---|---|
+| **Encadena** | Palabras encadenadas por terminación (1 vs 1, vs. app, solo) | Letras 2–5, vidas, tiempo |
+| **Sopa de letras** | Encuentra las palabras escondidas arrastrando | 4 (tamaño, direcciones y rareza) |
+| **Crucigrama** | Resuelve pistas escritas a mano (~390 en el banco) | 4 (nº de palabras y nivel de pista) |
+| **Ahorcado** | Letra a letra con rachas | 4 (rareza y largo de palabra) |
+| **Anagramas** | Ordena las letras revueltas, 5 por partida | 4 (largo de palabra) |
+| **Sudoku** | Generador con solución única garantizada | 4 (nº de pistas) |
+| **Buscaminas** | Toque para abrir, toque largo para bandera | 4 (tablero y minas) |
+| **Memorama** | Parejas de iconos, menos movimientos = mejor | 4 (6 a 15 parejas) |
+| **Gato** | Tres en raya, 2 jugadores o vs. app (minimax) | 3 niveles de app |
+| **2048** | Desliza y suma | 3 tamaños de tablero |
 
-## Modos
-
-| Modo | Descripción |
-|---|---|
-| **1 vs 1** | Pasa el teléfono. Si una palabra no está en el diccionario, el rival decide si la acepta (ideal para nombres propios). |
-| **Vs. app** | La app juega contigo usando su diccionario. Tres dificultades: fácil (≈6.000 palabras), normal (≈16.000) y experta (todo el diccionario). |
-| **Solo** | Encadena tantas palabras como puedas; se guarda tu mejor racha. |
-| Online | Pendiente (idea a futuro). |
-
-## Opciones
-
-- **Encadenar por el final o por el inicio** (fau‑… en vez de …‑ino).
-- **Vidas** (1–5) y **tiempo por turno** (5–60 s), ambos opcionales.
-
-## Identidad visual
-
-Una sola identidad, destilada de la exploración de diseño que vive en `design/`:
-papel cálido, verde botella y terracota, con las letras de la terminación como
-**fichas de juego**. Tipografía: [Fraunces](https://fonts.google.com/specimen/Fraunces)
-para títulos y letras, [Onest](https://fonts.google.com/specimen/Onest) para la interfaz.
+Todos guardan sus **mejores marcas** y las presumen en la portada.
 
 ## Estructura
 
 ```
-index.html            La app completa (HTML + CSS + JS vanilla, sin build ni frameworks)
-dicc-es.js            Diccionario de frecuencias: ~32.000 palabras
-lexico-es.txt.gz      Léxico de validación: ~635.000 formas del español (normalizadas)
-manifest.webmanifest  Manifiesto PWA (instalable, pantalla completa)
-sw.js                 Service worker: cache para jugar sin conexión
-icons/                Iconos de la app
-design/               Prototipo original (canvas de diseño con 3 direcciones visuales, en React)
+index.html            Portada (hub) con las tarjetas de los juegos
+comun/estilo.css      La identidad visual completa: tokens + átomos compartidos
+comun/nucleo.js       Utilidades compartidas (norm, store, modal, confeti, diccionario…)
+juegos/<juego>/       Cada juego en su carpeta, HTML+CSS+JS vanilla sin build
+dicc-es.js            Diccionario de frecuencias (~32.000 palabras)
+lexico-es.txt.gz      Léxico de validación (~635.000 formas normalizadas)
+manifest.webmanifest  PWA instalable · sw.js: cache para jugar sin conexión
+.github/workflows/    Deploy automático a GitHub Pages (rama gh-pages) en cada push
 ```
 
-## Validación de palabras
+**Para re-vestir la app** (cambiar identidad visual): tokens en `comun/estilo.css`
+(`:root`) y los `<link>` de Google Fonts de cada página. Hay 4 direcciones
+propuestas en `design/direcciones/`.
 
-1. **Frecuentes** (`dicc-es.js`, ~32.000 palabras por frecuencia): válida al instante.
-   Es también el vocabulario con el que juega la app y el que alimenta los contadores.
-2. **Léxico completo** (`lexico-es.txt.gz`, ~635.000 formas con conjugaciones, plurales
-   y femeninos): segunda comprobación para todo lo que no sea frecuente.
-3. **Juez rival** (1 vs 1): lo que no aparezca en ninguno lo decide el otro jugador
-   (así entran los nombres propios).
-4. **Árbitro IA** (opcional): si el entorno expone `window.claude.complete`, se consulta
-   a la IA antes de rechazar en Solo/Vs. app.
+## Validación de palabras (Encadena)
 
-La comparación ignora tildes y mayúsculas pero distingue la ñ. Fuentes: frecuencias de
-[hermitdave/FrequencyWords](https://github.com/hermitdave/FrequencyWords) (OpenSubtitles 2018,
-CC-BY-SA-4.0) y léxico de [words/an-array-of-spanish-words](https://github.com/words/an-array-of-spanish-words)
-(derivado del diccionario hunspell de LibreOffice), ambos filtrados a 3–15 letras.
+1. **Frecuentes** (`dicc-es.js`): válida al instante; también es el vocabulario de la app rival.
+2. **Léxico completo** (`lexico-es.txt.gz`): conjugaciones, plurales y femeninos.
+3. **Juez rival** (1 vs 1): lo que no aparezca lo decide el otro jugador (nombres propios).
+
+La comparación ignora tildes y mayúsculas pero distingue la ñ. Fuentes:
+[hermitdave/FrequencyWords](https://github.com/hermitdave/FrequencyWords) (CC-BY-SA-4.0) y
+[words/an-array-of-spanish-words](https://github.com/words/an-array-of-spanish-words) (hunspell).
 
 ## Desarrollo
 
-No hay build: edita `index.html` y recarga. Para probar en local con el diccionario
-(los navegadores bloquean `file://` en algunos casos):
+Sin build: edita y recarga. En local:
 
 ```bash
 python3 -m http.server 8000
 # → http://localhost:8000
 ```
 
-## Ideas a futuro
+## Pendiente
 
-- Modo online (ya reservado en la interfaz).
-- Sonidos y más animaciones.
-- Definiciones de las palabras jugadas al final de la ronda.
-- Torneo al mejor de N rondas con historial.
+- **Identidad visual y nombre definitivos**: 4 direcciones propuestas
+  (Quiosco / Arcadia / Recreo / Casillas) en el lienzo de diseño; se eligen y se
+  aplican re-tokenizando `comun/estilo.css`.
+- Modo online de Encadena (reservado en la interfaz).
+- Más juegos: la arquitectura del hub escala solo con añadir carpeta y tarjeta.

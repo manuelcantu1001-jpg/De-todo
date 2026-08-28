@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Buscaminas clásico: despeja el tablero sin pisar ninguna." />
+<title>Buscaminas</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3EB%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .boardwrap { display: flex; justify-content: center; padding: 8px 10px 4px; }
+  .board {
+    display: grid; gap: 2px; background: var(--border); padding: 3px; border-radius: 10px;
+    box-shadow: var(--shadow); touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  }
+  .mc {
+    display: flex; align-items: center; justify-content: center; border-radius: 4px;
+    font-weight: 700; cursor: pointer; position: relative;
+    background: var(--card); box-shadow: inset 0 -2px 0 rgba(60,50,30,.08);
+  }
+  .mc.open { background: var(--soft); box-shadow: none; cursor: default; }
+  .mc.boom { background: var(--bad); }
+  .mc.mine-show { background: var(--bad-soft); }
+  .mc svg { display: block; }
+  .n1 { color: #2A6DB5; } .n2 { color: var(--good); } .n3 { color: var(--bad); }
+  .n4 { color: #6A5AD0; } .n5 { color: var(--second); } .n6 { color: #1F7F8A; }
+  .n7 { color: var(--ink); } .n8 { color: var(--sub); }
+  .statusrow { display: flex; justify-content: center; gap: 20px; font-size: 13.5px; font-weight: 600; color: var(--sub); padding: 8px 0 0; }
+  .statusrow b { color: var(--ink); }
+  .tools { margin: 10px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
+  .tool {
+    border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px;
+    border-radius: 999px; background: var(--soft); color: var(--sub); display: flex; align-items: center; gap: 7px;
+  }
+  .tool.on { background: var(--second); color: #fff; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const CFG = {
+  facil:   { w: 8,  h: 8,  mines: 9 },
+  normal:  { w: 10, h: 10, mines: 16 },
+  dificil: { w: 12, h: 12, mines: 26 },
+  experto: { w: 13, h: 15, mines: 40 },
+};
+
+const FLAG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V4"></path><path d="M6 4h11l-2.6 3.5L17 11H6"></path></svg>';
+const MINE = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="5.5"></circle><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2" fill="none"></path></svg>';
+
+const S = {
+  diff: store.get('mina.diff', 'normal'),
+  w: 0, h: 0, mines: 0,
+  mine: [], open: [], flag: [], adj: [],
+  started: false, done: false, flagMode: false, openCount: 0, flagCount: 0,
+  press: null,
+};
+const clock = makeClock(() => $('#clock'));
+
+function renderSetup() {
+  clock.stop();
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('mina.best.' + d, null);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Buscaminas', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <div class="row-hint" style="text-align:center;">Toque: abrir · Toque largo o modo bandera: marcar</div>
+    </div>
+  </div>`;
+  const hint = () => {
+    const c = CFG[S.diff];
+    $('#d-hint').textContent = `Tablero ${c.w}×${c.h} · ${c.mines} minas`;
+  };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('mina.diff', v); hint(); });
+  hint();
+  $('#new').onclick = startGame;
+}
+
+function idx(r, c) { return r * S.w + c; }
+function neighbors(i) {
+  const r = Math.floor(i / S.w), c = i % S.w;
+  const out = [];
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    if (!dr && !dc) continue;
+    const nr = r + dr, nc = c + dc;
+    if (nr >= 0 && nr < S.h && nc >= 0 && nc < S.w) out.push(idx(nr, nc));
+  }
+  return out;
+}
+
+function startGame() {
+  const c = CFG[S.diff];
+  S.w = c.w; S.h = c.h; S.mines = c.mines;
+  const n = S.w * S.h;
+  S.mine = new Array(n).fill(false);
+  S.open = new Array(n).fill(false);
+  S.flag = new Array(n).fill(false);
+  S.adj = new Array(n).fill(0);
+  S.started = false; S.done = false; S.flagMode = false;
+  S.openCount = 0; S.flagCount = 0;
+  renderPlay();
+  clock.start();
+}
+
+function placeMines(safe) {
+  const banned = new Set([safe, ...neighbors(safe)]);
+  const spots = [];
+  for (let i = 0; i < S.mine.length; i++) if (!banned.has(i)) spots.push(i);
+  for (const i of shuffle(spots).slice(0, S.mines)) S.mine[i] = true;
+  for (let i = 0; i < S.mine.length; i++) {
+    S.adj[i] = neighbors(i).filter((j) => S.mine[j]).length;
+  }
+  S.started = true;
+}
+
+function renderPlay() {
+  const cell = Math.min(38, Math.floor((Math.min(402, innerWidth) * .96 - 8 - (S.w - 1) * 2) / S.w));
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Buscaminas', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="statusrow">
+      <span>Minas <b id="minesleft">${S.mines}</b></span>
+    </div>
+    <div class="scroll">
+      <div class="boardwrap">
+        <div class="board" id="board" style="grid-template-columns: repeat(${S.w}, ${cell}px); grid-auto-rows: ${cell}px; font-size: ${Math.floor(cell * .5)}px;">
+          ${Array.from({ length: S.w * S.h }, (_, i) => `<div class="mc" data-i="${i}"></div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-flag">${FLAG} Bandera</button>
+      <button class="tool" id="t-nueva">Nueva</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  const board = $('#board');
+  board.addEventListener('pointerdown', (e) => {
+    const el = e.target.closest('.mc');
+    if (!el || S.done) return;
+    const i = Number(el.dataset.i);
+    S.press = { i, t: Date.now(), fired: false, timer: setTimeout(() => {
+      if (S.press && S.press.i === i) { S.press.fired = true; toggleFlag(i); vibrate(30); }
+    }, 380) };
+  });
+  const release = (e) => {
+    if (!S.press) return;
+    clearTimeout(S.press.timer);
+    const el = e.target.closest ? e.target.closest('.mc') : null;
+    if (!S.press.fired && el && Number(el.dataset.i) === S.press.i) {
+      if (S.flagMode) toggleFlag(S.press.i);
+      else reveal(S.press.i);
+    }
+    S.press = null;
+  };
+  board.addEventListener('pointerup', release);
+  board.addEventListener('pointercancel', () => { if (S.press) clearTimeout(S.press.timer); S.press = null; });
+  board.addEventListener('contextmenu', (e) => { e.preventDefault(); });
+  $('#t-flag').onclick = () => { S.flagMode = !S.flagMode; $('#t-flag').classList.toggle('on', S.flagMode); };
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+  paint();
+}
+
+function toggleFlag(i) {
+  if (S.done || S.open[i]) return;
+  S.flag[i] = !S.flag[i];
+  S.flagCount += S.flag[i] ? 1 : -1;
+  paintCell(i);
+  $('#minesleft').textContent = Math.max(0, S.mines - S.flagCount);
+}
+
+function reveal(i) {
+  if (S.done || S.flag[i] || S.open[i]) return;
+  if (!S.started) placeMines(i);
+  if (S.mine[i]) return boom(i);
+  const stack = [i];
+  while (stack.length) {
+    const k = stack.pop();
+    if (S.open[k] || S.flag[k]) continue;
+    S.open[k] = true;
+    S.openCount++;
+    if (S.adj[k] === 0 && !S.mine[k]) {
+      for (const j of neighbors(k)) if (!S.open[j] && !S.mine[j]) stack.push(j);
+    }
+  }
+  paint();
+  vibrate(10);
+  if (S.openCount === S.w * S.h - S.mines) win();
+}
+
+function paintCell(i) {
+  const el = $(`.mc[data-i="${i}"]`);
+  if (!el) return;
+  el.className = 'mc';
+  if (S.open[i]) {
+    el.classList.add('open');
+    const a = S.adj[i];
+    el.innerHTML = a ? `<span class="n${a}">${a}</span>` : '';
+  } else if (S.flag[i]) {
+    el.innerHTML = `<span style="color:var(--second)">${FLAG}</span>`;
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+function paint() {
+  for (let i = 0; i < S.w * S.h; i++) paintCell(i);
+}
+
+function boom(hit) {
+  S.done = true;
+  clock.stop();
+  for (let i = 0; i < S.mine.length; i++) {
+    if (S.mine[i]) {
+      const el = $(`.mc[data-i="${i}"]`);
+      el.classList.add(i === hit ? 'boom' : 'mine-show');
+      el.innerHTML = `<span style="color:${i === hit ? '#fff' : 'var(--bad)'}">${MINE}</span>`;
+    }
+  }
+  vibrate([90, 60, 90]);
+  setTimeout(() => {
+    openModal(`
+      <h3>¡Boom!</h3>
+      <p style="text-align:center;">Pisaste una mina con ${S.openCount} casillas despejadas.</p>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+  }, 900);
+}
+
+function win() {
+  S.done = true;
+  clock.stop();
+  // marca las minas restantes
+  for (let i = 0; i < S.mine.length; i++) {
+    if (S.mine[i] && !S.flag[i]) { S.flag[i] = true; paintCell(i); }
+  }
+  $('#minesleft').textContent = 0;
+  const secs = clock.seconds;
+  const key = 'mina.best.' + S.diff;
+  const best = store.get(key, null);
+  const isRecord = !best || secs < best;
+  if (isRecord) {
+    store.set(key, secs);
+    store.set('mina.hub', `Mejor ${fmtTime(secs)} · ${DIFF_LABEL[S.diff]}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡Campo despejado!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.mines}</div><div class="l">minas</div></div>
+    </div>
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Nuevo mejor tiempo!</span></p>'
+      : (best ? `<p style="text-align:center;">Tu mejor tiempo: <b>${fmtTime(best)}</b></p>` : '')}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otra partida</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>

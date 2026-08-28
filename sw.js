@@ -1,7 +1,15 @@
-/* Service worker de Encadena: cache-first para jugar sin conexión. */
-const CACHE = 'encadena-v2';
-const ASSETS = ['./', 'index.html', 'dicc-es.js', 'lexico-es.txt.gz', 'manifest.webmanifest',
-  'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-512-maskable.png'];
+/* Service worker de la colección: cache-first para jugar sin conexión. */
+const CACHE = 'juegos-v3';
+const ASSETS = [
+  './', 'index.html',
+  'comun/estilo.css', 'comun/nucleo.js',
+  'dicc-es.js', 'lexico-es.txt.gz',
+  'manifest.webmanifest',
+  'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-512-maskable.png',
+  'juegos/encadena/', 'juegos/sopa/', 'juegos/crucigrama/', 'juegos/crucigrama/pistas-es.js',
+  'juegos/ahorcado/', 'juegos/anagrama/', 'juegos/sudoku/', 'juegos/buscaminas/',
+  'juegos/memorama/', 'juegos/gato/', 'juegos/2048/',
+];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));

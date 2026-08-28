@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="El ahorcado de toda la vida, con palabras del diccionario y rachas." />
+<title>Ahorcado</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .stage { display: flex; justify-content: center; padding: 6px 0 0; }
+  .stage svg { display: block; }
+  .stage .part { opacity: 0; transition: opacity .25s; }
+  .stage .part.on { opacity: 1; }
+  .wordrow { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; padding: 14px 16px 4px; }
+  .slot {
+    width: 34px; height: 44px; border-radius: 8px;
+    background: var(--tile-bg); border: 1px solid var(--tile-border);
+    box-shadow: 0 2.5px 0 var(--tile-border), inset 0 1px 0 rgba(255,255,255,.65);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--title-font); font-size: 24px; font-weight: 600; color: var(--tile-ink);
+  }
+  .slot.empty { color: transparent; }
+  .slot.revealbad { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); box-shadow: none; }
+  .statusrow { display: flex; justify-content: center; gap: 18px; padding: 10px 0 0; font-size: 13.5px; font-weight: 600; color: var(--sub); }
+  .statusrow b { color: var(--ink); }
+  .kwrap { margin-top: auto; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script src="../../dicc-es.js"></script>
+<script>
+'use strict';
+
+const CFG = {
+  facil:   { maxRank: 3000,  minLen: 4, maxLen: 6,  reveal: true },
+  normal:  { maxRank: 8000,  minLen: 5, maxLen: 8,  reveal: false },
+  dificil: { maxRank: 16000, minLen: 6, maxLen: 10, reveal: false },
+  experto: { maxRank: 32000, minLen: 7, maxLen: 12, reveal: false },
+};
+const MAX_ERR = 6;
+
+const S = {
+  diff: store.get('ahorcado.diff', 'normal'),
+  word: '', wn: '', guessed: new Set(), errors: 0,
+  racha: 0, done: false,
+};
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  const best = store.get('ahorcado.best', 0);
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Ahorcado', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="bests">
+        <div class="b"><div class="bn">${best || '—'}</div><div class="bl">Mejor racha</div></div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+    </div>
+  </div>`;
+  const hint = () => {
+    const c = CFG[S.diff];
+    $('#d-hint').textContent = `Palabras de ${c.minLen} a ${c.maxLen} letras` + (c.reveal ? ' · primera letra de regalo' : '');
+  };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('ahorcado.diff', v); hint(); });
+  hint();
+  $('#new').onclick = () => { S.racha = 0; nextWord(); };
+}
+
+function nextWord() {
+  const c = CFG[S.diff];
+  const e = Dicc.random({ minLen: c.minLen, maxLen: c.maxLen, maxRank: c.maxRank, minRank: 300 });
+  if (!e) return;
+  S.word = e.w;
+  S.wn = e.n;
+  S.guessed = new Set();
+  S.errors = 0;
+  S.done = false;
+  if (c.reveal) S.guessed.add(S.wn[0]);
+  renderPlay();
+}
+
+const PARTS = [
+  '<circle class="part p0" cx="140" cy="52" r="14"></circle>',
+  '<path class="part p1" d="M140 66v38"></path>',
+  '<path class="part p2" d="M140 76l-18 16"></path>',
+  '<path class="part p3" d="M140 76l18 16"></path>',
+  '<path class="part p4" d="M140 104l-14 22"></path>',
+  '<path class="part p5" d="M140 104l14 22"></path>',
+];
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Ahorcado', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
+    <div class="stage">
+      <svg width="210" height="150" viewBox="0 0 210 150" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round">
+        <path d="M20 144h60M50 144V16h90M50 40l26-24M140 16v22" opacity="0.9"></path>
+        <g stroke="var(--second)">${PARTS.join('')}</g>
+      </svg>
+    </div>
+    <div class="statusrow">
+      <span>Errores <b id="errn">0</b> / ${MAX_ERR}</span>
+      <span>Racha <b id="rachan">${S.racha}</b></span>
+    </div>
+    <div class="wordrow" id="wordrow"></div>
+    <div class="msg" id="msg" style="padding: 6px 16px 0;"></div>
+    <div class="kwrap">
+      <div class="kbd" id="kbd">
+        ${['QWERTYUIOP', 'ASDFGHJKLÑ', 'ZXCVBNM'].map((row) =>
+          `<div class="krow">${[...row].map((ch) => `<button data-ch="${ch.toLowerCase()}">${ch}</button>`).join('')}</div>`).join('')}
+      </div>
+      <div style="text-align:center; padding-bottom: calc(10px + env(safe-area-inset-bottom));">
+        <button class="btn btn-danger-ghost btn-sm" id="t-rendir">Me rindo</button>
+        <button class="btn btn-soft btn-sm" id="t-salir">Salir</button>
+      </div>
+    </div>
+  </div>`;
+  $('#kbd').onclick = (e) => {
+    const b = e.target.closest('button');
+    if (b) guess(b.dataset.ch);
+  };
+  $('#t-rendir').onclick = () => lose(true);
+  $('#t-salir').onclick = renderSetup;
+  paint();
+}
+
+function paint() {
+  $('#wordrow').innerHTML = [...S.word].map((ch) => {
+    const n = norm(ch);
+    const show = S.guessed.has(n);
+    return `<div class="slot ${show ? '' : 'empty'}">${esc(show ? ch.toUpperCase() : '·')}</div>`;
+  }).join('');
+  $('#errn').textContent = S.errors;
+  $$('.part').forEach((p, i) => p.classList.toggle('on', i < S.errors));
+  $$('#kbd button').forEach((b) => {
+    const ch = b.dataset.ch;
+    if (S.guessed.has(ch)) {
+      b.classList.add(S.wn.includes(ch) ? 'hit' : 'miss');
+      b.disabled = true;
+    }
+  });
+}
+
+function guess(ch) {
+  if (S.done || S.guessed.has(ch)) return;
+  S.guessed.add(ch);
+  if (S.wn.includes(ch)) {
+    vibrate(15);
+    paint();
+    if ([...S.wn].every((c) => S.guessed.has(c))) winWord();
+  } else {
+    S.errors++;
+    vibrate(50);
+    paint();
+    if (S.errors >= MAX_ERR) lose(false);
+  }
+}
+
+function winWord() {
+  S.done = true;
+  S.racha++;
+  const best = store.get('ahorcado.best', 0);
+  const isRecord = S.racha > best;
+  if (isRecord) {
+    store.set('ahorcado.best', S.racha);
+    store.set('ahorcado.hub', 'Mejor racha: ' + S.racha);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡${esc(cap(S.word))}!</h3>
+    <p style="text-align:center;">Adivinada con ${S.errors} ${S.errors === 1 ? 'error' : 'errores'}.
+    Llevas <b>${S.racha}</b> seguidas${isRecord ? ' · <span class="record">🏆 ¡récord!</span>' : ''}.</p>
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-next">Siguiente palabra</button>
+      <button class="btn btn-ghost" id="m-out">Terminar racha</button>
+    </div>
+  `);
+  $('#m-next').onclick = () => { closeModal(); nextWord(); };
+  $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+}
+
+function lose(surrendered) {
+  S.done = true;
+  // muñeco completo y palabra revelada en rojo donde faltaba
+  S.errors = MAX_ERR;
+  $$('.part').forEach((p) => p.classList.add('on'));
+  $('#errn').textContent = S.errors;
+  $('#wordrow').innerHTML = [...S.word].map((ch) => {
+    const n = norm(ch);
+    const had = S.guessed.has(n);
+    return `<div class="slot ${had ? '' : 'revealbad'}">${esc(ch.toUpperCase())}</div>`;
+  }).join('');
+  vibrate([80, 60, 80]);
+  const racha = S.racha;
+  setTimeout(() => {
+    openModal(`
+      <h3>${surrendered ? 'Era «' + esc(cap(S.word)) + '»' : '¡Ahorcado!'}</h3>
+      <p style="text-align:center;">${surrendered ? '' : 'La palabra era <b>«' + esc(cap(S.word)) + '»</b>. '}
+      ${racha ? 'Tu racha quedó en <b>' + racha + '</b>.' : 'Esta vez no cayó ninguna.'}</p>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-next">Otra palabra</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-next').onclick = () => { closeModal(); S.racha = 0; nextWord(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 900);
+}
+
+/* Teclado físico */
+addEventListener('keydown', (e) => {
+  if (!$('#kbd')) return;
+  const k = e.key.toLowerCase();
+  if (/^[a-zñ]$/.test(k)) guess(k);
+});
+
+renderSetup();
+</script>
+</body>
+</html>
