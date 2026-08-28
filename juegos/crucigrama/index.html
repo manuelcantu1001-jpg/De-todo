@@ -148,14 +148,17 @@ function tryBuild(words, maxSide, wordsNeeded) {
           const cr = fits(e.n, r0, c0, dr, dc);
           if (cr > 0) {
             const dim = dimAfter(e.n, r0, c0, dr, dc);
-            if (dim <= maxSide) options.push({ r0, c0, dr, dc, score: cr * 100 - dim });
+            if (dim <= maxSide) options.push({ r0, c0, dr, dc, cr, score: cr * 1000 - dim });
           }
         }
       }
     }
     if (!options.length) continue;   // esta palabra no cruza: probar con la siguiente
     options.sort((a, b) => b.score - a.score);
-    const o = options[randInt(Math.min(3, options.length))];
+    // si alguna cruza dos o más veces, se elige entre esas: los cruces son el puzzle
+    const buenas = options.filter((o2) => o2.cr >= 2);
+    const pozo = buenas.length ? buenas : options;
+    const o = pozo[randInt(Math.min(3, pozo.length))];
     put(e, o.r0, o.c0, o.dr, o.dc);
   }
   if (placed.length < need) return null;
@@ -175,6 +178,21 @@ function tryBuild(words, maxSide, wordsNeeded) {
 function generate() {
   const cfg = CFG[S.diff];
   const bank = bankFor(cfg);
+  // Se prueban varias construcciones y se guarda la más entrelazada.
+  let mejor = null, mejorRatio = -1;
+  const ratioCruces = ({ placed }) => {
+    const cuenta = new Map();
+    for (const p of placed) {
+      for (let k = 0; k < p.n.length; k++) {
+        const kk = key(p.r + p.dr * k, p.c + p.dc * k);
+        cuenta.set(kk, (cuenta.get(kk) || 0) + 1);
+      }
+    }
+    let cruzadas = 0;
+    for (const v of cuenta.values()) if (v > 1) cruzadas++;
+    return cruzadas / cuenta.size;
+  };
+
   for (let attempt = 0; attempt < 120; attempt++) {
     const sample = shuffle(bank).slice(0, cfg.n + 10)
       .sort((a, b) => b.n.length - a.n.length);
@@ -188,8 +206,13 @@ function generate() {
     }
     if (words.length < cfg.n) continue;
     const built = tryBuild(words, cfg.maxSide, cfg.n);
-    if (built) { finishBuild(built); return true; }
+    if (!built) continue;
+    const ratio = ratioCruces(built);
+    if (ratio > mejorRatio) { mejorRatio = ratio; mejor = built; }
+    // 30% de celdas compartidas ya es un crucigrama bien trenzado
+    if (mejorRatio >= 0.30 || (attempt > 40 && mejorRatio >= 0.24)) break;
   }
+  if (mejor) { finishBuild(mejor); return true; }
   return false;
 }
 

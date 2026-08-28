@@ -37,6 +37,7 @@
   .acciones { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; padding-top: 12px; }
   .acciones .fila { display: flex; gap: 10px; }
   .acciones .fila .btn { flex: 1; padding: 14px 10px; font-size: 15px; }
+  .acciones .apuestas .btn { padding: 12px 4px; font-size: 12.5px; }
 </style>
 </head>
 <body>
@@ -50,11 +51,13 @@
 const SB = 10, BB = 20, STACK = 1000;
 const PALOS = ['♠', '♥', '♦', '♣'];
 const NOMBRE = ['Carta alta', 'Par', 'Doble par', 'Trío', 'Escalera', 'Color', 'Full', 'Póker', 'Escalera de color'];
+/* margen alto = se retira de más (fácil de exprimir); farol = cuánto se tira faroles.
+   En Fácil la app es miedosa y transparente; en Experto aguanta y te farolea. */
 const IA = {
-  facil:   { n: 60,  margen: -0.08, sube: 0.78, farol: 0.02, abre: 0.62 },
-  normal:  { n: 120, margen: 0.00,  sube: 0.68, farol: 0.06, abre: 0.55 },
-  dificil: { n: 200, margen: 0.03,  sube: 0.64, farol: 0.10, abre: 0.52 },
-  experto: { n: 300, margen: 0.05,  sube: 0.60, farol: 0.14, abre: 0.50 },
+  facil:   { n: 40,  margen: 0.20, sube: 0.86, farol: 0.00, abre: 0.74 },
+  normal:  { n: 110, margen: 0.08, sube: 0.74, farol: 0.04, abre: 0.62 },
+  dificil: { n: 200, margen: 0.03, sube: 0.66, farol: 0.10, abre: 0.55 },
+  experto: { n: 320, margen: 0.00, sube: 0.60, farol: 0.16, abre: 0.50 },
 };
 
 const S = {
@@ -66,13 +69,30 @@ const S = {
 };
 
 const REGLAS = `<p>Texas Hold'em <b>mano a mano</b>: dos cartas tuyas, cinco comunes, y la mejor mano de cinco gana el bote. Ciegas de $${SB}/$${BB}, fichas iniciales $${STACK}.</p>
-<p>En tu turno puedes <b>retirarte</b>, <b>pasar / igualar</b> o <b>subir</b>. Hay cuatro rondas de apuestas: antes del flop, en el flop, en el turn y en el river.</p>
+<p>En tu turno puedes <b>retirarte</b>, <b>pasar / igualar</b> o subir — y <b>tú eliges cuánto</b>: media apuesta del bote, el bote entero o todas tus fichas. Ahí está el juego: con una mano buena sacas valor, y con una mala una apuesta grande puede echar a la app.</p>
+<p>Hay cuatro rondas de apuestas: antes del flop, en el flop, en el turn y en el river.</p>
 <p>El duelo se acaba cuando alguien se queda <b>sin fichas</b>. La dificultad cambia qué tan fino calcula (y qué tanto farolea) el rival. Tu marca: duelos ganados.</p>`;
 
 /* ── Cartas y evaluación ─────────────────────────────────────────────── */
 const cartaHTML = (c, oculta) => oculta
-  ? '<div class="carta dorso"></div>'
-  : `<div class="carta ${c.s === 1 || c.s === 2 ? 'roja' : ''}"><span class="r">${c.r === 14 ? 'A' : c.r === 13 ? 'K' : c.r === 12 ? 'Q' : c.r === 11 ? 'J' : c.r}</span><span class="s">${PALOS[c.s]}</span></div>`;
+  ? '<div class="carta dorso" data-k="dorso"></div>'
+  : `<div class="carta ${c.s === 1 || c.s === 2 ? 'roja' : ''}" data-k="${c.r}-${c.s}"><span class="r">${c.r === 14 ? 'A' : c.r === 13 ? 'K' : c.r === 12 ? 'Q' : c.r === 11 ? 'J' : c.r}</span><span class="s">${PALOS[c.s]}</span></div>`;
+
+/* Pinta sin rehacer lo ya puesto: solo se anima la carta que acaba de caer. */
+function pintaMano(sel, cartas, ocultas) {
+  const cont = $(sel);
+  if (!cont) return;
+  const fijas = [...cont.children].filter((e) => e.classList.contains('carta'));
+  fijas.slice(cartas.length).forEach((e) => e.remove());
+  const vacio = cont.querySelector(':not(.carta)');
+  if (vacio && cartas.length) vacio.remove();
+  cartas.forEach((c, i) => {
+    const clave = ocultas ? 'dorso' : `${c.r}-${c.s}`;
+    const hijo = [...cont.children].filter((e) => e.classList.contains('carta'))[i];
+    if (!hijo) cont.insertAdjacentHTML('beforeend', cartaHTML(c, ocultas));
+    else if (hijo.dataset.k !== clave) hijo.outerHTML = cartaHTML(c, ocultas);
+  });
+}
 
 function eval5(cs) {
   const rs = cs.map((c) => c.r).sort((a, b) => b - a);
@@ -171,23 +191,32 @@ function renderMesa() {
       <div class="fila">
         <button class="btn btn-ghost" id="b-fold">Retirarse</button>
         <button class="btn btn-soft" id="b-call"></button>
-        <button class="btn btn-primary" id="b-raise"></button>
+      </div>
+      <div class="fila apuestas">
+        <button class="btn btn-primary" id="b-medio"></button>
+        <button class="btn btn-primary" id="b-bote"></button>
+        <button class="btn btn-primary" id="b-todo"></button>
       </div>
       <div class="fila"><button class="btn btn-ghost" id="b-salir">Salir del duelo</button></div>
     </div>
   </div>`;
   $('#b-fold').onclick = () => miAccion('fold');
   $('#b-call').onclick = () => miAccion('call');
-  $('#b-raise').onclick = () => miAccion('raise');
+  $('#b-medio').onclick = () => miAccion('raise', 0.5);
+  $('#b-bote').onclick = () => miAccion('raise', 1);
+  $('#b-todo').onclick = () => miAccion('raise', Infinity);
   $('#b-salir').onclick = renderSetup;
 }
 
 function narra(t) { const el = $('#narra'); if (el) el.textContent = t || ''; }
 
 function paint() {
-  $('#c-app').innerHTML = S.hole.app.map((c) => cartaHTML(c, !S.muestraApp)).join('');
-  $('#c-yo').innerHTML = S.hole.yo.map((c) => cartaHTML(c)).join('');
-  $('#c-board').innerHTML = S.board.map((c) => cartaHTML(c)).join('') || '<span style="color:var(--faint);font-weight:600;font-size:13px;align-self:center;">— aún sin cartas comunes —</span>';
+  pintaMano('#c-app', S.hole.app, !S.muestraApp);
+  pintaMano('#c-yo', S.hole.yo, false);
+  if (!S.board.length) {
+    const b = $('#c-board');
+    if (b && !b.querySelector('span')) b.innerHTML = '<span style="color:var(--faint);font-weight:600;font-size:13px;align-self:center;">— aún sin cartas comunes —</span>';
+  } else pintaMano('#c-board', S.board, false);
   $('#st-yo').textContent = '$' + (S.stack.yo - S.cont.yo);
   $('#st-app').textContent = '$' + (S.stack.app - S.cont.app);
   $('#pot').textContent = '$' + (S.pot + S.cont.yo + S.cont.app);
@@ -198,18 +227,28 @@ function paint() {
   $('#b-fold').disabled = !miTurno;
   $('#b-call').disabled = !miTurno;
   $('#b-call').textContent = toCall > 0 ? `Igualar $${Math.min(toCall, S.stack.yo - S.cont.yo)}` : 'Pasar';
-  const sub = subidaDe('yo');
-  $('#b-raise').disabled = !miTurno || !sub;
-  $('#b-raise').textContent = sub ? `Subir a $${sub}` : 'Subir';
+  // Tú decides cuánto: media apuesta, el bote entero o todas tus fichas
+  const opciones = [['b-medio', 0.5, '½ bote'], ['b-bote', 1, 'Bote'], ['b-todo', Infinity, 'Todo']];
+  const vistos = new Set();
+  for (const [id, frac, etiqueta] of opciones) {
+    const obj = subidaDe('yo', frac);
+    const el = $('#' + id);
+    // si dos tamaños salen iguales (por el mínimo o el tope), deja solo el primero
+    const repetido = obj && vistos.has(obj);
+    if (obj) vistos.add(obj);
+    el.disabled = !miTurno || !obj || repetido;
+    const esTodo = obj && obj >= Math.min(S.stack.yo, S.stack.app);
+    el.textContent = obj ? (esTodo ? `Todo $${obj}` : `${etiqueta} $${obj}`) : etiqueta;
+  }
 }
 
 /* ── Motor de la mano ────────────────────────────────────────────────── */
-function nuevaMano() {
+/* Reparto como en la mesa: una carta a cada uno, por turnos, no todas de golpe. */
+async function nuevaMano() {
   S.mazo = [];
   for (let s = 0; s < 4; s++) for (let r = 2; r <= 14; r++) S.mazo.push({ r, s });
   S.mazo = shuffle(S.mazo);
-  S.hole.yo = [S.mazo.pop(), S.mazo.pop()];
-  S.hole.app = [S.mazo.pop(), S.mazo.pop()];
+  S.hole.yo = []; S.hole.app = [];
   S.board = []; S.street = 0; S.pot = 0; S.muestraApp = false;
   const sb = S.dealer, bb = sb === 'yo' ? 'app' : 'yo';
   S.cont = { yo: 0, app: 0 };
@@ -219,6 +258,19 @@ function nuevaMano() {
   S.raises = 1;
   S.enMano = true;
   S.turno = sb;
+  S.pensando = true;                       // nadie actúa mientras se reparte
+  narra('Repartiendo…');
+  paint();
+  for (const quien of ['yo', 'app', 'yo', 'app']) {
+    await delay(300);
+    if (!$('#c-yo')) return;               // saliste a media reparto
+    S.hole[quien].push(S.mazo.pop());
+    vibrate(5);
+    paint();
+  }
+  await delay(240);
+  if (!$('#c-yo')) return;
+  S.pensando = false;
   narra('');
   paint();
   siguiente();
@@ -226,29 +278,32 @@ function nuevaMano() {
 
 const otro = (q) => q === 'yo' ? 'app' : 'yo';
 
-function subidaDe(q) {
+/* Cuánto se sube: fracción del bote (Infinity = todas las fichas).
+   El tope real es el stack más corto de los dos. */
+function subidaDe(q, frac) {
   if (S.raises >= 4) return 0;
-  const toCall = S.cont[otro(q)] - S.cont[q];
+  const opp = otro(q);
+  const toCall = S.cont[opp] - S.cont[q];
   const bote = S.pot + S.cont.yo + S.cont.app;
-  const inc = toCall > 0 ? Math.max(2 * toCall, BB * 2) : Math.max(BB, Math.round(bote / 20) * 10);
-  let objetivo = S.cont[otro(q)] + inc;
-  const topeYo = S.cont[q] + (S.stack[q] - S.cont[q]);
-  const topeOtro = S.cont[otro(q)] + (S.stack[otro(q)] - S.cont[otro(q)]);
-  objetivo = Math.min(objetivo, topeYo, topeOtro);
-  return objetivo > S.cont[otro(q)] ? objetivo : 0;
+  const tope = Math.min(S.stack[q], S.stack[opp]);
+  if (frac === Infinity) return tope > S.cont[opp] ? tope : 0;
+  const minimo = S.cont[opp] + Math.max(toCall, BB);            // subida mínima legal
+  const deseado = S.cont[opp] + Math.round((toCall + frac * (bote + toCall)) / 10) * 10;
+  const objetivo = Math.min(Math.max(minimo, deseado), tope);
+  return objetivo > S.cont[opp] ? objetivo : 0;
 }
 
-function miAccion(tipo) {
+function miAccion(tipo, frac) {
   if (!S.enMano || S.turno !== 'yo' || S.pensando) return;
-  accion('yo', tipo);
+  accion('yo', tipo, frac);
 }
 
-function accion(q, tipo) {
+function accion(q, tipo, frac) {
   const opp = otro(q);
   const toCall = S.cont[opp] - S.cont[q];
   if (tipo === 'fold') return finPorRetiro(opp, q);
   if (tipo === 'raise') {
-    const obj = subidaDe(q);
+    const obj = subidaDe(q, frac == null ? 1 : frac);
     if (!obj) tipo = 'call';
     else {
       S.cont[q] = obj;
@@ -280,9 +335,18 @@ function siguiente() {
     setTimeout(() => {
       S.pensando = false;
       if (!S.enMano) return;
-      accion('app', decideApp());
+      const d = decideApp();
+      accion('app', d.tipo, d.frac);
     }, 650 + randInt(650));
   }
+}
+
+/* La app también elige cuánto sube: fuerte apuesta grande, floja apuesta chica. */
+function tamanoApp(eq, farol) {
+  if (farol) return Math.random() < .3 ? 1 : 0.5;
+  if (eq > 0.85) return Math.random() < .35 ? Infinity : 1;
+  if (eq > 0.68) return Math.random() < .55 ? 1 : 0.5;
+  return 0.5;
 }
 
 function decideApp() {
@@ -291,26 +355,37 @@ function decideApp() {
   const eq = equity(S.hole.app, S.board, P.n);
   const bote = S.pot + S.cont.yo + S.cont.app;
   if (toCall <= 0) {
-    if (eq > P.abre + (Math.random() - 0.5) * 0.06) return 'raise';
-    if (Math.random() < P.farol) return 'raise';
-    return 'call';
+    if (eq > P.abre + (Math.random() - 0.5) * 0.06) return { tipo: 'raise', frac: tamanoApp(eq, false) };
+    if (Math.random() < P.farol) return { tipo: 'raise', frac: tamanoApp(eq, true) };
+    return { tipo: 'call' };
   }
   const odds = toCall / (bote + toCall);
-  if (eq > P.sube && Math.random() < 0.8) return 'raise';
-  if (Math.random() < P.farol * 0.5) return 'raise';
-  if (eq < odds + P.margen) return Math.random() < 0.12 ? 'call' : 'fold';
-  return 'call';
+  if (eq > P.sube && Math.random() < 0.8) return { tipo: 'raise', frac: tamanoApp(eq, false) };
+  if (Math.random() < P.farol * 0.5) return { tipo: 'raise', frac: tamanoApp(eq, true) };
+  if (eq < odds + P.margen) return Math.random() < 0.12 ? { tipo: 'call' } : { tipo: 'fold' };
+  return { tipo: 'call' };
 }
 
-function cerrarCalle() {
+async function cerrarCalle() {
+  if (!S.enMano) return;                 // evita que dos hilos cierren la misma calle
   S.pot += S.cont.yo + S.cont.app;
   S.stack.yo -= S.cont.yo; S.stack.app -= S.cont.app;
   S.cont = { yo: 0, app: 0 };
   const allin = S.stack.yo === 0 || S.stack.app === 0;
   if (S.street === 3) return muestra();
   S.street++;
-  S.board.push(S.mazo.pop());
-  if (S.street === 1) { S.board.push(S.mazo.pop()); S.board.push(S.mazo.pop()); }
+  // El flop cae de una en una, como la reparte el crupier
+  const cuantas = S.street === 1 ? 3 : 1;
+  S.pensando = true;
+  paint();
+  for (let k = 0; k < cuantas; k++) {
+    await delay(k ? 260 : 380);
+    if (!$('#c-board')) return;
+    S.board.push(S.mazo.pop());
+    vibrate(5);
+    paint();
+  }
+  S.pensando = false;
   if (allin) {
     S.muestraApp = true;
     paint();
@@ -326,24 +401,29 @@ function cerrarCalle() {
 }
 
 function finPorRetiro(ganador, retirado) {
+  if (!S.enMano) return;                 // la mano ya se resolvió: no repartir el bote dos veces
   S.enMano = false;
   const bote = S.pot + S.cont.yo + S.cont.app;
   S.stack.yo -= S.cont.yo; S.stack.app -= S.cont.app;
   S.stack[ganador] += bote;
+  S.pot = 0; S.cont = { yo: 0, app: 0 };
   narra(retirado === 'yo' ? 'Te retiras' : 'La app se retira');
   finMano(ganador === 'yo' ? `Te llevas $${bote}` : `La app se lleva $${bote}`,
     retirado === 'yo' ? 'Te retiraste antes de ver más cartas.' : 'La app tiró sus cartas.', ganador);
 }
 
 function muestra() {
+  if (!S.enMano) return;                 // ídem: una mano se resuelve una sola vez
+  S.enMano = false;
   S.muestraApp = true;
+  const bote = S.pot;
+  S.pot = 0;
   const vy = eval7(S.hole.yo.concat(S.board)), va = eval7(S.hole.app.concat(S.board));
   let ganador, titulo, porque;
-  if (vy > va) { ganador = 'yo'; S.stack.yo += S.pot; titulo = `Te llevas $${S.pot}`; }
-  else if (va > vy) { ganador = 'app'; S.stack.app += S.pot; titulo = `La app se lleva $${S.pot}`; }
-  else { ganador = null; S.stack.yo += S.pot / 2; S.stack.app += S.pot / 2; titulo = 'Bote repartido'; }
+  if (vy > va) { ganador = 'yo'; S.stack.yo += bote; titulo = `Te llevas $${bote}`; }
+  else if (va > vy) { ganador = 'app'; S.stack.app += bote; titulo = `La app se lleva $${bote}`; }
+  else { ganador = null; S.stack.yo += bote / 2; S.stack.app += bote / 2; titulo = 'Bote repartido'; }
   porque = `Tu ${NOMBRE[catDe(vy)].toLowerCase()} contra ${NOMBRE[catDe(va)].toLowerCase()} de la app.`;
-  S.enMano = false;
   paint();
   finMano(titulo, porque, ganador);
 }

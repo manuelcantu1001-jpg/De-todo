@@ -17,6 +17,16 @@
 <link rel="stylesheet" href="comun/estilo.css" />
 <style>
   .hub-foot { margin-top: 26px; text-align: center; font-size: 12px; color: var(--faint); font-weight: 500; }
+  .buscador { position: relative; margin: 4px 0 2px; }
+  .buscador .field { padding-left: 42px; font-size: 16px; }
+  .buscador svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--sub); pointer-events: none; }
+  .buscador .limpiar {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%); border: none; background: none;
+    color: var(--sub); font-size: 20px; cursor: pointer; padding: 4px 8px; display: none;
+  }
+  .buscador.lleno .limpiar { display: block; }
+  .sinnada { text-align: center; color: var(--sub); font-style: italic; padding: 26px 0; }
+  .sect.oculta, .gcards.oculta { display: none; }
 </style>
 </head>
 <body>
@@ -24,8 +34,18 @@
   <div class="hub">
     <div class="brand">
       <h1>Juegos</h1>
-      <div class="tag">Pasatiempos en español · 44 juegos</div>
+      <div class="tag">Pasatiempos en español · 42 juegos</div>
     </div>
+
+    <div class="buscador" id="buscador">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"></circle><path d="M21 21l-5.4-5.4"></path></svg>
+      <input class="field" id="q" type="search" autocomplete="off" placeholder="Buscar juego…" aria-label="Buscar juego" />
+      <button class="limpiar" id="q-limpiar" aria-label="Limpiar búsqueda">×</button>
+    </div>
+    <div class="sinnada" id="sinnada" style="display:none;">Ningún juego se llama así</div>
+
+    <div class="sect" id="t-recientes" style="display:none;">Seguir jugando</div>
+    <div class="gcards" id="s-recientes" style="display:none;"></div>
 
     <div class="sect">Palabras</div>
     <div class="gcards" id="s-palabras"></div>
@@ -74,7 +94,6 @@ const IC = {
   bus: '<circle cx="6" cy="6" r="2.4"></circle><circle cx="18" cy="6" r="2.4"></circle><circle cx="6" cy="18" r="2.4"></circle><circle cx="18" cy="18" r="2.4"></circle><path d="M7.8 7.8l8.4 8.4M18 8.4v7.2" opacity="0.55"></path>',
   fra: '<path d="M5.5 14.5c-1.6-1-2.3-2.5-2.3-4.4 0-2.9 2-4.9 4.9-4.9v2.9c-1.4 0-2 .6-2 2h2v4.4zM14.7 14.5c-1.6-1-2.3-2.5-2.3-4.4 0-2.9 2-4.9 4.9-4.9v2.9c-1.4 0-2 .6-2 2h2v4.4z" fill="currentColor" stroke="none" opacity="0.3"></path><path d="M4.5 19.5h15" opacity="0.5"></path>',
   sil: '<circle cx="4.6" cy="12" r="2.2"></circle><circle cx="12" cy="12" r="2.2"></circle><circle cx="19.4" cy="12" r="2.2"></circle><path d="M6.8 12h3M14.2 12h3" opacity="0.6"></path>',
-  def: '<path d="M4 4.5h16v11h-7.5L8 19.5v-4H4z"></path><path d="M9.8 8.6c.3-1.1 1.4-1.8 2.6-1.6 1.1.2 1.9 1.2 1.7 2.3-.2 1.1-1.2 1.5-2.3 2.2v.6" opacity="0.8"></path>',
   bin: '<circle cx="8" cy="8" r="3.2" fill="currentColor" stroke="none" opacity="0.3"></circle><circle cx="16" cy="8" r="3.2"></circle><circle cx="8" cy="16" r="3.2"></circle><circle cx="16" cy="16" r="3.2" fill="currentColor" stroke="none" opacity="0.3"></circle>',
   pue: '<circle cx="5.5" cy="12" r="3"></circle><circle cx="18.5" cy="12" r="3"></circle><path d="M8.5 10.7h7M8.5 13.3h7" opacity="0.7"></path>',
   hit: '<path d="M3.5 3.5h17v17h-17z"></path><path d="M9.2 3.5v17M14.9 3.5v17M3.5 9.2h17M3.5 14.9h17" opacity="0.4"></path><path d="M4.8 4.8l3 3M7.8 4.8l-3 3M16.2 16.2l3 3M19.2 16.2l-3 3"></path>',
@@ -88,7 +107,6 @@ const IC = {
   come: '<circle cx="12" cy="5" r="2"></circle><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" opacity="0.3"></circle><circle cx="19" cy="12" r="2"></circle><circle cx="12" cy="19" r="2"></circle>',
   han: '<path d="M4 20.5h16"></path><path d="M12 3.5v17" opacity="0.4"></path><path d="M5 16.8h14M7 12.6h10M9 8.4h6" stroke-width="2.6"></path>',
   bj: '<rect x="5.5" y="3" width="13" height="18" rx="2.5"></rect><path d="M9.5 15.5l2.5-6.5 2.5 6.5M10.4 13.2h4.2"></path>',
-  p3: '<rect x="7.5" y="5" width="9" height="13" rx="1.8"></rect><path d="M6.5 6.8L4 8l4.6 10 1.6-.8" opacity="0.6"></path><path d="M17.5 6.8L20 8l-4.6 10-1.6-.8" opacity="0.6"></path>',
   hold: '<rect x="4.5" y="3.5" width="7.5" height="10.5" rx="1.5" transform="rotate(-8 8.2 8.7)"></rect><rect x="12" y="3.5" width="7.5" height="10.5" rx="1.5" transform="rotate(8 15.8 8.7)"></rect><circle cx="12" cy="18.3" r="2.7"></circle><circle cx="12" cy="18.3" r="1" fill="currentColor" stroke="none"></circle>',
   blo: '<rect x="4" y="10.4" width="5.1" height="5.1" fill="currentColor" stroke="none" opacity="0.3"></rect><rect x="9.4" y="10.4" width="5.1" height="5.1" fill="currentColor" stroke="none" opacity="0.3"></rect><rect x="14.8" y="10.4" width="5.1" height="5.1" fill="currentColor" stroke="none" opacity="0.3"></rect><rect x="9.4" y="5" width="5.1" height="5.1" fill="currentColor" stroke="none" opacity="0.3"></rect><path d="M4 20.5h16" opacity="0.4"></path>',
   lad: '<path d="M3.5 4h17v6h-17z"></path><path d="M9.2 4v3M14.9 4v3M6.3 7v3M12 7v3M17.7 7v3M3.5 7h17" opacity="0.55"></path><circle cx="12" cy="15" r="1.6" fill="currentColor" stroke="none"></circle><path d="M7.5 20.5h9" stroke-width="2.6"></path>',
@@ -107,7 +125,6 @@ const SECCIONES = {
     ['buscapalabras', 'bus', 'Buscapalabras', 'Letras vecinas contra el reloj'],
     ['frase', 'fra', 'Ordena la frase', 'Refranes revueltos'],
     ['silabas', 'sil', 'Sílabas', 'Encadenadas del recreo'],
-    ['definicion', 'def', 'La definición', 'El crucigrama al revés'],
   ],
   's-numeros': [
     ['sudoku', 'sud', 'Sudoku', 'El clásico de números'],
@@ -137,7 +154,6 @@ const SECCIONES = {
     ['comesolo', 'come', 'Come solo', 'Deja una sola ficha'],
     ['hanoi', 'han', 'Torres de Hanoi', 'La torre entera, sin trampas'],
     ['blackjack', 'bj', 'Blackjack', 'A 21 contra la casa'],
-    ['poker3', 'p3', 'Póker 3 cartas', '¿Juegas o te retiras?'],
     ['holdem', 'hold', "Texas Hold'em", 'Duelo de fichas y faroles'],
   ],
   's-arcade': [
@@ -150,20 +166,66 @@ const SECCIONES = {
   ],
 };
 
+const TODOS = Object.entries(SECCIONES).flatMap(([sect, js]) => js.map((j) => [sect, ...j]));
+
 let alt = false;
-for (const [sect, juegos] of Object.entries(SECCIONES)) {
-  const cont = document.getElementById(sect);
-  cont.innerHTML = juegos.map(([dir, id, nombre, sub]) => {
-    alt = !alt;
-    const marca = store.get(id + '.hub', null);
-    return `<a class="gcard" href="juegos/${dir}/">
-      <div class="gi ${alt ? '' : 'alt'}"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC[id]}</svg></div>
-      <div class="gn">${nombre}</div>
-      <div class="gs">${sub}</div>
-      <div class="gb">${marca ? esc(marca) : 'Sin marcas aún'}</div>
-    </a>`;
-  }).join('');
+function tarjeta([dir, id, nombre, sub]) {
+  alt = !alt;
+  const marca = store.get(id + '.hub', null);
+  return `<a class="gcard" href="juegos/${dir}/" data-id="${id}" data-buscar="${esc(norm(nombre + ' ' + sub))}">
+    <div class="gi ${alt ? '' : 'alt'}"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC[id]}</svg></div>
+    <div class="gn">${nombre}</div>
+    <div class="gs">${sub}</div>
+    <div class="gb">${marca ? esc(marca) : 'Sin marcas aún'}</div>
+  </a>`;
 }
+
+for (const [sect, juegos] of Object.entries(SECCIONES)) {
+  document.getElementById(sect).innerHTML = juegos.map(tarjeta).join('');
+}
+
+/* ── Seguir jugando: los últimos que abriste ─────────────────────────── */
+function pintaRecientes() {
+  const ids = store.get('hub.recientes', []);
+  const cont = $('#s-recientes'), titulo = $('#t-recientes');
+  const juegos = ids.map((id) => TODOS.find((j) => j[2] === id)).filter(Boolean).slice(0, 4);
+  if (!juegos.length) { cont.style.display = 'none'; titulo.style.display = 'none'; return; }
+  cont.innerHTML = juegos.map(([, ...j]) => tarjeta(j)).join('');
+  cont.style.display = ''; titulo.style.display = '';
+}
+pintaRecientes();
+
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('.gcard');
+  if (!a) return;
+  const id = a.dataset.id;
+  const prev = store.get('hub.recientes', []).filter((x) => x !== id);
+  store.set('hub.recientes', [id, ...prev].slice(0, 8));
+});
+
+/* ── Buscador: filtra sin tildes ni mayúsculas ───────────────────────── */
+const buscador = $('#buscador'), campo = $('#q');
+function filtrar() {
+  const q = norm(campo.value);
+  buscador.classList.toggle('lleno', !!campo.value);
+  let visibles = 0;
+  $$('.gcard').forEach((c) => {
+    const ok = !q || c.dataset.buscar.includes(q);
+    c.style.display = ok ? '' : 'none';
+    if (ok) visibles++;
+  });
+  // con búsqueda activa se ocultan los títulos de sección y «seguir jugando»
+  $$('.sect').forEach((s) => s.classList.toggle('oculta', !!q));
+  $('#s-recientes').classList.toggle('oculta', !!q);
+  $$('.gcards').forEach((g) => {
+    if (g.id === 's-recientes') return;
+    const algo = Array.from(g.children).some((c) => c.style.display !== 'none');
+    g.classList.toggle('oculta', !!q && !algo);
+  });
+  $('#sinnada').style.display = q && !visibles ? '' : 'none';
+}
+campo.oninput = filtrar;
+$('#q-limpiar').onclick = () => { campo.value = ''; filtrar(); campo.focus(); };
 </script>
 <script id="sw-reg">
 if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {

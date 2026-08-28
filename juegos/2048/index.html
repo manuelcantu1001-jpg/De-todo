@@ -59,10 +59,13 @@
 'use strict';
 
 /* La dificultad es el tamaño: más chico, más difícil. */
+// La meta cambia con el tablero: en 3×3 la ficha 2048 no cabe
+// (con 9 casillas el techo real ronda 1024), así que sería una promesa falsa.
 const CFG = {
-  facil:   { size: 5 },
-  normal:  { size: 4 },
-  experto: { size: 3 },
+  facil:   { size: 5, meta: 2048 },
+  normal:  { size: 4, meta: 2048 },
+  dificil: { size: 4, meta: 4096 },
+  experto: { size: 3, meta: 512 },
 };
 
 const S = {
@@ -71,8 +74,8 @@ const S = {
 };
 
 const REGLAS = `<p><b>Desliza</b> en cualquier dirección: todas las fichas se mueven hacia allá, y cuando chocan dos iguales se <b>suman en una</b>.</p>
-<p>Tras cada movimiento aparece una ficha nueva. Junta, suma y llega a la ficha de <b>2048</b>… y sigue después si te atreves.</p>
-<p>Pierdes cuando el tablero se llena y ya no hay movimientos posibles. En tableros más chicos hay menos aire: más difícil.</p>`;
+<p>Tras cada movimiento aparece una ficha nueva. Junta, suma y llega a la <b>ficha meta</b>… y sigue después si te atreves.</p>
+<p>Pierdes cuando el tablero se llena y ya no hay movimientos posibles. La meta cambia con el tablero, porque en uno chico no caben fichas tan grandes: 5×5 y 4×4 piden 2048, el reto de 4×4 pide 4096 y el 3×3 pide 512.</p>`;
 
 function renderSetup() {
   $('#app').innerHTML = `
@@ -81,7 +84,7 @@ function renderSetup() {
     <div class="g-setup scroll">
       <div class="card" style="padding: 14px 18px 18px;">
         <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Tamaño del tablero</div></div>
-        ${diffSegHTML('seg-d', S.diff, ['facil', 'normal', 'experto'])}
+        ${diffSegHTML('seg-d', S.diff)}
         <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
       </div>
       <div class="bests" id="bests"></div>
@@ -93,9 +96,10 @@ function renderSetup() {
     const b = store.get('m2048.best.' + S.diff, 0);
     $('#bests').innerHTML = `<div class="b"><div class="bn">${b || '—'}</div><div class="bl">Récord de puntos</div></div>`;
   };
+  const PIE = { facil: 'más espacio, más aire', normal: 'el clásico', dificil: 'el clásico, hasta el doble', experto: 'casi sin espacio: brutal' };
   const hint = () => {
     const c = CFG[S.diff];
-    $('#d-hint').textContent = `${c.size}×${c.size} — ${S.diff === 'facil' ? 'más espacio, más aire' : S.diff === 'normal' ? 'el clásico' : 'casi sin espacio: brutal'}`;
+    $('#d-hint').textContent = `${c.size}×${c.size} · meta ${c.meta} — ${PIE[S.diff]}`;
   };
   bindSeg('seg-d', (v) => { S.diff = v; store.set('m2048.diff', v); hint(); paintBests(); });
   hint(); paintBests();
@@ -200,12 +204,12 @@ function doMove(dir) {   // 0← 1→ 2↑ 3↓
     store.set('m2048.hub', `Récord: ${S.score} pts`);
     $('#best').textContent = S.score;
   }
-  if (!S.won && S.grid.includes(2048)) {
+  if (!S.won && S.grid.includes(CFG[S.diff].meta)) {
     S.won = true;
     confetti(); vibrate([30, 60, 30]);
     openModal(`
-      <h3>¡2048!</h3>
-      <p style="text-align:center;">Llegaste a la ficha grande con <b>${S.score}</b> puntos.</p>
+      <h3>¡${CFG[S.diff].meta}!</h3>
+      <p style="text-align:center;">Llegaste a la ficha meta con <b>${S.score}</b> puntos.</p>
       <div class="m-actions">
         <button class="btn btn-primary" id="m-go">Seguir jugando</button>
         <button class="btn btn-ghost" id="m-new">Nueva partida</button>

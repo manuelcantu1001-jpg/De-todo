@@ -1,5 +1,5 @@
 /* Service worker de la colección: cache-first para jugar sin conexión. */
-const CACHE = 'juegos-v7';
+const CACHE = 'juegos-v8';
 const ASSETS = [
   './', 'index.html',
   'comun/estilo.css', 'comun/nucleo.js',
@@ -12,11 +12,11 @@ const ASSETS = [
   'juegos/palabra/', 'juegos/acomoda/', 'juegos/cifras/', 'juegos/nonograma/',
   'juegos/kakuro/', 'juegos/naval/', 'juegos/conecta4/', 'juegos/damas/',
   'juegos/solitario/', 'juegos/serpiente/', 'juegos/simon/', 'juegos/laberinto/',
-  'juegos/buscapalabras/', 'juegos/frase/', 'juegos/silabas/', 'juegos/definicion/',
+  'juegos/buscapalabras/', 'juegos/frase/', 'juegos/silabas/',
   'juegos/binario/', 'juegos/puentes/', 'juegos/hitori/', 'juegos/luces/', 'juegos/picas/',
   'juegos/punteros/', 'juegos/inunda/',
   'juegos/reversi/', 'juegos/domino/', 'juegos/deslizante/', 'juegos/comesolo/', 'juegos/hanoi/',
-  'juegos/blackjack/', 'juegos/poker3/', 'juegos/holdem/',
+  'juegos/blackjack/', 'juegos/holdem/',
   'juegos/bloques/', 'juegos/ladrillos/', 'juegos/topos/',
 ];
 
@@ -39,6 +39,6 @@ self.addEventListener('fetch', (e) => {
         caches.open(CACHE).then((c) => c.put(e.request, copy));
       }
       return res;
-    }).catch(() => caches.match('index.html')))
+    }).catch(() => (e.request.mode === 'navigate' ? caches.match('index.html') : undefined)))
   );
 });

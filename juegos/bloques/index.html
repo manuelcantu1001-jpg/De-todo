@@ -29,7 +29,7 @@
   .panelito .t { font-size: 10px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--sub); }
   .panelito .v { font-family: var(--title-font); font-size: 19px; font-weight: 700; color: var(--ink); }
   canvas#prox { display: block; margin: 4px auto 0; }
-  .controles { display: flex; gap: 8px; justify-content: center; padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); }
+  .controles { display: flex; gap: 8px; justify-content: center; margin-top: auto; padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); }
   .ctl {
     flex: 1; max-width: 76px; height: 56px; border: none; border-radius: 11px 12px 14px 17px / 12px 15px 14px 17px; cursor: pointer;
     background: var(--card); box-shadow: var(--shadow); color: var(--ink); font-size: 22px; font-weight: 700;
@@ -63,6 +63,7 @@ const S = {
   diff: store.get('bloques.diff', 'normal'),
   grid: null, pieza: null, bolsa: [], prox: -1,
   score: 0, lineas: 0, nivel: 0, timerId: null, jugando: false,
+  fijarId: null, reacomodos: 0,
 };
 
 const REGLAS = `<p>Las piezas caen y tú las acomodas: completa <b>líneas horizontales</b> para limpiarlas y sumar (4 de un golpe es lo máximo). Si la pila llega al tope, se acabó.</p>
@@ -119,10 +120,40 @@ function fijar() {
   pintarHud();
 }
 
+const ESPERA_FIJADO = 450;   // ms de gracia al tocar suelo
+const REACOMODOS = 12;       // veces que mover/girar puede renovar esa gracia
+
+function apoyada() { return choca(S.pieza, 1, 0, S.pieza.celdas); }
+
+/* esAccion = lo hizo el jugador (mover o girar): solo entonces se renueva
+   la gracia. Si la renovara también la gravedad, la pieza no se pegaría nunca. */
+function renovarFijado(esAccion) {
+  if (!S.jugando || !S.pieza) return;
+  if (!apoyada()) {
+    if (S.fijarId) { clearTimeout(S.fijarId); S.fijarId = null; }
+    return;
+  }
+  if (S.fijarId && esAccion && S.reacomodos < REACOMODOS) {
+    clearTimeout(S.fijarId);
+    S.fijarId = null;
+    S.reacomodos++;
+  }
+  if (!S.fijarId) S.fijarId = setTimeout(() => { S.fijarId = null; fijarYa(); }, ESPERA_FIJADO);
+}
+
+function fijarYa() {
+  if (!S.jugando || !apoyada()) return;
+  clearTimeout(S.fijarId);
+  S.fijarId = null;
+  S.reacomodos = 0;
+  fijar();
+  dibujar();
+}
+
 function gravedad() {
   if (!S.jugando) return;
-  if (!choca(S.pieza, 1, 0, S.pieza.celdas)) S.pieza.r++;
-  else fijar();
+  if (!apoyada()) { S.pieza.r++; S.reacomodos = 0; }
+  renovarFijado(false);
   dibujar();
 }
 
@@ -134,26 +165,25 @@ function reprogramar() {
 /* ── Acciones ────────────────────────────────────────────────────────── */
 function mover(dc) {
   if (!S.jugando) return;
-  if (!choca(S.pieza, 0, dc, S.pieza.celdas)) { S.pieza.c += dc; dibujar(); }
+  if (!choca(S.pieza, 0, dc, S.pieza.celdas)) { S.pieza.c += dc; renovarFijado(true); dibujar(); }
 }
 function girar() {
   if (!S.jugando) return;
   const g = rotada(S.pieza.celdas, S.pieza.caja);
   for (const dc of [0, -1, 1, -2, 2]) {
-    if (!choca(S.pieza, 0, dc, g)) { S.pieza.celdas = g; S.pieza.c += dc; vibrate(6); dibujar(); return; }
+    if (!choca(S.pieza, 0, dc, g)) { S.pieza.celdas = g; S.pieza.c += dc; vibrate(6); renovarFijado(true); dibujar(); return; }
   }
 }
 function bajar() {
   if (!S.jugando) return;
-  if (!choca(S.pieza, 1, 0, S.pieza.celdas)) { S.pieza.r++; dibujar(); }
-  else { fijar(); dibujar(); }
+  if (!apoyada()) { S.pieza.r++; S.reacomodos = 0; renovarFijado(false); dibujar(); }
+  else fijarYa();
 }
 function soltar() {
   if (!S.jugando) return;
-  while (!choca(S.pieza, 1, 0, S.pieza.celdas)) S.pieza.r++;
+  while (!apoyada()) S.pieza.r++;
   vibrate(12);
-  fijar();
-  dibujar();
+  fijarYa();
 }
 
 /* ── Dibujo ──────────────────────────────────────────────────────────── */
@@ -201,6 +231,7 @@ function pintarHud() {
 /* ── Pantallas ───────────────────────────────────────────────────────── */
 function renderSetup() {
   clearInterval(S.timerId);
+  clearTimeout(S.fijarId); S.fijarId = null;
   S.jugando = false;
   const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
     const b = store.get('bloques.best.' + d, 0);
@@ -266,12 +297,27 @@ function renderPlay() {
   ctxP = $('#prox').getContext('2d');
   ctxP.scale(dpr, dpr);
   const cs = getComputedStyle(document.body);
-  COLORES = ['--tinta-1', '--tinta-2', '--tinta-4', '--tinta-5'].map((v) => cs.getPropertyValue(v).trim())
-    .concat(['--tinta-2', '--tinta-6', '--tinta-7'].map((v) => cs.getPropertyValue(v).trim()));
-  $('#c-izq').onclick = () => mover(-1);
-  $('#c-der').onclick = () => mover(1);
+  // Una tinta distinta por pieza: I O T S Z J L
+  COLORES = ['--tinta-2', '--tinta-4', '--tinta-6', '--tinta-3', '--tinta-5', '--tinta-7', '--tinta-1']
+    .map((v) => cs.getPropertyValue(v).trim());
+  // Mantener pulsado repite la acción (si no, mover 4 casillas son 4 toques)
+  const repetible = (sel, accion) => {
+    const el = $(sel);
+    let esperaId = null, repiteId = null;
+    const parar = () => { clearTimeout(esperaId); clearInterval(repiteId); esperaId = repiteId = null; };
+    el.onpointerdown = (e) => {
+      e.preventDefault();
+      accion();
+      esperaId = setTimeout(() => { repiteId = setInterval(accion, 65); }, 330);
+    };
+    el.onpointerup = parar;
+    el.onpointercancel = parar;
+    el.onpointerleave = parar;
+  };
+  repetible('#c-izq', () => mover(-1));
+  repetible('#c-der', () => mover(1));
+  repetible('#c-abajo', bajar);
   $('#c-girar').onclick = girar;
-  $('#c-abajo').onclick = bajar;
   $('#c-soltar').onclick = soltar;
   $('#c-salir').onclick = renderSetup;
   // gestos sobre el tablero
@@ -304,6 +350,7 @@ function teclas(e) {
 function terminar() {
   S.jugando = false;
   clearInterval(S.timerId);
+  clearTimeout(S.fijarId); S.fijarId = null;
   const best = store.get('bloques.best.' + S.diff, 0);
   const isRecord = S.score > best;
   if (isRecord && S.score > 0) {

@@ -29,6 +29,7 @@
   }
   .wchip:active { transform: scale(.95); }
   .armado .wchip { background: var(--accent-soft); color: var(--ink); border-color: transparent; box-shadow: none; }
+  .armado .wchip.ok { background: var(--good-soft); border-color: var(--good); }
   .armado.bien .wchip { background: var(--good); color: #fff; }
   .prog { text-align: center; padding-top: 14px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
   .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
@@ -57,6 +58,14 @@ const REFRANES = {
     'Zapatero a tus zapatos', 'Barriga llena corazón contento', 'A palabras necias oídos sordos',
     'Con dinero baila el perro', 'Cuentas claras amistades largas', 'A falta de pan tortillas',
     'Quien mucho duerme poco aprende', 'Al buen entendedor pocas palabras', 'La esperanza muere al último',
+    'El que no llora no mama', 'Ojos vendados corazón contento', 'Camarón dormido se lo lleva',
+    'Al pan pan al vino vino', 'Del dicho al hecho hay trecho', 'Genio y figura hasta la sepultura',
+    'Quien calla otorga', 'Más vale solo que mal acompañado', 'A lo hecho pecho',
+    'Nadie escarmienta en cabeza ajena', 'El que espera desespera', 'Obra de romanos',
+    'Poco a poco se anda lejos', 'De noche todos los gatos son pardos', 'A cada santo su vela',
+    'La ropa sucia se lava en casa', 'El flojo trabaja doble', 'Hablando se entiende la gente',
+    'Al que madruga le va bien', 'Cada cabeza es un mundo', 'Lo prometido es deuda',
+    'La unión hace la fuerza', 'Más vale poco que nada', 'El hambre es mala consejera',
   ],
   normal: [
     'Hoy por ti mañana por mí', 'Sobre gustos no hay nada escrito', 'En boca cerrada no entran moscas',
@@ -69,6 +78,17 @@ const REFRANES = {
     'No hay mal que por bien no venga', 'Agua que no has de beber déjala correr',
     'Cuando el río suena es que agua lleva', 'Árbol que nace torcido jamás su rama endereza',
     'El que quiera azul celeste que le cueste', 'Matrimonio y mortaja del cielo bajan',
+    'Nadie sabe para quién trabaja', 'El que la sigue la consigue', 'Donde manda capitán no gobierna marinero',
+    'Al mejor cocinero se le va un tomate', 'Cuando el gato no está los ratones hacen fiesta',
+    'De médico poeta y loco todos tenemos un poco', 'La cabra siempre tira al monte',
+    'Perro que come huevo aunque le quemen el hocico', 'El que a buen árbol se arrima buena sombra le cobija',
+    'Antes que te cases mira lo que haces', 'No todo lo que brilla es oro', 'A buen hambre no hay pan duro',
+    'El que tiene tienda que la atienda', 'Amor de lejos amor de pendejos', 'Al ojo del amo engorda el caballo',
+    'En martes ni te cases ni te embarques', 'Quien siembra vientos recoge tempestades',
+    'La ocasión hace al ladrón', 'De grano en grano llena la gallina el buche',
+    'El pez grande se come al chico', 'A la cama no te irás sin saber una cosa más',
+    'Quien bien te quiere te hará llorar', 'Más vale un por si acaso que un yo pensé',
+    'El burro hablando de orejas',
   ],
   dificil: [
     'Camarón que se duerme se lo lleva la corriente', 'Dime con quién andas y te diré quién eres',
@@ -83,19 +103,32 @@ const REFRANES = {
     'El muerto al pozo y el vivo al gozo', 'La suerte de la fea la bonita la desea',
     'Aunque te chille el cochino no le aflojes el mecate', 'El que se fue a la villa perdió su silla',
     'Más vale paso que dure y no trote que canse', 'Cada quien habla de cómo le fue en la feria',
+    'No por mucho madrugar se acaba el trabajo antes', 'El que quiera peces que se moje el trasero',
+    'Cuando veas las barbas de tu vecino cortar pon las tuyas a remojar',
+    'A quien le dan pan que llore', 'El que se lleva se aguanta', 'Está más perdido que un perro en misa',
+    'No hay peor ciego que el que no quiere ver', 'Unos nacen con estrella y otros nacen estrellados',
+    'Cuando el tecolote canta el indio muere', 'Después de ahogado el niño a tapar el pozo',
+    'A donde fueres haz lo que vieres', 'Quien no oye consejo no llega a viejo',
+    'El que da primero da dos veces', 'Ya que no puedas con ellos úneteles',
+    'Zapatero remendón compón tu zapatón', 'A palabras de borracho oídos de cantinero',
+    'No hay que buscarle tres pies al gato', 'El que se enoja pierde y el que pierde se enoja',
+    'De qué le sirve al ciego el espejo', 'Chango viejo no aprende maroma nueva',
+    'A cada capillita le llega su fiestecita', 'El que nace pa maceta no sale del corredor',
+    'No dejes camino viejo por vereda nueva', 'El diablo sabe más por viejo que por diablo',
   ],
 };
 const RONDAS = 5;
 const PENAL = 5; // segundos por intento fallido
+const PISTA = 12; // segundos que cuesta que te coloquen una palabra
 
 const S = {
   diff: store.get('frase.diff', 'normal'),
   lista: [], ronda: 0, target: [], banco: [], puesto: [],
-  seg: 0, timerId: null, fallos: 0, jugando: false, bloqueo: false,
+  seg: 0, timerId: null, fallos: 0, pistas: 0, jugando: false, bloqueo: false,
 };
 
 const REGLAS = `<p>Te damos un <b>refrán con las palabras revueltas</b>: tócalas en orden para armarlo. Si te equivocas, toca una palabra colocada para regresarla.</p>
-<p>Al colocar la última palabra se comprueba solo. Cada intento fallido suma <b>+${PENAL} segundos</b> al reloj.</p>
+<p>Al colocar la última palabra se comprueba solo. Las palabras se pintan de <b>verde</b> mientras el principio vaya bien. Cada intento fallido suma <b>+${PENAL} s</b> y, si te atoras, la <b>pista</b> te coloca la siguiente por <b>+${PISTA} s</b>.</p>
 <p>La partida son <b>${RONDAS} refranes</b>; tu marca es el tiempo total. La dificultad cambia el largo de los refranes.</p>`;
 
 function renderSetup() {
@@ -125,7 +158,7 @@ function renderSetup() {
 
 function startGame() {
   S.lista = shuffle(REFRANES[S.diff]).slice(0, RONDAS);
-  S.ronda = 0; S.seg = 0; S.fallos = 0; S.jugando = true;
+  S.ronda = 0; S.seg = 0; S.fallos = 0; S.pistas = 0; S.jugando = true;
   clearInterval(S.timerId);
   S.timerId = setInterval(() => {
     S.seg++;
@@ -136,7 +169,8 @@ function startGame() {
 
 function nextRonda(first) {
   S.target = S.lista[S.ronda].split(' ');
-  do { S.banco = shuffle(S.target.map((w, i) => ({ w, i }))); }
+  // En minúscula: la mayúscula del refrán delataba cuál iba primera
+  do { S.banco = shuffle(S.target.map((w, i) => ({ w: w.toLowerCase(), i }))); }
   while (S.target.length > 1 && S.banco.every((c, k) => c.i === k));
   S.puesto = [];
   S.bloqueo = false;
@@ -154,6 +188,7 @@ function renderPlay() {
       <div class="msg" id="msg" style="padding-top:14px;"></div>
     </div>
     <div class="tools">
+      <button class="tool" id="t-pista">Pista (+${PISTA} s)</button>
       <button class="tool" id="t-salir">Salir</button>
     </div>
   </div>`;
@@ -165,8 +200,29 @@ function renderPlay() {
     const c = e.target.closest('.wchip');
     if (c && !S.bloqueo) poner(Number(c.dataset.k));
   };
+  $('#t-pista').onclick = pista;
   $('#t-salir').onclick = () => { S.jugando = false; clearInterval(S.timerId); renderSetup(); };
   paint();
+}
+
+/* Coloca la siguiente palabra que toca, a cambio de segundos.
+   Sin esto, quien no se sepa el refrán no tiene salida. */
+function pista() {
+  if (!S.jugando || S.bloqueo) return;
+  // deja solo el principio que ya está bien
+  let bien = 0;
+  while (bien < S.puesto.length && S.banco[S.puesto[bien]].i === bien) bien++;
+  S.puesto = S.puesto.slice(0, bien);
+  const k = S.banco.findIndex((c, idx) => c.i === bien && !S.puesto.includes(idx));
+  if (k < 0) return;
+  S.puesto.push(k);
+  S.seg += PISTA;
+  S.pistas++;
+  vibrate(8);
+  paint();
+  const msg = $('#msg');
+  if (msg) { msg.textContent = `Va esta · +${PISTA} s`; msg.className = 'msg check'; }
+  if (S.puesto.length === S.target.length) comprobar();
 }
 
 function paint() {
@@ -174,7 +230,11 @@ function paint() {
   const arm = $('#armado');
   arm.classList.remove('bien');
   arm.innerHTML = S.puesto.length
-    ? S.puesto.map((k) => `<button class="wchip" data-k="${k}">${esc(S.banco[k].w)}</button>`).join('')
+    ? S.puesto.map((k, pos) => {
+        // verde mientras el principio coincida con el refrán
+        const bien = S.puesto.slice(0, pos + 1).every((kk, i) => S.banco[kk].i === i);
+        return `<button class="wchip ${bien ? 'ok' : ''}" data-k="${k}">${esc(S.banco[k].w)}</button>`;
+      }).join('')
     : '<span class="ph">Toca las palabras en orden…</span>';
   $('#banco').innerHTML = S.banco.map((c, k) =>
     S.puesto.includes(k) ? '' : `<button class="wchip" data-k="${k}">${esc(c.w)}</button>`).join('');
@@ -196,7 +256,7 @@ function quitar(k) {
 
 function comprobar() {
   const intento = S.puesto.map((k) => S.banco[k].w).join(' ');
-  if (intento === S.target.join(' ')) {
+  if (intento === S.target.join(' ').toLowerCase()) {
     S.bloqueo = true;
     vibrate([15, 40, 15]);
     $('#armado').classList.add('bien');
