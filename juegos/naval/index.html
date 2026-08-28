@@ -19,26 +19,65 @@
   .board { display: grid; gap: 3px; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
   .bc {
     background: var(--card); border: 1px solid var(--tile-border); border-radius: 5px 7px 5px 7px / 6px 7px 7px 7px;
-    display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative;
+    cursor: pointer; position: relative;
   }
-  .bc.agua { background: #E4EFF2; border-color: #C4DAE0; }
-  .bc.agua::after { content: '~'; color: #7FA6B3; font-weight: 700; font-size: 15px; }
-  .bc.barco { background: var(--ink); border-color: var(--ink); }
-  .bc.barco::after { content: ''; width: 55%; height: 55%; border-radius: 30%; background: var(--card); opacity: .15; }
-  .bc.fija { cursor: default; }
-  .bc.fija.barco { background: var(--accent); border-color: var(--accent); }
-  .bc.fija.agua::after { color: #4E8Ca0; }
+  .bc.agua { background: var(--second-soft); border-color: #A9C2D8; }
+  .bc.agua::after {
+    content: '~'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--second); font-weight: 700; font-size: 15px; line-height: 1;
+  }
+  /* Dato de salida: contorno de tinta más grueso y una marca de esquina */
+  .bc.fija { cursor: default; border: var(--trazo) solid var(--ink); }
+  .bc.fija::before {
+    content: ''; position: absolute; left: 1.5px; top: 1.5px; width: 3.5px; height: 3.5px;
+    border-radius: 50%; background: var(--faint); z-index: 2;
+  }
+  .bc.fija.agua { background: var(--second-soft); }
   .bc.errorcell { outline: 2px solid var(--bad); outline-offset: -2px; }
+
+  /* ── Siluetas de barco: proa, popa, medio y submarino ─────────────── */
+  /* cl/cr/ct/cb = extremo redondeado · el/er/et/eb = sigue en la casilla de al lado */
+  .seg { position: absolute; background: var(--ink); z-index: 1; }
+  .seg.h { left: 0; right: 0; top: 16%; bottom: 16%; }
+  .seg.h.el { left: -7px; }
+  .seg.h.er { right: -7px; }
+  .seg.h.cl { left: 9%; border-top-left-radius: 50%; border-bottom-left-radius: 50%; }
+  .seg.h.cr { right: 9%; border-top-right-radius: 50%; border-bottom-right-radius: 50%; }
+  .seg.v { top: 0; bottom: 0; left: 16%; right: 16%; }
+  .seg.v.et { top: -7px; }
+  .seg.v.eb { bottom: -7px; }
+  .seg.v.ct { top: 9%; border-top-left-radius: 50%; border-top-right-radius: 50%; }
+  .seg.v.cb { bottom: 9%; border-bottom-left-radius: 50%; border-bottom-right-radius: 50%; }
+  .seg.sub { inset: 19%; border-radius: 50%; }
+  .seg.mid { inset: 15%; border-radius: 3px 4px 3px 4px / 4px 3px 4px 3px; }
+
   .cnt {
     display: flex; align-items: center; justify-content: center; font-weight: 700;
     color: var(--sub); font-variant-numeric: tabular-nums;
   }
-  .cnt.done { color: var(--accent); }
+  .cnt.done { color: var(--good); }
   .cnt.pasado { color: var(--bad); }
-  .flota { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 12px 16px 0; }
-  .barquito { display: flex; gap: 2px; align-items: center; }
-  .barquito i { width: 13px; height: 13px; border-radius: 4px 4px 5px 4px / 5px 5px 3px 5px; background: var(--ink); }
-  .barquito span { font-size: 11.5px; font-weight: 700; color: var(--sub); margin-left: 4px; }
+
+  /* ── Flota: se tacha lo que ya está identificado ───────────────────── */
+  .flota-cap { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--faint); padding-top: 12px; }
+  .flota { display: flex; flex-wrap: wrap; gap: 9px 15px; justify-content: center; padding: 7px 16px 0; }
+  .fgrupo { display: flex; gap: 9px; }
+  .barquito { display: flex; gap: 1px; align-items: center; position: relative; }
+  .barquito i { width: 12px; height: 12px; background: var(--ink); border-radius: 3px; }
+  .barquito i:first-child { border-top-left-radius: 50%; border-bottom-left-radius: 50%; }
+  .barquito i:last-child { border-top-right-radius: 50%; border-bottom-right-radius: 50%; }
+  .barquito.usado i { background: var(--faint); }
+  .barquito.usado::after {
+    content: ''; position: absolute; left: -3px; right: -3px; top: 50%; height: 2px;
+    background: var(--ink); transform: rotate(-3.5deg); border-radius: 2px;
+  }
+  .barquito.sobra i { background: var(--bad-soft); box-shadow: inset 0 0 0 1.5px var(--bad); }
+  .barquito.sobra::after {
+    content: ''; position: absolute; left: -3px; right: -3px; top: 50%; height: 2px;
+    background: var(--bad); transform: rotate(-3.5deg); border-radius: 2px;
+  }
+
   .tools { margin: 10px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 8px; justify-content: center; }
   .tool {
     border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600; font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); box-shadow: var(--shadow-sutil);
@@ -55,27 +94,33 @@
 <script>
 'use strict';
 
+/* dens = proporción de casillas reveladas al empezar. Baja al subir la
+   dificultad, pero SIEMPRE hay pistas suficientes para deducir sin adivinar. */
 const CFG = {
-  facil:   { n: 6,  flota: [3, 2, 2, 1, 1, 1] },
-  normal:  { n: 7,  flota: [3, 3, 2, 2, 1, 1] },
-  dificil: { n: 8,  flota: [4, 3, 2, 2, 1, 1] },
-  experto: { n: 9,  flota: [4, 3, 3, 2, 2, 1, 1, 1] },
+  facil:   { n: 6,  flota: [3, 2, 2, 1, 1, 1],          dens: .30 },
+  normal:  { n: 7,  flota: [3, 3, 2, 2, 1, 1],          dens: .24 },
+  dificil: { n: 8,  flota: [4, 3, 2, 2, 1, 1],          dens: .20 },
+  experto: { n: 9,  flota: [4, 3, 3, 2, 2, 1, 1, 1],    dens: .15 },
 };
 
 const S = {
   diff: store.get('naval.diff', 'normal'),
   n: 0, flota: [],
   sol: null,            // Set de índices con barco
-  fija: null,           // Map idx -> 'barco'|'agua' (reveladas)
+  formas: null,         // Array idx -> 'sub'|'izq'|'der'|'arr'|'aba'|'medio'
+  fija: null,           // Map idx -> { t: 'barco'|'agua', f: forma|null }
   marca: null,          // 0 vacío · 1 agua · 2 barco (jugador)
+  auto: null,           // Set de índices con agua puesta por el juego
   rows: [], cols: [],
   pistas: 3, done: false,
 };
 const clock = makeClock(() => $('#clock'));
 
 const REGLAS = `<p>La flota está escondida. Los números de cada <b>fila y columna</b> dicen cuántas casillas de barco hay ahí. Los barcos son líneas rectas y <b>no se tocan</b> entre sí, ni siquiera en diagonal.</p>
-<p><b>Toca una casilla</b> para rotar: vacía → agua (~) → barco (■). Las casillas reveladas de inicio no se mueven. Bajo el tablero ves la flota completa que hay que colocar.</p>
-<p>Los conteos se pintan verdes al quedar exactos (y rojos si te pasas). Gana cuando marques exactamente todos los barcos. <b>Pista</b> revela una casilla (3 por partida).</p>`;
+<p>Las casillas que vienen de salida <b>dicen su forma</b>: ● submarino suelto, extremo redondeado de proa o popa, y ▪ pieza de en medio (esa no dice si el barco va acostado o parado).</p>
+<p><b>Toca una casilla</b> para rotar: vacía → agua (~) → barco. Al poner un barco el juego pinta sola el agua de las diagonales (y de los lados cuando ya se sabe hacia dónde va), porque ahí nunca puede haber nada.</p>
+<p>Abajo está la <b>flota</b>: cada barco se tacha en cuanto queda identificado en el tablero (rodeado de agua o de borde). Lo que queda sin tachar es la mejor pista para los finales dudosos.</p>
+<p>Los conteos se pintan verdes al quedar exactos y rojos si te pasas. <b>Pista</b> revela una casilla con su forma (3 por partida).</p>`;
 
 /* ── Utilidades de tablero ───────────────────────────────────────────── */
 const idx = (r, c) => r * S.n + c;
@@ -89,17 +134,22 @@ function vecinos8(i, n) {
   }
   return out;
 }
+const arribaDe = (i, n) => (i >= n ? i - n : -1);
+const abajoDe  = (i, n) => (i < n * n - n ? i + n : -1);
+const izqDe    = (i, n) => (i % n ? i - 1 : -1);
+const derDe    = (i, n) => (i % n !== n - 1 ? i + 1 : -1);
 
 /* ── Colocación de la flota ──────────────────────────────────────────── */
 function colocarFlota(n, flota) {
   for (let intento = 0; intento < 300; intento++) {
     const ocupa = new Set();
     const prohibido = new Set();
+    const barcos = [];
     let ok = true;
     for (const len of flota) {
       let puesto = false;
       for (let t = 0; t < 200 && !puesto; t++) {
-        const vert = Math.random() < .5;
+        const vert = len > 1 && Math.random() < .5;
         const r = randInt(vert ? n - len + 1 : n);
         const c = randInt(vert ? n : n - len + 1);
         const cells = [];
@@ -114,122 +164,288 @@ function colocarFlota(n, flota) {
           ocupa.add(i);
           for (const v of vecinos8(i, n)) prohibido.add(v);
         }
+        barcos.push({ cells, vert });
         puesto = true;
       }
       if (!puesto) { ok = false; break; }
     }
-    if (ok) return ocupa;
+    if (ok) return { ocupa, barcos };
   }
   return null;
 }
 
-/* ── Contador de soluciones (con tope de nodos) ──────────────────────── */
-function contarSoluciones(n, flota, rows, cols, fija, limite) {
-  const barcosFijos = [];
-  const aguaFija = new Set();
-  for (const [i, tipo] of fija) {
-    if (tipo === 'barco') barcosFijos.push(Number(i));
-    else aguaFija.add(Number(i));
+/* Forma de cada casilla: la información que en una revista viene dibujada. */
+function formasDe(barcos, n) {
+  const f = new Array(n * n).fill(null);
+  for (const b of barcos) {
+    const L = b.cells.length;
+    if (L === 1) { f[b.cells[0]] = 'sub'; continue; }
+    b.cells.forEach((i, k) => {
+      f[i] = k === 0 ? (b.vert ? 'arr' : 'izq')
+        : k === L - 1 ? (b.vert ? 'aba' : 'der') : 'medio';
+    });
   }
-  const orden = flota.slice().sort((a, b) => b - a);
-  const ocupa = new Set();
-  const rQ = rows.slice(), cQ = cols.slice();
-  let count = 0, nodos = 0, roto = false;
-
-  function tocaOcupado(i) {
-    for (const v of vecinos8(i, n)) if (ocupa.has(v)) return true;
-    return false;
-  }
-  function posiciones(len, minPos) {
-    const out = [];
-    const maxVert = len === 1 ? 1 : 2;   // un barco de 1 no tiene orientación
-    for (let vert = 0; vert < maxVert; vert++) {
-      const maxR = vert ? n - len : n - 1;
-      const maxC = vert ? n - 1 : n - len;
-      for (let r = 0; r <= maxR; r++) for (let c = 0; c <= maxC; c++) {
-        if (++nodos > 250000) { roto = true; return out; }
-        const pos = vert * 10000 + r * 100 + c;
-        if (pos < minPos) continue;
-        let cabe = true;
-        const cells = [];
-        const porFila = {}, porCol = {};
-        for (let k = 0; k < len; k++) {
-          const rr = r + (vert ? k : 0), cc = c + (vert ? 0 : k);
-          const i = rr * n + cc;
-          if (aguaFija.has(i) || ocupa.has(i) || tocaOcupado(i)) { cabe = false; break; }
-          cells.push(i);
-          porFila[rr] = (porFila[rr] || 0) + 1;
-          porCol[cc] = (porCol[cc] || 0) + 1;
-        }
-        if (!cabe) continue;
-        for (const r2 in porFila) if (porFila[r2] > rQ[r2]) { cabe = false; break; }
-        if (cabe) for (const c2 in porCol) if (porCol[c2] > cQ[c2]) { cabe = false; break; }
-        if (cabe) out.push({ pos, cells, vert, r, c });
-      }
-    }
-    return out;
-  }
-
-  function walk(si, minPosMismoLargo) {
-    if (roto || count >= limite) return;
-    if (si === orden.length) {
-      if (rQ.some((x) => x !== 0) || cQ.some((x) => x !== 0)) return;
-      for (const i of barcosFijos) if (!ocupa.has(i)) return;
-      count++;
-      return;
-    }
-    const len = orden[si];
-    const minPos = (si > 0 && orden[si - 1] === len) ? minPosMismoLargo : 0;
-    for (const p of posiciones(len, minPos)) {
-      for (const i of p.cells) ocupa.add(i);
-      for (const i of p.cells) { rQ[Math.floor(i / n)]--; cQ[i % n]--; }
-      walk(si + 1, p.pos);
-      for (const i of p.cells) { rQ[Math.floor(i / n)]++; cQ[i % n]++; }
-      for (const i of p.cells) ocupa.delete(i);
-      if (roto || count >= limite) return;
-    }
-  }
-  walk(0, 0);
-  return roto ? limite : count;
+  return f;
 }
 
-/* ── Generación completa ─────────────────────────────────────────────── */
+/* ── Resolutor lógico: sólo deducciones, nunca prueba y error ────────── */
+function deducir(n, flota, rows, cols, pistas) {
+  const N = n * n;
+  const st = new Int8Array(N);            // 0 nada · 1 agua · 2 barco
+  const forma = new Array(N).fill(null);
+  let contra = false, cambio = true;
+  const fil = (i) => Math.floor(i / n), col = (i) => i % n;
+  const arr = (i) => arribaDe(i, n), aba = (i) => abajoDe(i, n);
+  const izq = (i) => izqDe(i, n), der = (i) => derDe(i, n);
+  const pon = (i, v) => {
+    if (i < 0) return;
+    if (st[i] === 0) { st[i] = v; cambio = true; }
+    else if (st[i] !== v) contra = true;
+  };
+  const esAgua = (i) => i < 0 || st[i] === 1;
+  const esBarco = (i) => i >= 0 && st[i] === 2;
+
+  for (const [i, p] of pistas) { st[i] = p.t === 'barco' ? 2 : 1; forma[i] = p.f || null; }
+
+  let vueltas = 0;
+  while (cambio && !contra && vueltas++ < 60) {
+    cambio = false;
+
+    /* A · lo que dice la forma dibujada */
+    for (let i = 0; i < N; i++) {
+      const f = forma[i];
+      if (!f) continue;
+      if (f === 'sub') { pon(arr(i), 1); pon(aba(i), 1); pon(izq(i), 1); pon(der(i), 1); }
+      else if (f === 'izq') { pon(izq(i), 1); pon(arr(i), 1); pon(aba(i), 1); pon(der(i), 2); }
+      else if (f === 'der') { pon(der(i), 1); pon(arr(i), 1); pon(aba(i), 1); pon(izq(i), 2); }
+      else if (f === 'arr') { pon(arr(i), 1); pon(izq(i), 1); pon(der(i), 1); pon(aba(i), 2); }
+      else if (f === 'aba') { pon(aba(i), 1); pon(izq(i), 1); pon(der(i), 1); pon(arr(i), 2); }
+      else if (f === 'medio') {
+        if (esAgua(arr(i)) || esAgua(aba(i)) || esBarco(izq(i)) || esBarco(der(i))) {
+          pon(arr(i), 1); pon(aba(i), 1); pon(izq(i), 2); pon(der(i), 2);
+        } else if (esAgua(izq(i)) || esAgua(der(i)) || esBarco(arr(i)) || esBarco(aba(i))) {
+          pon(izq(i), 1); pon(der(i), 1); pon(arr(i), 2); pon(aba(i), 2);
+        }
+      }
+    }
+
+    /* B · diagonales de un barco = agua; lados cuando se sabe la orientación */
+    for (let i = 0; i < N; i++) {
+      if (st[i] !== 2) continue;
+      const r = fil(i), c = col(i);
+      for (const [dr, dc] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+        const r2 = r + dr, c2 = c + dc;
+        if (r2 >= 0 && r2 < n && c2 >= 0 && c2 < n) pon(r2 * n + c2, 1);
+      }
+      if (esBarco(izq(i)) || esBarco(der(i))) { pon(arr(i), 1); pon(aba(i), 1); }
+      if (esBarco(arr(i)) || esBarco(aba(i))) { pon(izq(i), 1); pon(der(i), 1); }
+    }
+
+    /* C · saturación de filas y columnas */
+    for (let r = 0; r < n && !contra; r++) {
+      let b = 0, u = 0;
+      for (let c = 0; c < n; c++) { const v = st[r * n + c]; if (v === 2) b++; else if (v === 0) u++; }
+      if (b > rows[r] || b + u < rows[r]) { contra = true; break; }
+      if (b === rows[r] && u) { for (let c = 0; c < n; c++) if (!st[r * n + c]) pon(r * n + c, 1); }
+      else if (b + u === rows[r] && u) { for (let c = 0; c < n; c++) if (!st[r * n + c]) pon(r * n + c, 2); }
+    }
+    for (let c = 0; c < n && !contra; c++) {
+      let b = 0, u = 0;
+      for (let r = 0; r < n; r++) { const v = st[r * n + c]; if (v === 2) b++; else if (v === 0) u++; }
+      if (b > cols[c] || b + u < cols[c]) { contra = true; break; }
+      if (b === cols[c] && u) { for (let r = 0; r < n; r++) if (!st[r * n + c]) pon(r * n + c, 1); }
+      else if (b + u === cols[c] && u) { for (let r = 0; r < n; r++) if (!st[r * n + c]) pon(r * n + c, 2); }
+    }
+    if (contra) break;
+
+    /* D · contabilidad de la flota */
+    const usados = {}, abiertos = [];
+    const listo = new Uint8Array(N);   // celdas de barcos ya cerrados
+    for (let r = 0; r < n; r++) {
+      let c = 0;
+      while (c < n) {
+        if (st[r * n + c] !== 2) { c++; continue; }
+        let c2 = c;
+        while (c2 + 1 < n && st[r * n + c2 + 1] === 2) c2++;
+        const L = c2 - c + 1;
+        if (L >= 2) {
+          const a = c > 0 ? r * n + c - 1 : -1, b = c2 < n - 1 ? r * n + c2 + 1 : -1;
+          if (esAgua(a) && esAgua(b)) {
+            usados[L] = (usados[L] || 0) + 1;
+            for (let x = c; x <= c2; x++) listo[r * n + x] = 1;
+          } else abiertos.push(r * n + c);
+        }
+        c = c2 + 1;
+      }
+    }
+    for (let c = 0; c < n; c++) {
+      let r = 0;
+      while (r < n) {
+        if (st[r * n + c] !== 2) { r++; continue; }
+        let r2 = r;
+        while (r2 + 1 < n && st[(r2 + 1) * n + c] === 2) r2++;
+        const L = r2 - r + 1;
+        if (L >= 2) {
+          const a = r > 0 ? (r - 1) * n + c : -1, b = r2 < n - 1 ? (r2 + 1) * n + c : -1;
+          if (esAgua(a) && esAgua(b)) {
+            usados[L] = (usados[L] || 0) + 1;
+            for (let y = r; y <= r2; y++) listo[y * n + c] = 1;
+          } else abiertos.push(r * n + c);
+        }
+        r = r2 + 1;
+      }
+    }
+    for (let i = 0; i < N; i++) {
+      if (st[i] !== 2) continue;
+      const vs = [arr(i), aba(i), izq(i), der(i)];
+      if (vs.some(esBarco)) continue;
+      if (vs.every(esAgua)) { usados[1] = (usados[1] || 0) + 1; listo[i] = 1; }
+      else abiertos.push(i);
+    }
+    const rest = {};
+    for (const l of flota) rest[l] = (rest[l] || 0) + 1;
+    for (const l in usados) {
+      rest[l] = (rest[l] || 0) - usados[l];
+      if (rest[l] < 0) { contra = true; break; }
+    }
+    if (contra) break;
+    const largos = Object.keys(rest).map(Number).filter((l) => rest[l] > 0).sort((a, b) => a - b);
+    if (!largos.length && abiertos.length) { contra = true; break; }
+    if (largos.length) {
+      const maxRem = largos[largos.length - 1];
+      // el tramo se relee del tablero: las deducciones de esta misma vuelta
+      // pueden haberlo alargado o cerrado
+      const tramoDe = (i) => {
+        let L = 1, ext;
+        if (esBarco(izq(i)) || esBarco(der(i))) {
+          let a = i, b = i;
+          while (esBarco(izq(a))) a = izq(a);
+          while (esBarco(der(b))) b = der(b);
+          L = b - a + 1; ext = [izq(a), der(b)];
+        } else if (esBarco(arr(i)) || esBarco(aba(i))) {
+          let a = i, b = i;
+          while (esBarco(arr(a))) a = arr(a);
+          while (esBarco(aba(b))) b = aba(b);
+          L = (b - a) / n + 1; ext = [arr(a), aba(b)];
+        } else ext = [arr(i), aba(i), izq(i), der(i)];
+        return ext.every(esAgua) ? null : { L, ext };
+      };
+      for (const i0 of abiertos) {
+        if (st[i0] !== 2) continue;
+        const t = tramoDe(i0);
+        if (!t) continue;
+        const posibles = largos.filter((l) => l >= t.L);
+        if (!posibles.length) { contra = true; break; }
+        if (t.L === maxRem) { for (const e of t.ext) pon(e, 1); }
+        else if (posibles[0] > t.L) {
+          const libres = t.ext.filter((e) => e >= 0 && st[e] === 0);
+          if (libres.length === 1) pon(libres[0], 2);
+        }
+      }
+    }
+    if (contra) break;
+
+    /* E · ¿qué barcos pueden pasar todavía por aquí? */
+    if (largos.length) {
+      const cubre = new Uint8Array(N);
+      const porCelda = new Array(N);
+      const filaB = new Array(n).fill(0), colB = new Array(n).fill(0);
+      for (let i = 0; i < N; i++) if (st[i] === 2) { filaB[fil(i)]++; colB[col(i)]++; }
+      const colocs = [];
+      for (const L of largos) {
+        const dirs = L === 1 ? [[0, 1]] : [[0, 1], [1, 0]];
+        for (const [dr, dc] of dirs) {
+          for (let r = 0; r + dr * (L - 1) < n; r++) for (let c = 0; c + dc * (L - 1) < n; c++) {
+            const cells = [];
+            let ok = true;
+            for (let k = 0; k < L; k++) {
+              const i = (r + dr * k) * n + (c + dc * k);
+              if (st[i] === 1 || listo[i]) { ok = false; break; }
+              cells.push(i);
+            }
+            if (!ok) continue;
+            for (const i of cells) {
+              for (const v of vecinos8(i, n)) if (st[v] === 2 && cells.indexOf(v) < 0) { ok = false; break; }
+              if (!ok) break;
+            }
+            if (!ok) continue;
+            const nf = {}, nc = {};
+            for (const i of cells) if (st[i] === 0) { nf[fil(i)] = (nf[fil(i)] || 0) + 1; nc[col(i)] = (nc[col(i)] || 0) + 1; }
+            for (const r2 in nf) if (filaB[r2] + nf[r2] > rows[r2]) { ok = false; break; }
+            if (ok) for (const c2 in nc) if (colB[c2] + nc[c2] > cols[c2]) { ok = false; break; }
+            if (!ok) continue;
+            const id = colocs.length;
+            colocs.push(cells);
+            for (const i of cells) {
+              cubre[i] = 1;
+              (porCelda[i] || (porCelda[i] = [])).push(id);
+            }
+          }
+        }
+      }
+      for (let i = 0; i < N; i++) if (st[i] === 0 && !cubre[i]) pon(i, 1);
+      for (let i = 0; i < N; i++) {
+        if (st[i] !== 2 || listo[i]) continue;
+        const lista = porCelda[i];
+        if (!lista || !lista.length) { contra = true; break; }
+        if (lista.length === 1) for (const j of colocs[lista[0]]) pon(j, 2);
+      }
+    }
+  }
+  let faltan = 0;
+  for (let i = 0; i < N; i++) if (st[i] === 0) faltan++;
+  return { st, contra, faltan, completo: !contra && faltan === 0 };
+}
+
+/* ── Generación: pistas hasta que el tablero se deduzca solo ─────────── */
 function generar() {
   const cfg = CFG[S.diff];
-  const n = cfg.n;
-  for (let intento = 0; intento < 10; intento++) {
-    const sol = colocarFlota(n, cfg.flota);
-    if (!sol) continue;
+  const n = cfg.n, N = n * n;
+  for (let intento = 0; intento < 12; intento++) {
+    const puesta = colocarFlota(n, cfg.flota);
+    if (!puesta) continue;
+    const sol = puesta.ocupa;
+    const formas = formasDe(puesta.barcos, n);
     const rows = new Array(n).fill(0), cols = new Array(n).fill(0);
     for (const i of sol) { rows[Math.floor(i / n)]++; cols[i % n]++; }
-    const fija = new Map();
-    // arranque: unas cuantas reveladas de cortesía según el tamaño
-    const iniciales = { 6: 1, 7: 2, 8: 3, 9: 4 }[n] || 2;
-    const celdasBarco = shuffle([...sol]);
-    for (let k = 0; k < iniciales && k < celdasBarco.length; k++) {
-      fija.set(celdasBarco[k], 'barco');
-    }
-    let unico = false;
-    for (let rev = 0; rev < 40; rev++) {
-      if (contarSoluciones(n, cfg.flota, rows, cols, fija, 2) === 1) { unico = true; break; }
-      // revela una celda nueva (barco con más probabilidad)
-      const candidatos = [];
-      for (let i = 0; i < n * n; i++) {
-        if (fija.has(i)) continue;
-        candidatos.push(i);
-      }
-      if (!candidatos.length) break;
-      const barcos = candidatos.filter((i) => sol.has(i));
-      const aguas = candidatos.filter((i) => !sol.has(i));
-      const pool = (Math.random() < .65 && barcos.length) ? barcos : (aguas.length ? aguas : barcos);
+    const dato = (i) => (sol.has(i) ? { t: 'barco', f: formas[i] } : { t: 'agua', f: null });
+
+    // 1 · añade pistas hasta que la deducción llegue al final
+    const pistas = new Map();
+    let res = deducir(n, cfg.flota, rows, cols, pistas);
+    let guarda = 0;
+    while (!res.completo && guarda++ < N) {
+      const cand = [];
+      for (let i = 0; i < N; i++) if (!pistas.has(i) && res.st[i] === 0) cand.push(i);
+      if (!cand.length) break;
+      const conBarco = cand.filter((i) => sol.has(i));
+      const pool = (conBarco.length && Math.random() < .6) ? conBarco : cand;
       const i = pool[randInt(pool.length)];
-      fija.set(i, sol.has(i) ? 'barco' : 'agua');
+      pistas.set(i, dato(i));
+      res = deducir(n, cfg.flota, rows, cols, pistas);
     }
-    if (!unico) continue;
-    S.n = n; S.flota = cfg.flota; S.sol = sol; S.fija = fija;
+    if (!res.completo) continue;
+
+    // 2 · quita las que sobran (deja un conjunto ajustado)
+    for (const i of shuffle([...pistas.keys()])) {
+      const v = pistas.get(i);
+      pistas.delete(i);
+      if (!deducir(n, cfg.flota, rows, cols, pistas).completo) pistas.set(i, v);
+    }
+
+    // 3 · rellena hasta la densidad de la dificultad (más pistas = más fácil)
+    const meta = Math.round(cfg.dens * N);
+    const resto = shuffle([...Array(N).keys()].filter((i) => !pistas.has(i)));
+    while (pistas.size < meta && resto.length) {
+      const i = resto.pop();
+      pistas.set(i, dato(i));
+    }
+
+    S.n = n; S.flota = cfg.flota; S.sol = sol; S.formas = formas; S.fija = pistas;
     S.rows = rows; S.cols = cols;
-    S.marca = new Array(n * n).fill(0);
-    for (const [i, tipo] of fija) S.marca[i] = tipo === 'barco' ? 2 : 1;
+    S.marca = new Array(N).fill(0);
+    S.auto = new Set();
+    for (const [i, p] of pistas) S.marca[i] = p.t === 'barco' ? 2 : 1;
     return true;
   }
   return false;
@@ -259,7 +475,7 @@ function renderSetup() {
   </div>`;
   const hint = () => {
     const c = CFG[S.diff];
-    $('#d-hint').textContent = `Tablero ${c.n}×${c.n} · flota de ${c.flota.length} barcos`;
+    $('#d-hint').textContent = `Tablero ${c.n}×${c.n} · flota de ${c.flota.length} barcos · ${Math.round(c.dens * 100)}% de casillas de salida`;
   };
   bindSeg('seg-d', (v) => { S.diff = v; store.set('naval.diff', v); hint(); });
   hint();
@@ -268,13 +484,13 @@ function renderSetup() {
 }
 
 function startGame() {
-  const antes = Date.now();
   if (!generar()) {
     openModal('<h3>Vaya</h3><p>No pude armar el tablero, intenta otra vez.</p><div class="m-actions"><button class="btn btn-primary" id="m-x">Cerrar</button></div>');
     $('#m-x').onclick = closeModal;
     return;
   }
   S.pistas = 3; S.done = false;
+  autoAgua();          // el agua gratis de las pistas de salida, ya puesta
   renderPlay();
   clock.start();
 }
@@ -293,12 +509,6 @@ function renderPlay() {
     cs.push(`<div class="cnt" data-col="${c}" style="width:${cell}px;height:${Math.floor(cell * .7)}px;font-size:${Math.floor(cell * .42)}px;">${S.cols[c]}</div>`);
   }
   cs.push('<div></div>');
-  const flotaHTML = (() => {
-    const porLen = {};
-    for (const l of S.flota) porLen[l] = (porLen[l] || 0) + 1;
-    return Object.keys(porLen).sort((a, b) => b - a).map((l) =>
-      `<div class="barquito">${'<i></i>'.repeat(l)}<span>×${porLen[l]}</span></div>`).join('');
-  })();
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Batalla naval', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
@@ -306,7 +516,8 @@ function renderPlay() {
       <div class="boardwrap">
         <div class="board" style="grid-template-columns: repeat(${n}, ${cell}px) ${Math.floor(cell * .7)}px;">${cs.join('')}</div>
       </div>
-      <div class="flota">${flotaHTML}</div>
+      <div class="flota-cap">Flota <span id="flota-n"></span></div>
+      <div class="flota" id="flota"></div>
       <div class="msg" id="msg" style="padding-top:8px;"></div>
     </div>
     <div class="tools">
@@ -322,21 +533,127 @@ function renderPlay() {
   paint();
 }
 
+/* ── Agua automática: diagonales y costados de lo ya marcado ─────────── */
+function autoAgua() {
+  const n = S.n, N = n * n;
+  const nec = new Set();
+  for (let i = 0; i < N; i++) {
+    if (S.marca[i] !== 2) continue;
+    const r = Math.floor(i / n), c = i % n;
+    for (const [dr, dc] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+      const r2 = r + dr, c2 = c + dc;
+      if (r2 >= 0 && r2 < n && c2 >= 0 && c2 < n) nec.add(r2 * n + c2);
+    }
+    const a = arribaDe(i, n), b = abajoDe(i, n), l = izqDe(i, n), d = derDe(i, n);
+    const esB = (j) => j >= 0 && S.marca[j] === 2;
+    if (esB(l) || esB(d)) { if (a >= 0) nec.add(a); if (b >= 0) nec.add(b); }
+    if (esB(a) || esB(b)) { if (l >= 0) nec.add(l); if (d >= 0) nec.add(d); }
+  }
+  for (const i of [...S.auto]) {
+    if (!nec.has(i)) { if (S.marca[i] === 1) S.marca[i] = 0; S.auto.delete(i); }
+  }
+  for (const i of nec) {
+    if (S.fija.has(i) || S.marca[i] === 2) continue;
+    if (S.marca[i] === 0) { S.marca[i] = 1; S.auto.add(i); }
+  }
+}
+
+/* ── Lectura del tablero del jugador ─────────────────────────────────── */
+function analiza() {
+  const n = S.n, N = n * n;
+  const filaLlena = [], colLlena = [];
+  for (let r = 0; r < n; r++) {
+    let b = 0;
+    for (let c = 0; c < n; c++) if (S.marca[r * n + c] === 2) b++;
+    filaLlena[r] = b === S.rows[r];
+  }
+  for (let c = 0; c < n; c++) {
+    let b = 0;
+    for (let r = 0; r < n; r++) if (S.marca[r * n + c] === 2) b++;
+    colLlena[c] = b === S.cols[c];
+  }
+  // una casilla «cierra» un barco si es borde, agua, o su fila/columna ya está completa
+  const cerrado = (i) => i < 0 || S.marca[i] === 1 || filaLlena[Math.floor(i / n)] || colLlena[i % n];
+  const usados = {};
+  for (let r = 0; r < n; r++) {
+    let c = 0;
+    while (c < n) {
+      if (S.marca[r * n + c] !== 2) { c++; continue; }
+      let c2 = c;
+      while (c2 + 1 < n && S.marca[r * n + c2 + 1] === 2) c2++;
+      const L = c2 - c + 1;
+      if (L >= 2 && cerrado(c > 0 ? r * n + c - 1 : -1) && cerrado(c2 < n - 1 ? r * n + c2 + 1 : -1)) {
+        usados[L] = (usados[L] || 0) + 1;
+      }
+      c = c2 + 1;
+    }
+  }
+  for (let c = 0; c < n; c++) {
+    let r = 0;
+    while (r < n) {
+      if (S.marca[r * n + c] !== 2) { r++; continue; }
+      let r2 = r;
+      while (r2 + 1 < n && S.marca[(r2 + 1) * n + c] === 2) r2++;
+      const L = r2 - r + 1;
+      if (L >= 2 && cerrado(r > 0 ? (r - 1) * n + c : -1) && cerrado(r2 < n - 1 ? (r2 + 1) * n + c : -1)) {
+        usados[L] = (usados[L] || 0) + 1;
+      }
+      r = r2 + 1;
+    }
+  }
+  for (let i = 0; i < N; i++) {
+    if (S.marca[i] !== 2) continue;
+    const vs = [arribaDe(i, n), abajoDe(i, n), izqDe(i, n), derDe(i, n)];
+    if (vs.some((j) => j >= 0 && S.marca[j] === 2)) continue;
+    if (vs.every(cerrado)) usados[1] = (usados[1] || 0) + 1;
+  }
+  return usados;
+}
+
+/* Silueta de una casilla con barco: la de salida si la trae dibujada, y si no,
+   la que se deduce de lo que el jugador ha marcado alrededor. */
+function silueta(i) {
+  const n = S.n;
+  const f = S.fija.has(i) ? S.fija.get(i).f : null;
+  const a = arribaDe(i, n), b = abajoDe(i, n), l = izqDe(i, n), d = derDe(i, n);
+  const esB = (j) => j >= 0 && S.marca[j] === 2;
+  const cerr = (j) => j < 0 || S.marca[j] === 1;
+  if (f === 'sub') return 'seg sub';
+  if (f === 'izq') return 'seg h cl' + (esB(d) ? ' er' : '');
+  if (f === 'der') return 'seg h cr' + (esB(l) ? ' el' : '');
+  if (f === 'arr') return 'seg v ct' + (esB(b) ? ' eb' : '');
+  if (f === 'aba') return 'seg v cb' + (esB(a) ? ' et' : '');
+  if (esB(l) || esB(d)) {
+    let k = 'seg h';
+    if (esB(l)) k += ' el'; else if (cerr(l) && f !== 'medio') k += ' cl';
+    if (esB(d)) k += ' er'; else if (cerr(d) && f !== 'medio') k += ' cr';
+    return k;
+  }
+  if (esB(a) || esB(b)) {
+    let k = 'seg v';
+    if (esB(a)) k += ' et'; else if (cerr(a) && f !== 'medio') k += ' ct';
+    if (esB(b)) k += ' eb'; else if (cerr(b) && f !== 'medio') k += ' cb';
+    return k;
+  }
+  if (f === 'medio') return 'seg mid';
+  if (cerr(a) && cerr(b) && cerr(l) && cerr(d)) return 'seg sub';
+  return 'seg mid';
+}
+
 function paint() {
   const n = S.n;
   $$('.bc').forEach((el) => {
     const i = Number(el.dataset.i);
-    el.className = 'bc';
-    if (S.marca[i] === 1) el.classList.add('agua');
-    else if (S.marca[i] === 2) el.classList.add('barco');
-    if (S.fija.has(i)) el.classList.add('fija');
+    let cls = 'bc';
+    if (S.marca[i] === 1) cls += ' agua';
+    if (S.fija.has(i)) cls += ' fija';
+    el.className = cls;
+    if (S.marca[i] === 2) el.innerHTML = `<i class="${silueta(i)}"></i>`;
+    else if (el.firstChild) el.innerHTML = '';
   });
   for (let r = 0; r < n; r++) {
-    let barcos = 0, marcadas = 0;
-    for (let c = 0; c < n; c++) {
-      if (S.marca[idx(r, c)] === 2) barcos++;
-      if (S.marca[idx(r, c)]) marcadas++;
-    }
+    let barcos = 0;
+    for (let c = 0; c < n; c++) if (S.marca[idx(r, c)] === 2) barcos++;
     const el = $(`.cnt[data-row="${r}"]`);
     el.classList.toggle('done', barcos === S.rows[r]);
     el.classList.toggle('pasado', barcos > S.rows[r]);
@@ -348,11 +665,31 @@ function paint() {
     el.classList.toggle('done', barcos === S.cols[c]);
     el.classList.toggle('pasado', barcos > S.cols[c]);
   }
+  pintaFlota();
+}
+
+function pintaFlota() {
+  const usados = analiza();
+  const porLen = {};
+  for (const l of S.flota) porLen[l] = (porLen[l] || 0) + 1;
+  let quedan = 0;
+  const html = Object.keys(porLen).map(Number).sort((a, b) => b - a).map((L) => {
+    const total = porLen[L], usa = usados[L] || 0;
+    quedan += Math.max(0, total - usa);
+    let s = '';
+    for (let k = 0; k < total; k++) s += `<div class="barquito${k < usa ? ' usado' : ''}">${'<i></i>'.repeat(L)}</div>`;
+    for (let k = total; k < usa; k++) s += `<div class="barquito sobra">${'<i></i>'.repeat(L)}</div>`;
+    return `<div class="fgrupo">${s}</div>`;
+  }).join('');
+  $('#flota').innerHTML = html;
+  $('#flota-n').textContent = quedan ? `· faltan ${quedan}` : '· completa';
 }
 
 function tap(i) {
   if (S.done || S.fija.has(i)) return;
+  S.auto.delete(i);
   S.marca[i] = (S.marca[i] + 1) % 3;
+  autoAgua();
   vibrate(8);
   paint();
   checkWin();
@@ -371,11 +708,31 @@ function usePista() {
   S.pistas--;
   $('#pistas-n').textContent = S.pistas;
   if (S.pistas <= 0) $('#t-pista').disabled = true;
+  S.auto.delete(i);
   S.marca[i] = S.sol.has(i) ? 2 : 1;
-  S.fija.set(i, S.sol.has(i) ? 'barco' : 'agua');
+  S.fija.set(i, S.sol.has(i) ? { t: 'barco', f: S.formas[i] } : { t: 'agua', f: null });
+  autoAgua();
   vibrate(20);
   paint();
   checkWin();
+}
+
+/* ¿Alguna pieza de salida contradice lo que ha marcado el jugador? */
+function chocaConForma() {
+  const n = S.n;
+  const esB = (j) => j >= 0 && S.marca[j] === 2;
+  for (const [i, p] of S.fija) {
+    if (p.t !== 'barco' || !p.f) continue;
+    const a = arribaDe(i, n), b = abajoDe(i, n), l = izqDe(i, n), d = derDe(i, n);
+    const H = esB(l) || esB(d), V = esB(a) || esB(b);
+    if (p.f === 'sub' && (H || V)) return true;
+    if (p.f === 'izq' && (esB(l) || !esB(d) || V)) return true;
+    if (p.f === 'der' && (esB(d) || !esB(l) || V)) return true;
+    if (p.f === 'arr' && (esB(a) || !esB(b) || H)) return true;
+    if (p.f === 'aba' && (esB(b) || !esB(a) || H)) return true;
+    if (p.f === 'medio' && !((esB(l) && esB(d)) || (esB(a) && esB(b)))) return true;
+  }
+  return false;
 }
 
 function checkWin() {
@@ -387,8 +744,10 @@ function checkWin() {
     if ((S.marca[i] === 2) !== S.sol.has(i)) {
       const m = $('#msg');
       m.className = 'msg err';
-      m.textContent = 'La flota completa está marcada… pero algo no cuadra';
-      setTimeout(() => { m.textContent = ''; m.className = 'msg'; }, 1800);
+      m.textContent = chocaConForma()
+        ? 'Una pieza dibujada no cuadra con tu flota: repasa las formas'
+        : 'La flota completa está marcada… pero algo no cuadra';
+      setTimeout(() => { m.textContent = ''; m.className = 'msg'; }, 2400);
       vibrate([40, 60, 40]);
       return;
     }

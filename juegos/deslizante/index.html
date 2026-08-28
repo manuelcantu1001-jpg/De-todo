@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#FAF9F5" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="description" content="Rompecabezas deslizante: ordena los números moviendo fichas al hueco." />
+<meta name="description" content="Rompecabezas deslizante: ordena los números empujando filas y columnas enteras." />
 <title>Deslizante</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3E15%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
@@ -15,20 +15,25 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
-  .dwrap { display: flex; justify-content: center; padding: 20px 16px 0; }
+  .dwrap { display: flex; justify-content: center; padding: 18px 16px 0; }
   .dgrid { display: grid; gap: 7px; width: min(90vw, 380px); }
   .dt {
-    aspect-ratio: 1; border: none; border-radius: 14px 14px 11px 15px / 12px 9px 10px 15px; cursor: pointer; padding: 0;
+    aspect-ratio: 1; border-radius: 14px 14px 11px 15px / 12px 9px 10px 15px; cursor: pointer; padding: 0;
     background: var(--tile-bg); color: var(--tile-ink); border: 1px solid var(--tile-border);
     box-shadow: 0 3px 0 var(--tile-border), inset 0 1px 0 rgba(255,255,255,.65);
     font-family: var(--title-font); font-weight: 700; font-size: clamp(18px, 6vw, 30px);
-    transition: transform .1s steps(3, jump-end);
   }
-  .dt.bien { background: var(--accent-soft); color: var(--ink); border-color: transparent; box-shadow: 0 3px 0 color-mix(in srgb, var(--accent) 30%, transparent); }
+  /* Las que ya están en su sitio: verde de verdad. */
+  .dt.bien { background: var(--good-soft); color: var(--good); box-shadow: 0 3px 0 var(--good); }
   .dt.hueco { visibility: hidden; }
-  .dt:active { transform: scale(.95); }
-  .marcador { display: flex; justify-content: center; gap: 20px; padding-top: 16px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
-  .marcador b { color: var(--bg-ink); font-size: 15px; }
+  /* Alineada con el hueco: se puede empujar de un toque. */
+  .dt.empujable { border-style: dashed; border-width: 2px; }
+  .dt:active { transform: translate(1px, 2px); box-shadow: none; }
+  .dt.mov { animation: entra .17s steps(3, jump-end); }
+  @keyframes entra { from { transform: scale(.86) rotate(-2.5deg); } to { transform: none; } }
+  .marcador { display: flex; justify-content: center; gap: 18px; padding-top: 14px; font-size: 13px; font-weight: 700; color: var(--bg-sub); }
+  .marcador b { color: var(--bg-ink); font-size: 15px; font-family: var(--title-font); font-variant-numeric: tabular-nums; }
+  .pista { text-align: center; font-size: 12.5px; color: var(--bg-sub); font-style: italic; padding-top: 10px; }
   .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
   .tool { border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600;
     font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
@@ -44,50 +49,30 @@
 <script>
 'use strict';
 
-const CFG = { facil: 3, normal: 4, dificil: 5 };
+/* meta = dificultad fija del revuelto, medida en la cota inferior de movimientos
+   (Manhattan + conflictos lineales). Así todos los repartos cuestan lo mismo
+   y el récord compara jugadas, no suerte. */
+const CFG = {
+  facil:   { n: 3, meta: 24, exacto: true },   // en 3×3 se calcula el óptimo de verdad
+  normal:  { n: 4, meta: 42 },
+  dificil: { n: 5, meta: 80 },
+};
+const NIVELES = ['facil', 'normal', 'dificil'];
 
 const S = {
   diff: store.get('deslizante.diff', 'normal'),
-  n: 0, b: null, moves: 0,
+  n: 0, b: null, prev: null, moves: 0, toques: 0, cota: 0,
   clock: makeClock(() => $('#clk')), jugando: false,
 };
 
-const REGLAS = `<p>Ordena los números del <b>1 en adelante</b> (el hueco queda al final) deslizando fichas: toca cualquier ficha <b>pegada al hueco</b> y se mueve ahí.</p>
-<p>El tablero se revuelve con movimientos legales, así que <b>siempre se puede armar</b>.</p>
-<p>Tu marca es el mejor tiempo. Las fichas que ya están en su lugar se pintan de verde.</p>`;
+const REGLAS = `<p>Ordena los números del <b>1 en adelante</b>, con el hueco al final.</p>
+<p>Toca cualquier ficha que esté <b>en la misma fila o columna que el hueco</b>: se empuja ella y todas las que tenga en medio. De un solo toque mueves media fila si hace falta.</p>
+<p>El revuelto siempre cuesta <b>lo mismo</b>: se sortea hasta que el mínimo de movimientos cae justo en el número de este nivel, así que tu marca no depende del reparto que te tocó. En 3×3 ese mínimo es el <b>óptimo exacto</b>; en 4×4 y 5×5 es una cota — nadie puede bajar de ahí, aunque igualarla no siempre se pueda.</p>
+<p>Tu marca son los <b>movimientos</b> (cada ficha empujada cuenta una): gana quien resuelve con menos, no quien corre más. Las fichas que ya están en su lugar se pintan de <b>verde</b>.</p>`;
 
-function renderSetup() {
-  S.clock.stop();
-  const bests = ['facil', 'normal', 'dificil'].map((d) => {
-    const b = store.get('deslizante.best.' + d, 0);
-    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
-  }).join('');
-  $('#app').innerHTML = `
-  <div class="screen">
-    ${topbarHTML('Deslizante', '')}
-    <div class="g-setup scroll">
-      <div class="card" style="padding: 14px 18px 18px;">
-        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div><div class="row-hint" id="d-hint"></div></div>
-        ${diffSegHTML('seg-d', S.diff, ['facil', 'normal', 'dificil'])}
-      </div>
-      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
-      <div class="bests">${bests}</div>
-      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
-      <button class="howto" id="howto">¿Cómo se juega?</button>
-    </div>
-  </div>`;
-  const hint = () => { $('#d-hint').textContent = `${CFG[S.diff]}×${CFG[S.diff]}`; };
-  hint();
-  bindSeg('seg-d', (v) => { S.diff = v; store.set('deslizante.diff', v); hint(); });
-  $('#new').onclick = startGame;
-  bindHowto(REGLAS);
-}
-
-function startGame() {
-  const n = CFG[S.diff];
-  S.n = n;
-  S.b = Array.from({ length: n * n }, (_, i) => (i + 1) % (n * n)); // 0 = hueco
-  // Revolver con movimientos legales (siempre resoluble)
+/* ── Revuelto de dificultad fija ─────────────────────────────────────── */
+function revuelveUnaVez(n) {
+  const b = Array.from({ length: n * n }, (_, i) => (i + 1) % (n * n));   // 0 = hueco
   let hueco = n * n - 1, prev = -1;
   for (let k = 0; k < 90 * n; k++) {
     const r = Math.floor(hueco / n), c = hueco % n;
@@ -98,11 +83,120 @@ function startGame() {
     if (c < n - 1) opts.push(hueco + 1);
     const cand = opts.filter((i) => i !== prev);
     const i = cand[randInt(cand.length)];
-    S.b[hueco] = S.b[i]; S.b[i] = 0;
+    b[hueco] = b[i]; b[i] = 0;
     prev = hueco; hueco = i;
   }
+  return b;
+}
+
+/* Cota inferior de movimientos: Manhattan + conflictos lineales. */
+function cotaMin(b, n) {
+  let s = 0;
+  for (let i = 0; i < b.length; i++) {
+    const v = b[i];
+    if (!v) continue;
+    const t = v - 1;
+    s += Math.abs(Math.floor(i / n) - Math.floor(t / n)) + Math.abs(i % n - t % n);
+  }
+  for (let r = 0; r < n; r++) for (let a = 0; a < n; a++) for (let c = a + 1; c < n; c++) {
+    const va = b[r * n + a], vb = b[r * n + c];
+    if (!va || !vb) continue;
+    if (Math.floor((va - 1) / n) === r && Math.floor((vb - 1) / n) === r && (va - 1) % n > (vb - 1) % n) s += 2;
+  }
+  for (let c = 0; c < n; c++) for (let a = 0; a < n; a++) for (let r = a + 1; r < n; r++) {
+    const va = b[a * n + c], vb = b[r * n + c];
+    if (!va || !vb) continue;
+    if ((va - 1) % n === c && (vb - 1) % n === c && Math.floor((va - 1) / n) > Math.floor((vb - 1) / n)) s += 2;
+  }
+  return s;
+}
+
+/* Óptimo exacto del 3×3 por IDA* (unos milisegundos, cabe de sobra). */
+function optimo3(b0) {
+  const armadoP = (bb) => bb[8] === 0 && bb.every((v, i) => v === (i + 1) % 9);
+  const bb = b0.slice();
+  let limite = cotaMin(bb, 3);
+  function busca(g, anterior) {
+    const f = g + cotaMin(bb, 3);
+    if (f > limite) return f;
+    if (armadoP(bb)) return -1;
+    let min = Infinity;
+    const hu = bb.indexOf(0), r = Math.floor(hu / 3), c = hu % 3, vec = [];
+    if (r > 0) vec.push(hu - 3);
+    if (r < 2) vec.push(hu + 3);
+    if (c > 0) vec.push(hu - 1);
+    if (c < 2) vec.push(hu + 1);
+    for (const v of vec) {
+      if (v === anterior) continue;
+      bb[hu] = bb[v]; bb[v] = 0;
+      const t = busca(g + 1, hu);
+      bb[v] = bb[hu]; bb[hu] = 0;
+      if (t === -1) return -1;
+      if (t < min) min = t;
+    }
+    return min;
+  }
+  for (let it = 0; it < 60; it++) {
+    const t = busca(0, -1);
+    if (t === -1) return limite;
+    limite = t;
+  }
+  return limite;
+}
+
+/* Sortea revueltos hasta dar con uno que cueste lo que marca el nivel. */
+function revuelveJusto(n, meta, exacto) {
+  let mejor = null, mejorCota = 0, mejorDif = Infinity;
+  for (let intento = 0; intento < 600; intento++) {
+    const b = revuelveUnaVez(n);
+    let c = cotaMin(b, n);
+    if (exacto) {
+      if (c > meta || c < meta - 8) continue;      // filtro barato antes del IDA*
+      c = optimo3(b);
+    }
+    const dif = Math.abs(c - meta);
+    if (dif < mejorDif) { mejor = b; mejorCota = c; mejorDif = dif; }
+    if (exacto ? c === meta : (c === meta || c === meta + 1)) return { b, cota: c };
+  }
+  return { b: mejor, cota: mejorCota };
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  S.clock.stop();
+  const bests = NIVELES.map((d) => {
+    const b = store.get('deslizante.mov.' + d, 0);
+    return `<div class="b"><div class="bn">${b || '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Deslizante', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div><div class="row-hint" id="d-hint"></div></div>
+        ${diffSegHTML('seg-d', S.diff, NIVELES)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejor marca en movimientos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => { $('#d-hint').textContent = `${CFG[S.diff].n}×${CFG[S.diff].n} · mínimo ${CFG[S.diff].meta}`; };
+  hint();
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('deslizante.diff', v); hint(); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  const { n, meta } = CFG[S.diff];
+  S.n = n;
+  const r = revuelveJusto(n, meta, CFG[S.diff].exacto);
+  S.b = r.b; S.cota = r.cota;
   if (armado()) return startGame();
-  S.moves = 0; S.jugando = true;
+  S.prev = null;
+  S.moves = 0; S.toques = 0; S.jugando = true;
   renderPlay();
   S.clock.start();
 }
@@ -111,14 +205,15 @@ function renderPlay() {
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Deslizante', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clk">0:00</span>`)}
-    <div class="marcador"><span>Movimientos <b id="mv">0</b></span></div>
+    <div class="marcador"><span>Movimientos <b id="mv">0</b></span><span>Mínimo <b>${S.cota}</b></span></div>
     <div class="dwrap">
       <div class="dgrid" id="dgrid" style="grid-template-columns: repeat(${S.n}, 1fr);">
         ${S.b.map((_, i) => `<button class="dt" data-i="${i}"></button>`).join('')}
       </div>
     </div>
+    <div class="pista">Toca una ficha de la fila o columna del hueco: se empujan todas las de en medio</div>
     <div class="tools">
-      <button class="tool" id="t-otra">Revolver otra vez</button>
+      <button class="tool" id="t-otra">Otro revuelto</button>
       <button class="tool" id="t-salir">Salir</button>
     </div>
   </div>`;
@@ -132,25 +227,38 @@ function renderPlay() {
 }
 
 function paint() {
+  const n = S.n, hueco = S.b.indexOf(0);
+  const hr = Math.floor(hueco / n), hc = hueco % n;
   $$('.dt').forEach((el) => {
     const i = Number(el.dataset.i);
     const v = S.b[i];
     el.textContent = v || '';
-    el.className = 'dt' + (v === 0 ? ' hueco' : v === i + 1 ? ' bien' : '');
+    const alineada = v && (Math.floor(i / n) === hr || i % n === hc);
+    const movida = S.prev && S.prev[i] !== v && v;
+    el.className = 'dt' + (v === 0 ? ' hueco' : v === i + 1 ? ' bien' : '')
+      + (alineada ? ' empujable' : '') + (movida ? ' mov' : '');
   });
   $('#mv').textContent = S.moves;
+  S.prev = S.b.slice();
 }
 
 const armado = () => S.b.every((v, i) => v === (i + 1) % (S.n * S.n));
 
+/* Un toque empuja la ficha y todas las que estén entre ella y el hueco. */
 function tap(i) {
   if (!S.jugando || !S.b[i]) return;
   const n = S.n, hueco = S.b.indexOf(0);
   const r = Math.floor(i / n), c = i % n, hr = Math.floor(hueco / n), hc = hueco % n;
-  if (Math.abs(r - hr) + Math.abs(c - hc) !== 1) return;
-  S.b[hueco] = S.b[i]; S.b[i] = 0;
-  S.moves++;
-  vibrate(8);
+  if (r !== hr && c !== hc) { vibrate(25); return; }
+  let h = hueco, empujadas = 0;
+  while (h !== i) {
+    const cur = (r === hr) ? h + (c > h % n ? 1 : -1) : h + (r > Math.floor(h / n) ? n : -n);
+    S.b[h] = S.b[cur]; S.b[cur] = 0;
+    h = cur; empujadas++;
+  }
+  S.moves += empujadas;
+  S.toques++;
+  vibrate(empujadas > 1 ? 12 : 8);
   paint();
   if (armado()) ganar();
 }
@@ -159,21 +267,23 @@ function ganar() {
   S.jugando = false;
   S.clock.stop();
   const t = S.clock.seconds;
-  const best = store.get('deslizante.best.' + S.diff, 0);
-  const isRecord = !best || t < best;
+  const best = store.get('deslizante.mov.' + S.diff, 0);
+  const isRecord = !best || S.moves < best;
   if (isRecord) {
-    store.set('deslizante.best.' + S.diff, t);
-    store.set('des.hub', `Mejor: ${fmtTime(t)}`);
+    store.set('deslizante.mov.' + S.diff, S.moves);
+    store.set('des.hub', `Mejor: ${S.moves} movimientos · ${DIFF_LABEL[S.diff]}`);
   }
   confetti(); vibrate([30, 60, 30]);
   setTimeout(() => {
     openModal(`
       <h3>${isRecord ? '¡Récord!' : '¡Armado!'}</h3>
+      <p style="text-align:center;">Lo resolviste en <b>${S.toques} toque${S.toques === 1 ? '' : 's'}</b> y ${fmtTime(t)}.</p>
       <div class="stats" style="margin:14px 0;">
-        <div class="stat"><div class="n">${fmtTime(t)}</div><div class="l">tiempo</div></div>
         <div class="stat"><div class="n">${S.moves}</div><div class="l">movimientos</div></div>
-        <div class="stat"><div class="n">${fmtTime(isRecord ? t : best)}</div><div class="l">mejor</div></div>
+        <div class="stat"><div class="n">${S.cota}</div><div class="l">mínimo${CFG[S.diff].exacto ? '' : ' teórico'}</div></div>
+        <div class="stat"><div class="n">${isRecord ? S.moves : best}</div><div class="l">tu mejor</div></div>
       </div>
+      <p style="text-align:center;">${S.moves === S.cota ? '¡Clavado en el mínimo!' : `A <b>${S.moves - S.cota}</b> movimiento${S.moves - S.cota === 1 ? '' : 's'} del mínimo.`}</p>
       <div class="m-actions">
         <button class="btn btn-primary" id="m-again">Otro revuelto</button>
         <button class="btn btn-ghost" id="m-out">Salir</button>

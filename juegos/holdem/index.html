@@ -211,6 +211,7 @@ function renderMesa() {
 function narra(t) { const el = $('#narra'); if (el) el.textContent = t || ''; }
 
 function paint() {
+  if (!$('#st-yo')) return;  // el jugador ya se fue de la pantalla
   pintaMano('#c-app', S.hole.app, !S.muestraApp);
   pintaMano('#c-yo', S.hole.yo, false);
   if (!S.board.length) {

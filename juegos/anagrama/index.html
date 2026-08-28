@@ -45,15 +45,22 @@
 <div id="modal" role="dialog" aria-modal="true"></div>
 
 <script src="../../comun/nucleo.js"></script>
-<script src="../../dicc-es.js"></script>
+<script src="../../banco-es.js"></script>
+<script src="../../vocab-es.js"></script>
 <script>
 'use strict';
 
+// Las palabras que propone el juego salen del banco curado; para dar por buena
+// la que forma el jugador vale cualquier palabra del léxico completo.
+const lex = crearLexico('../../lexico-es.txt.gz');
+lex.ready();
+
+/* Rangos sobre el banco curado (banco-es.js): la posición marca lo común. */
 const CFG = {
-  facil:   { minLen: 4, maxLen: 5, maxRank: 4000 },
-  normal:  { minLen: 6, maxLen: 6, maxRank: 8000 },
-  dificil: { minLen: 7, maxLen: 7, maxRank: 15000 },
-  experto: { minLen: 8, maxLen: 9, maxRank: 30000 },
+  facil:   { minLen: 4, maxLen: 5, maxRank: 1500 },
+  normal:  { minLen: 6, maxLen: 6, maxRank: 3000 },
+  dificil: { minLen: 7, maxLen: 7, maxRank: 5500 },
+  experto: { minLen: 8, maxLen: 9, maxRank: 9999 },
 };
 const ROUNDS = 5;
 
@@ -112,10 +119,11 @@ function startGame() {
 function nextRound(first) {
   const c = CFG[S.diff];
   let e = null, guard = 0;
-  do { e = Dicc.random({ minLen: c.minLen, maxLen: c.maxLen, maxRank: c.maxRank, minRank: 200 }); }
+  do { e = Banco.random({ minLen: c.minLen, maxLen: c.maxLen, maxRank: c.maxRank }); }
   while (guard++ < 50 && (!e || (S.target && e.n === S.target.n)));
   S.target = e;
-  const chars = [...e.w];
+  // Las fichas van sin tildes: una Á delataría dónde cae el acento.
+  const chars = [...e.n];
   let mixed;
   let tries = 0;
   do { mixed = shuffle(chars); } while (tries++ < 20 && mixed.join('') === chars.join(''));
@@ -177,6 +185,7 @@ function updateStatus() {
 }
 
 function paintZone() {
+  if (!$('#slots')) return;  // el jugador ya se fue de la pantalla
   const L = S.target.n.length;
   $('#slots').innerHTML = Array.from({ length: L }, (_, i) => {
     const p = S.placed[i];
@@ -205,9 +214,10 @@ function removeAt(pos) {
 }
 
 function check() {
+  if (!$('#slots')) return;  // el jugador ya se fue de la pantalla
   const formed = S.placed.map((i) => S.rack[i].ch).join('');
   const fn = norm(formed);
-  const ok = fn === S.target.n || Dicc.has(fn);
+  const ok = fn === S.target.n || Banco.has(fn) || Vocab.has(fn) || (lex.loaded() && lex.has(fn));
   if (ok) {
     S.hits++;
     updateStatus();

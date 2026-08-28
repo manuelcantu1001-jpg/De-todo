@@ -88,15 +88,19 @@ const S = {
   deck: [],           // [{icon, up, matched}]
   open: [],           // índices boca arriba sin pareja
   moves: 0, matchedPairs: 0, lock: false, done: false,
+  reloj: 0,           // el temporizador que vuelve a tapar la pareja fallada
 };
+// Si empiezas otra partida o te sales antes de que se tapen, ese volteo sobra.
+function cancelaVolteo() { clearTimeout(S.reloj); S.reloj = 0; S.lock = false; }
 const clock = makeClock(() => $('#clock'));
 
 const REGLAS = `<p>Todas las cartas están boca abajo. <b>Voltea dos</b>: si tienen el mismo dibujo, se quedan descubiertas; si no, se vuelven a ocultar.</p>
 <p>Memoriza dónde viste cada dibujo para ir juntando las parejas.</p>
-<p>Cada par de volteos cuenta como un <b>movimiento</b>: gana quien complete el tablero con menos. Tu mejor marca por dificultad queda guardada.</p>`;
+<p>La marca es el <b>tiempo</b>, no los movimientos: los primeros volteos son a ciegas y contarlos premiaba la suerte. Los movimientos se siguen viendo, pero quien manda es el reloj. Se guarda por dificultad.</p>`;
 
 function renderSetup() {
   clock.stop();
+  cancelaVolteo();
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Memorama', '')}
@@ -113,8 +117,8 @@ function renderSetup() {
   </div>`;
   const paintBests = () => {
     const b = store.get('memo.best.' + S.diff, null);
-    $('#bests').innerHTML = `<div class="b"><div class="bn">${b ? b.moves : '—'}</div><div class="bl">Menos movimientos</div></div>
-      <div class="b"><div class="bn">${b ? fmtTime(b.secs) : '—'}</div><div class="bl">Su tiempo</div></div>`;
+    $('#bests').innerHTML = `<div class="b"><div class="bn">${b ? fmtTime(b.secs) : '—'}</div><div class="bl">Mejor tiempo</div></div>
+      <div class="b"><div class="bn">${b ? b.moves : '—'}</div><div class="bl">Sus movimientos</div></div>`;
   };
   const hint = () => {
     const c = CFG[S.diff];
@@ -127,6 +131,7 @@ function renderSetup() {
 }
 
 function startGame() {
+  cancelaVolteo();
   const c = CFG[S.diff];
   const pairs = c.cols * c.rows / 2;
   const icons = shuffle(Array.from({ length: ICONS.length }, (_, i) => i)).slice(0, pairs);
@@ -177,7 +182,7 @@ function renderPlay() {
 
 function flip(i) {
   const k = S.deck[i];
-  if (S.lock || S.done || k.up || k.matched) return;
+  if (!k || S.lock || S.done || k.up || k.matched) return;
   k.up = true;
   cardEl(i).classList.add('up');
   vibrate(10);
@@ -197,10 +202,12 @@ function flip(i) {
       if (S.matchedPairs === S.deck.length / 2) win();
     } else {
       S.lock = true;
-      setTimeout(() => {
+      S.reloj = setTimeout(() => {
+        S.reloj = 0;
+        if (!S.deck[a] || !S.deck[b]) return;
         S.deck[a].up = S.deck[b].up = false;
-        cardEl(a).classList.remove('up');
-        cardEl(b).classList.remove('up');
+        if (cardEl(a)) cardEl(a).classList.remove('up');
+        if (cardEl(b)) cardEl(b).classList.remove('up');
         S.open = [];
         S.lock = false;
       }, 750);
@@ -216,20 +223,22 @@ function win() {
   const secs = clock.seconds;
   const key = 'memo.best.' + S.diff;
   const prev = store.get(key, null);
-  const isRecord = !prev || S.moves < prev.moves || (S.moves === prev.moves && secs < prev.secs);
+  // La marca es el tiempo: los primeros volteos son ciegos y contar movimientos
+  // premiaba la suerte. Los movimientos solo desempatan.
+  const isRecord = !prev || secs < prev.secs || (secs === prev.secs && S.moves < prev.moves);
   if (isRecord) {
     store.set(key, { moves: S.moves, secs });
-    store.set('memo.hub', `Mejor ${S.moves} mov · ${DIFF_LABEL[S.diff]}`);
+    store.set('memo.hub', `Mejor ${fmtTime(secs)} · ${DIFF_LABEL[S.diff]}`);
   }
   confetti(); vibrate([30, 60, 30]);
   openModal(`
     <h3>¡Completado!</h3>
     <div class="stats" style="margin:14px 0;">
-      <div class="stat"><div class="n">${S.moves}</div><div class="l">movimientos</div></div>
       <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.moves}</div><div class="l">movimientos</div></div>
     </div>
-    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Mejor marca!</span></p>'
-      : (prev ? `<p style="text-align:center;">Tu mejor: <b>${prev.moves} movimientos</b></p>` : '')}
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Mejor tiempo!</span></p>'
+      : (prev ? `<p style="text-align:center;">Tu mejor: <b>${fmtTime(prev.secs)}</b></p>` : '')}
     <div class="m-actions">
       <button class="btn btn-primary" id="m-again">Otra partida</button>
       <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>

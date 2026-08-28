@@ -62,7 +62,7 @@ const MINE = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor
 const S = {
   diff: store.get('mina.diff', 'normal'),
   w: 0, h: 0, mines: 0,
-  mine: [], open: [], flag: [], adj: [],
+  vec: [], mine: [], open: [], flag: [], adj: [],
   started: false, done: false, flagMode: false, openCount: 0, flagCount: 0,
   press: null,
 };
@@ -70,7 +70,8 @@ const clock = makeClock(() => $('#clock'));
 
 const REGLAS = `<p>Despeja todas las casillas que no esconden mina. Cada número te dice <b>cuántas minas hay pegadas</b> a esa casilla (incluidas las diagonales).</p>
 <p><b>Toca</b> para abrir una casilla; <b>mantén presionado</b> —o activa el modo <b>Bandera</b>— para marcar donde crees que hay mina. El primer toque nunca explota.</p>
-<p>Si abres una mina, boom: fin de la partida. Abre todo lo seguro y ganas; tu mejor tiempo queda guardado.</p>`;
+<p>Si abres una mina, boom: fin de la partida. Abre todo lo seguro y ganas; tu mejor tiempo queda guardado.</p>
+<p>Los tableros se reparten de modo que <b>siempre se puedan terminar razonando</b>: nunca hace falta adivinar a ver qué pasa.</p>`;
 
 function renderSetup() {
   clock.stop();
@@ -105,21 +106,26 @@ function renderSetup() {
 }
 
 function idx(r, c) { return r * S.w + c; }
-function neighbors(i) {
-  const r = Math.floor(i / S.w), c = i % S.w;
-  const out = [];
-  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-    if (!dr && !dc) continue;
-    const nr = r + dr, nc = c + dc;
-    if (nr >= 0 && nr < S.h && nc >= 0 && nc < S.w) out.push(idx(nr, nc));
+function calcVecinos(w, h) {
+  const v = [];
+  for (let i = 0; i < w * h; i++) {
+    const r = Math.floor(i / w), c = i % w, out = [];
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      if (!dr && !dc) continue;
+      const nr = r + dr, nc = c + dc;
+      if (nr >= 0 && nr < h && nc >= 0 && nc < w) out.push(nr * w + nc);
+    }
+    v.push(out);
   }
-  return out;
+  return v;
 }
+function neighbors(i) { return S.vec[i]; }
 
 function startGame() {
   const c = CFG[S.diff];
   S.w = c.w; S.h = c.h; S.mines = c.mines;
   const n = S.w * S.h;
+  S.vec = calcVecinos(S.w, S.h);
   S.mine = new Array(n).fill(false);
   S.open = new Array(n).fill(false);
   S.flag = new Array(n).fill(false);
@@ -130,14 +136,183 @@ function startGame() {
   clock.start();
 }
 
+/* ── Resolutor lógico: ¿la partida se termina sin adivinar? ──────────────
+   Usa las tres herramientas de un jugador humano: la cuenta de cada número,
+   la enumeración de las combinaciones posibles en la frontera, y el total de
+   minas que quedan. Solo deduce lo forzado: nunca adivina. */
+function enumeraGrupo(celdas, restr, tope) {
+  const m = celdas.length;
+  const porCelda = celdas.map(() => []);
+  restr.forEach((c, ci) => c.vars.forEach((v) => porCelda[v].push(ci)));
+  const puestos = restr.map(() => 0), libres = restr.map((c) => c.vars.length);
+  const asign = new Uint8Array(m);
+  const cuenta = [], nSol = [];
+  let soluciones = 0, cortado = false;
+  function bt(k, minas) {
+    if (cortado) return;
+    if (minas > tope) return;
+    if (k === m) {
+      if (!cuenta[minas]) { cuenta[minas] = new Int32Array(m); nSol[minas] = 0; }
+      nSol[minas]++;
+      for (let i = 0; i < m; i++) if (asign[i]) cuenta[minas][i]++;
+      if (++soluciones > 200000) cortado = true;
+      return;
+    }
+    for (let v = 0; v <= 1; v++) {
+      asign[k] = v;
+      let ok = true;
+      for (const ci of porCelda[k]) {
+        puestos[ci] += v; libres[ci]--;
+        if (puestos[ci] > restr[ci].req || puestos[ci] + libres[ci] < restr[ci].req) ok = false;
+      }
+      if (ok) bt(k + 1, minas + v);
+      for (const ci of porCelda[k]) { puestos[ci] -= v; libres[ci]++; }
+    }
+  }
+  bt(0, 0);
+  return cortado ? null : { cuenta, nSol };
+}
+
+function resolubleSinAdivinar(mine, adj, vec, n, minas, primera) {
+  const est = new Uint8Array(n);          // 0 tapada · 1 abierta · 2 bandera
+  let abiertas = 0, banderas = 0;
+  const seguras = n - minas;
+  const abrir = (i) => {
+    const pila = [i];
+    while (pila.length) {
+      const k = pila.pop();
+      if (est[k]) continue;
+      est[k] = 1; abiertas++;
+      if (adj[k] === 0) for (const j of vec[k]) if (!est[j]) pila.push(j);
+    }
+  };
+  abrir(primera);
+  while (abiertas < seguras) {
+    let avance = false;
+    // 1) reglas locales de cada número
+    for (let i = 0; i < n; i++) {
+      if (est[i] !== 1 || !adj[i]) continue;
+      let desc = 0, ban = 0;
+      for (const j of vec[i]) { if (est[j] === 0) desc++; else if (est[j] === 2) ban++; }
+      if (!desc) continue;
+      if (adj[i] === ban) { for (const j of vec[i]) if (est[j] === 0) abrir(j); avance = true; }
+      else if (adj[i] - ban === desc) { for (const j of vec[i]) if (est[j] === 0) { est[j] = 2; banderas++; } avance = true; }
+    }
+    if (avance) continue;
+
+    const restantes = minas - banderas;
+    const tapadas = [];
+    for (let i = 0; i < n; i++) if (est[i] === 0) tapadas.push(i);
+    // 2) cuenta global de minas
+    if (restantes === 0) { tapadas.forEach(abrir); continue; }
+    if (restantes === tapadas.length) { tapadas.forEach((i) => { est[i] = 2; banderas++; }); continue; }
+
+    // 3) frontera: restricciones y grupos independientes
+    const enFrontera = new Map();
+    const restr = [];
+    for (let i = 0; i < n; i++) {
+      if (est[i] !== 1 || !adj[i]) continue;
+      const vars = [];
+      let ban = 0;
+      for (const j of vec[i]) { if (est[j] === 0) vars.push(j); else if (est[j] === 2) ban++; }
+      if (!vars.length) continue;
+      restr.push({ celdas: vars, req: adj[i] - ban });
+      vars.forEach((j) => enFrontera.set(j, true));
+    }
+    if (!restr.length) break;
+    // agrupa restricciones conectadas
+    const padre = new Map();
+    const buscar = (x) => { while (padre.get(x) !== x) { padre.set(x, padre.get(padre.get(x))); x = padre.get(x); } return x; };
+    for (const j of enFrontera.keys()) padre.set(j, j);
+    for (const c of restr) for (let k = 1; k < c.celdas.length; k++) padre.set(buscar(c.celdas[k]), buscar(c.celdas[0]));
+    const grupos = new Map();
+    for (const j of enFrontera.keys()) {
+      const r = buscar(j);
+      if (!grupos.has(r)) grupos.set(r, []);
+      grupos.get(r).push(j);
+    }
+    const fuera = tapadas.length - enFrontera.size;
+    const info = [];
+    let imposible = false;
+    for (const celdas of grupos.values()) {
+      if (celdas.length > 26) { imposible = true; break; }
+      const pos = new Map(celdas.map((c, k) => [c, k]));
+      const rs = restr.filter((c) => pos.has(c.celdas[0])).map((c) => ({ vars: c.celdas.map((x) => pos.get(x)), req: c.req }));
+      const e = enumeraGrupo(celdas, rs, Math.min(celdas.length, restantes));
+      if (!e) { imposible = true; break; }
+      const ks = [];
+      for (let k = 0; k < e.nSol.length; k++) if (e.nSol[k]) ks.push(k);
+      if (!ks.length) { imposible = true; break; }
+      info.push({ celdas, ks, cuenta: e.cuenta, nSol: e.nSol });
+    }
+    if (imposible) break;
+
+    // combinaciones globales posibles: suma de minas por grupo + las de fuera
+    const G = info.length;
+    const pre = [new Set([0])];
+    for (let g = 0; g < G; g++) {
+      const s = new Set();
+      for (const a of pre[g]) for (const k of info[g].ks) if (a + k <= restantes) s.add(a + k);
+      pre.push(s);
+    }
+    const post = new Array(G + 1);
+    post[G] = new Set([0]);
+    for (let g = G - 1; g >= 0; g--) {
+      const s = new Set();
+      for (const a of post[g + 1]) for (const k of info[g].ks) if (a + k <= restantes) s.add(a + k);
+      post[g] = s;
+    }
+    const validoTotal = (t) => t <= restantes && restantes - t <= fuera;
+    for (let g = 0; g < G; g++) {
+      info[g].ksOK = info[g].ks.filter((k) => {
+        for (const a of pre[g]) for (const b of post[g + 1]) if (validoTotal(a + k + b)) return true;
+        return false;
+      });
+    }
+    // ¿alguna celda es mina en todas las combinaciones, o segura en todas?
+    for (const gi of info) {
+      if (!gi.ksOK.length) { imposible = true; break; }
+      for (let c = 0; c < gi.celdas.length; c++) {
+        if (est[gi.celdas[c]] !== 0) continue;     // ya se resolvió en esta misma vuelta
+        let todas = true, ninguna = true;
+        for (const k of gi.ksOK) {
+          const v = gi.cuenta[k][c];
+          if (v !== gi.nSol[k]) todas = false;
+          if (v !== 0) ninguna = false;
+        }
+        if (todas) { est[gi.celdas[c]] = 2; banderas++; avance = true; }
+        else if (ninguna) { abrir(gi.celdas[c]); avance = true; }
+      }
+    }
+    if (imposible) break;
+    // las celdas de fuera de la frontera, por descarte
+    if (fuera) {
+      let minF = Infinity, maxF = -Infinity;
+      for (const t of pre[G]) if (validoTotal(t)) { minF = Math.min(minF, restantes - t); maxF = Math.max(maxF, restantes - t); }
+      if (maxF === 0) { for (const i of tapadas) if (!enFrontera.has(i) && est[i] === 0) { abrir(i); avance = true; } }
+      else if (minF === fuera) { for (const i of tapadas) if (!enFrontera.has(i) && est[i] === 0) { est[i] = 2; banderas++; avance = true; } }
+    }
+    if (!avance) break;
+  }
+  return abiertas === seguras;
+}
+
 function placeMines(safe) {
+  const n = S.mine.length;
   const banned = new Set([safe, ...neighbors(safe)]);
   const spots = [];
-  for (let i = 0; i < S.mine.length; i++) if (!banned.has(i)) spots.push(i);
-  for (const i of shuffle(spots).slice(0, S.mines)) S.mine[i] = true;
-  for (let i = 0; i < S.mine.length; i++) {
-    S.adj[i] = neighbors(i).filter((j) => S.mine[j]).length;
+  for (let i = 0; i < n; i++) if (!banned.has(i)) spots.push(i);
+  const tope = performance.now() + 1400;
+  let mine = null, adj = null;
+  for (let intento = 0; ; intento++) {
+    mine = new Array(n).fill(false);
+    for (const i of shuffle(spots.slice()).slice(0, S.mines)) mine[i] = true;
+    adj = new Array(n).fill(0);
+    for (let i = 0; i < n; i++) adj[i] = S.vec[i].filter((j) => mine[j]).length;
+    if (resolubleSinAdivinar(mine, adj, S.vec, n, S.mines, safe)) break;
+    if (performance.now() > tope) break;   // se acabó el tiempo: vale el último
   }
+  S.mine = mine; S.adj = adj;
   S.started = true;
 }
 
@@ -191,6 +366,7 @@ function renderPlay() {
 }
 
 function toggleFlag(i) {
+  if (!$('#minesleft')) return;  // el jugador ya se fue de la pantalla
   if (S.done || S.open[i]) return;
   S.flag[i] = !S.flag[i];
   S.flagCount += S.flag[i] ? 1 : -1;

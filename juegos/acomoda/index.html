@@ -49,15 +49,15 @@
 <div id="modal" role="dialog" aria-modal="true"></div>
 
 <script src="../../comun/nucleo.js"></script>
-<script src="../../dicc-es.js"></script>
+<script src="../../banco-es.js"></script>
 <script>
 'use strict';
 
 const CFG = {
-  facil:   { n: 8,  maxSide: 12, minLen: 4, maxLen: 8, maxRank: 6000,  prefill: true },
-  normal:  { n: 12, maxSide: 14, minLen: 4, maxLen: 9, maxRank: 10000, prefill: true },
-  dificil: { n: 16, maxSide: 15, minLen: 4, maxLen: 9, maxRank: 16000, prefill: false },
-  experto: { n: 20, maxSide: 16, minLen: 4, maxLen: 9, maxRank: 26000, prefill: false },
+  facil:   { n: 8,  maxSide: 12, minLen: 4, maxLen: 8, maxRank: 2000, prefill: true },
+  normal:  { n: 12, maxSide: 14, minLen: 4, maxLen: 9, maxRank: 3500, prefill: true },
+  dificil: { n: 16, maxSide: 15, minLen: 4, maxLen: 9, maxRank: 5500, prefill: false },
+  experto: { n: 20, maxSide: 16, minLen: 4, maxLen: 9, maxRank: 9999, prefill: false },
 };
 
 const S = {
@@ -148,8 +148,11 @@ function tryBuild(words, maxSide, wordsNeeded) {
 
 function generate() {
   const cfg = CFG[S.diff];
-  const pool = Dicc.where((e) =>
-    e.n.length >= cfg.minLen && e.n.length <= cfg.maxLen && /^[a-zñ]+$/.test(e.n), cfg.maxRank);
+  // Palabras del banco curado: sustantivos, adjetivos e infinitivos de verdad.
+  // Solo las que no llevan tilde, para que la lista se escriba igual que el
+  // diagrama (en el tablero no caben acentos).
+  const pool = Banco.where((e) =>
+    e.n.length >= cfg.minLen && e.n.length <= cfg.maxLen && e.w === e.n, cfg.maxRank);
   for (let attempt = 0; attempt < 120; attempt++) {
     const seen = new Set();
     const words = [];

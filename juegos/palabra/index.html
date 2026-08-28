@@ -43,7 +43,8 @@
 <div id="modal" role="dialog" aria-modal="true"></div>
 
 <script src="../../comun/nucleo.js"></script>
-<script src="../../dicc-es.js"></script>
+<script src="../../banco-es.js"></script>
+<script src="../../vocab-es.js"></script>
 <script>
 'use strict';
 
@@ -52,12 +53,15 @@ Lex.ready();
 
 const INTENTOS = 6, LARGO = 5;
 
-/* Respuestas: palabras comunes de 5 letras; se aceptan como intento
-   todas las del diccionario y el léxico. */
+/* Respuestas: palabras de 5 letras del banco curado (banco-es.js), o sea
+   sustantivos, adjetivos e infinitivos del español de verdad. Como intento se
+   sigue aceptando cualquier palabra del léxico completo (plurales,
+   conjugaciones y demás). */
 let ANSWERS = null;
 function answers() {
   if (!ANSWERS) {
-    ANSWERS = Dicc.where((e) => e.n.length === LARGO && /^[a-zñ]+$/.test(e.n), 12000);
+    ANSWERS = Banco.where((e) => e.n.length === LARGO, 4500);
+    if (ANSWERS.length < 200) ANSWERS = Banco.where((e) => e.n.length === LARGO);
   }
   return ANSWERS;
 }
@@ -181,6 +185,7 @@ function evalRow(guess) {
 }
 
 function pintar(revealRow) {
+  if (!$('#grid')) return;  // el jugador ya se fue de la pantalla
   const rows = [];
   for (let r = 0; r < INTENTOS; r++) {
     const cells = [];
@@ -228,7 +233,7 @@ async function tecla(ch) {
 async function enviar() {
   if (S.draft.length !== LARGO) { aviso('Faltan letras'); return; }
   const n = S.draft;
-  let valida = Dicc.has(n);
+  let valida = Banco.has(n) || Vocab.has(n);
   if (!valida) {
     if (!Lex.settled()) { aviso('Comprobando…', 'check'); await Lex.ready(); }
     valida = Lex.has(n) || !Lex.loaded();

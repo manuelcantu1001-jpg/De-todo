@@ -19,8 +19,28 @@
   canvas { border-radius: 19px 16px 15px 20px / 20px 17px 15px 16px; box-shadow: var(--shadow); touch-action: none; }
   .statusrow { display: flex; justify-content: center; gap: 20px; padding: 10px 0 0; font-size: 13.5px; font-weight: 600; color: var(--sub); }
   .statusrow b { color: var(--ink); font-variant-numeric: tabular-nums; }
-  .aviso { text-align: center; font-size: 13px; color: var(--bg-sub); font-weight: 600; padding-top: 10px; min-height: 18px; }
-  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 12px; }
+  .aviso { text-align: center; font-size: 13px; color: var(--bg-sub); font-weight: 600; padding-top: 8px; min-height: 17px; }
+
+  /* Mando de pulgar: cruz de 4 flechas en la zona baja, donde llega la mano. */
+  .mando {
+    margin: auto auto 0; display: grid; gap: 7px; padding: 6px 0 2px;
+    grid-template-columns: repeat(3, 70px); grid-template-rows: repeat(3, 64px);
+  }
+  .flecha {
+    border: var(--trazo) solid var(--ink); background: var(--card); color: var(--ink);
+    box-shadow: var(--shadow); cursor: pointer; padding: 0; display: grid; place-items: center;
+    touch-action: none; -webkit-user-select: none; user-select: none;
+  }
+  .flecha:nth-of-type(odd) { border-radius: var(--mano-1); }
+  .flecha:nth-of-type(even) { border-radius: var(--mano-3); }
+  .flecha:active, .flecha.pulsada { transform: translate(2px, 2.5px); box-shadow: none; background: var(--accent-soft); }
+  .flecha svg { width: 26px; height: 26px; }
+  .f-arr { grid-area: 1 / 2; } .f-izq { grid-area: 2 / 1; }
+  .f-der { grid-area: 2 / 3; } .f-aba { grid-area: 3 / 2; }
+  .mando .centro { grid-area: 2 / 2; display: grid; place-items: center; font-family: var(--title-font);
+    font-size: 11px; font-style: italic; color: var(--faint); text-align: center; line-height: 1.15; }
+  @media (max-height: 760px) { .mando { grid-template-rows: repeat(3, 50px); } }
+  .tools { margin: 8px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 6px; }
   .tool { border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600;
     font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
     box-shadow: var(--shadow-sutil); }
@@ -37,6 +57,9 @@
 
 const N = 17;
 const CFG = { facil: 150, normal: 115, dificil: 88, experto: 65 };
+const UMBRAL = 18;      // píxeles de dedo que disparan el giro, sin soltar
+const ACEL = 0.99;      // cada fruta acorta el tick un 1 %
+const SUELO = 0.65;     // …pero nunca por debajo del 65 % del ritmo inicial
 
 const S = {
   diff: store.get('serp.diff', 'normal'),
@@ -44,9 +67,15 @@ const S = {
   score: 0, tick: null, over: false, pausa: false,
 };
 
-const REGLAS = `<p><b>Desliza</b> (o usa las flechas) para dirigir a la serpiente. Come la fruta para crecer: cada una vale un punto.</p>
-<p>Pierdes si chocas con la <b>pared</b> o contigo misma. No puedes girar 180° de golpe.</p>
-<p>La dificultad es la <b>velocidad</b>. Si sales de la app a media partida, se pausa sola; toca el tablero para seguir.</p>`;
+/* Ritmo actual: arranca en CFG y se aprieta con cada fruta hasta el suelo. */
+function intervalo() {
+  const base = CFG[S.diff];
+  return Math.max(Math.round(base * SUELO), Math.round(base * Math.pow(ACEL, S.score)));
+}
+
+const REGLAS = `<p>Dirige a la serpiente con las <b>cuatro flechas</b> de abajo o <b>arrastrando</b> el dedo por el tablero: gira en cuanto el dedo se mueve ${UMBRAL} px, sin levantarlo, así que puedes encadenar giros de un tirón.</p>
+<p>Come la fruta para crecer: cada una vale un punto y <b>aprieta un poco el ritmo</b>. Pierdes si chocas con la <b>pared</b> o contigo misma. No puedes girar 180° de golpe.</p>
+<p>La dificultad es la velocidad de salida. Si sales de la app a media partida, se pausa sola; toca el tablero para seguir.</p>`;
 
 function renderSetup() {
   detener();
@@ -93,8 +122,11 @@ function ponerComida() {
   S.food = [x, y];
 }
 
+const FLECHA = (rot) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"
+  stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${rot}deg)"><path d="M12 19V6M6 12l6-6 6 6"/></svg>`;
+
 function renderPlay() {
-  const size = Math.min(380, Math.floor(innerWidth * .94));
+  const size = Math.min(378, Math.floor(innerWidth * .94));
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Serpiente', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
@@ -103,24 +135,55 @@ function renderPlay() {
       <span>Mejor <b>${store.get('serp.best.' + S.diff, 0)}</b></span>
     </div>
     <div class="lienzo"><canvas id="cv" width="${size}" height="${size}"></canvas></div>
-    <div class="aviso" id="aviso">Desliza para dirigir</div>
+    <div class="aviso" id="aviso">Flechas o dedo sobre el tablero</div>
+    <div class="mando" id="mando">
+      <button class="flecha f-arr" data-d="0,-1" aria-label="Arriba">${FLECHA(0)}</button>
+      <button class="flecha f-izq" data-d="-1,0" aria-label="Izquierda">${FLECHA(-90)}</button>
+      <div class="centro">gira<br>aquí</div>
+      <button class="flecha f-der" data-d="1,0" aria-label="Derecha">${FLECHA(90)}</button>
+      <button class="flecha f-aba" data-d="0,1" aria-label="Abajo">${FLECHA(180)}</button>
+    </div>
     <div class="tools">
       <button class="tool" id="t-salir">Salir</button>
     </div>
   </div>`;
   const cv = $('#cv');
-  let start = null;
+
+  /* El giro sale en el PRIMER pointermove que cruza el umbral, no al soltar.
+     Al girar, el origen del gesto se reinicia donde está el dedo: así se
+     encadenan curvas sin levantarlo. */
+  let g = null;
+  const despertar = () => {
+    if (S.pausa && !S.over) { S.pausa = false; const a = $('#aviso'); if (a) a.textContent = ''; arrancar(); }
+  };
   cv.addEventListener('pointerdown', (e) => {
-    start = { x: e.clientX, y: e.clientY };
-    if (S.pausa && !S.over) { S.pausa = false; $('#aviso').textContent = ''; arrancar(); }
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    g = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    despertar();
   });
-  cv.addEventListener('pointerup', (e) => {
-    if (!start) return;
-    const dx = e.clientX - start.x, dy = e.clientY - start.y;
-    start = null;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
+  cv.addEventListener('pointermove', (e) => {
+    if (!g || e.pointerId !== g.id) return;
+    const dx = e.clientX - g.x, dy = e.clientY - g.y;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < UMBRAL) return;
     girar(Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)]);
+    g.x = e.clientX; g.y = e.clientY;
   });
+  const soltar = () => { g = null; };
+  cv.addEventListener('pointerup', soltar);
+  cv.addEventListener('pointercancel', soltar);
+
+  // Mando de pulgar: responde en pointerdown, sin esperar al click.
+  $('#mando').addEventListener('pointerdown', (e) => {
+    const b = e.target.closest('.flecha');
+    if (!b) return;
+    e.preventDefault();
+    despertar();
+    girar(b.dataset.d.split(',').map(Number));
+    b.classList.add('pulsada');
+    setTimeout(() => b.classList.remove('pulsada'), 90);
+    vibrate(4);
+  });
+
   $('#t-salir').onclick = renderSetup;
   dibujar();
 }
@@ -132,12 +195,17 @@ function girar(d) {
   if (S.cola.length < 2) S.cola.push(d);
 }
 
+/* Cada tick se reprograma solo: así el ritmo puede apretarse con cada
+   fruta sin reiniciar el reloj a destiempo. */
 function arrancar() {
   detener();
-  S.tick = setInterval(paso, CFG[S.diff]);
+  S.tick = setTimeout(function ciclo() {
+    paso();
+    if (S.tick) S.tick = setTimeout(ciclo, intervalo());
+  }, intervalo());
 }
 function detener() {
-  if (S.tick) { clearInterval(S.tick); S.tick = null; }
+  if (S.tick) { clearTimeout(S.tick); S.tick = null; }
 }
 
 function paso() {

@@ -111,17 +111,32 @@
 <div id="modal" role="dialog" aria-modal="true"></div>
 
 <script src="../../comun/nucleo.js"></script>
-<script src="../../dicc-es.js"></script>
+<script src="../../banco-es.js"></script>
+<script src="../../vocab-es.js"></script>
 <script>
 'use strict';
 
-/* Adaptadores sobre el diccionario compartido */
-const candidates = (affix, match, used, maxRank) => Dicc.where((e) =>
+/* Adaptadores sobre el vocabulario de la app (vocab-es.js). Para no jugar con
+   veinte veces menos palabras que el jugador, cuando el vocabulario propio se
+   queda corto la app tira también del léxico completo (las mismas 635.000
+   formas con las que se le validan las palabras al jugador). */
+const candidates = (affix, match, used, maxRank) => Vocab.where((e) =>
   e.n.length > affix.length &&
   (match === 'inicio' ? e.n.startsWith(affix) : e.n.endsWith(affix)) &&
   !used.has(e.n), maxRank);
-const countFor = (affix, match) => candidates(affix, match, new Set(), Infinity).length;
-const randomCommon = (minLen) => { const e = Dicc.random({ minLen, maxRank: 9000 }); return e ? e.w : null; };
+const candidatesLex = (affix, match, used, tope) => Lex.buscar(affix, match !== 'inicio', 400)
+  .filter((n) => n.length > affix.length && !used.has(n))
+  .slice(0, tope || 400)
+  .map((n) => ({ w: Vocab.palabra(n) || n, n, rank: Infinity }));
+const countFor = (affix, match) => {
+  const propias = candidates(affix, match, new Set(), Infinity).length;
+  // El recuento fino del léxico solo se pide cuando el aviso importa (pocas
+  // palabras): recorrer las 635.000 formas en cada tecla sería un gasto tonto.
+  if (propias >= 5 || !Lex.loaded()) return propias;
+  return Math.max(propias, Lex.contar(affix, match !== 'inicio'));
+};
+const randomCommon = (minLen) => { const e = Banco.random({ minLen, maxRank: 4000 }); return e ? e.w : null; };
+const vocabListo = () => Vocab.ready();
 
 /* ── Léxico completo (~635.000 formas ya normalizadas, comprimido) ───── */
 const Lex = (() => {
@@ -151,11 +166,30 @@ const Lex = (() => {
     })();
     return promise;
   }
+  // Palabras del léxico que empiezan (o acaban) por un trozo dado. El
+  // resultado se guarda: la misma terminación se repite turno tras turno.
+  const cache = new Map();
+  function buscar(trozo, alFinal, max) {
+    const a = String(trozo || '').replace(/[^a-zñ]/g, '');
+    if (!txt || !a) return [];
+    const clave = (alFinal ? 'f:' : 'i:') + a;
+    if (cache.has(clave)) return cache.get(clave);
+    const re = alFinal
+      ? new RegExp('\\n([a-zñ]{1,14}' + a + ')\\n', 'g')
+      : new RegExp('\\n(' + a + '[a-zñ]{1,14})\\n', 'g');
+    const out = [];
+    let m;
+    while ((m = re.exec(txt)) && out.length < (max || 400)) out.push(m[1]);
+    cache.set(clave, out);
+    return out;
+  }
   return {
     ready: load,
     settled: () => done,
     loaded: () => !!txt,
     has: (n) => !!txt && txt.includes('\n' + n + '\n'),
+    buscar,
+    contar: (trozo, alFinal) => buscar(trozo, alFinal, 400).length,
   };
 })();
 
@@ -202,11 +236,18 @@ const P = { time: 0, tick: null, busy: false, thinking: false };
 
 const defCfg = {
   mode: '2p', match: 'fin', suffixLen: 3,
-  livesOn: true, lives: 3, timerOn: false, timerSec: 15,
+  livesOn: true, lives: 3, timerOn: true, timerSec: 15,
   difficulty: 'normal', start: '',
 };
 let setupCfg = Object.assign({}, defCfg, store.get('enc.cfg', {}));
 setupCfg.start = '';
+// El reloj por turno pasa a venir encendido (sin él la partida no termina
+// nunca). A quien ya tenga ajustes guardados se le enciende una sola vez;
+// a partir de ahí manda lo que elija.
+if (!store.get('enc.reloj-encendido', false)) {
+  setupCfg.timerOn = true;
+  store.set('enc.reloj-encendido', true);
+}
 
 /* ── Reglas ──────────────────────────────────────────────────────────── */
 const isPre = () => S.cfg.match === 'inicio';
@@ -224,7 +265,7 @@ const nextPlayer = (p) => { const o = playerOrder(); return o[(o.indexOf(p) + 1)
 const playerColor = (p) => (p === 'A' || p === 'tu') ? 'var(--accent)' : 'var(--second)';
 
 function randomStart(cfg) {
-  if (Dicc.ready()) {
+  if (vocabListo()) {
     for (let i = 0; i < 80; i++) {
       const w = randomCommon(cfg.suffixLen + 2);
       if (!w) break;
@@ -326,12 +367,26 @@ async function appTurn() {
   const used = usedSet();
   const maxRank = DIFF_RANK[S.cfg.difficulty] || DIFF_RANK.normal;
   let word = null;
-  if (Dicc.ready()) {
-    const cands = candidates(S.suffix, S.cfg.match, used, maxRank);
-    if (cands.length) {
+  if (vocabListo()) {
+    const propias = candidates(S.suffix, S.cfg.match, used, maxRank);
+    let cands = propias;
+    // Si con su propio vocabulario tiene poco donde elegir, completa con el
+    // léxico grande: así juega con las mismas armas que el jugador.
+    if (propias.length < 25) {
+      if (!Lex.settled()) await Lex.ready();
+      const vistas = new Set(propias.map((e) => e.n));
+      cands = propias.slice();
+      for (const e of candidatesLex(S.suffix, S.cfg.match, used, 400)) {
+        if (!vistas.has(e.n)) { vistas.add(e.n); cands.push(e); }
+      }
+    }
+    // Prefiere las palabras de su propio vocabulario (más de andar por casa)
+    // y solo de vez en cuando tira de las rarezas del léxico.
+    const bolsa = (propias.length && Math.random() < 0.7) ? propias : cands;
+    if (bolsa.length) {
       // sesgo hacia palabras comunes, sin ser predecible
-      const idx = Math.floor(Math.pow(Math.random(), 1.6) * cands.length);
-      word = cands[idx].w;
+      const idx = Math.floor(Math.pow(Math.random(), 1.6) * bolsa.length);
+      word = bolsa[idx].w;
     }
   }
   if (!word && AI.available()) {
@@ -376,7 +431,7 @@ async function submitWord() {
   }
   if (usedSet().has(n)) { rejectWord('Esa palabra ya se dijo'); return; }
 
-  if (Dicc.has(n)) { acceptWord(raw, null); return; }
+  if (Banco.has(n) || Vocab.has(n)) { acceptWord(raw, null); return; }
 
   // No es de las frecuentes: consultar el léxico completo
   if (!Lex.settled()) {
@@ -508,7 +563,7 @@ function toggleHTML(id, on) {
 
 function renderSetup() {
   const c = setupCfg;
-  const soloOk = Dicc.ready() || AI.available();
+  const soloOk = vocabListo() || AI.available();
   if (!soloOk && (c.mode === 'app' || c.mode === 'solo')) c.mode = '2p';
   const app = $('#app');
   app.innerHTML = `
@@ -637,7 +692,7 @@ function renderSetup() {
     const a = affixOf(input.value, c);
     const shown = c.match === 'inicio' ? `${a}‑` : `‑${a}`;
     let extra = '';
-    if (Dicc.ready()) {
+    if (vocabListo()) {
       const count = countFor(a, c.match);
       extra = count < 5 ? ` · <span class="few">solo ${count} en el diccionario</span>`
         : ` · ${count} palabras posibles`;

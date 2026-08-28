@@ -32,6 +32,8 @@
   .lc.f4 { background: #DFF0F2; color: #1F7F8A; }
   .lc.flash { animation: flashHint 1.2s steps(4, jump-end); }
   @keyframes flashHint { 0%, 60% { background: var(--warn-soft); color: var(--warn); } 100% { } }
+  .tema { text-align: center; font-family: var(--title-font); font-size: 13.5px; color: var(--sub); padding: 4px 16px 0; letter-spacing: var(--title-track); }
+  .tema b { color: var(--ink); }
   .words { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 14px 16px 6px; }
   .wchip {
     font-size: 13.5px; font-weight: 600; color: var(--ink); background: var(--card);
@@ -51,16 +53,16 @@
 <div id="modal" role="dialog" aria-modal="true"></div>
 
 <script src="../../comun/nucleo.js"></script>
-<script src="../../dicc-es.js"></script>
+<script src="../../banco-es.js"></script>
 <script>
 'use strict';
 
 /* ── Configuración por dificultad ────────────────────────────────────── */
 const CFG = {
-  facil:   { size: 8,  n: 6,  dirs: [[0, 1], [1, 0]], maxRank: 4000,  minLen: 4, maxLen: 7 },
-  normal:  { size: 10, n: 8,  dirs: [[0, 1], [1, 0], [0, -1], [-1, 0]], maxRank: 10000, minLen: 4, maxLen: 9 },
-  dificil: { size: 12, n: 10, dirs: [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1]], maxRank: 20000, minLen: 5, maxLen: 10 },
-  experto: { size: 14, n: 12, dirs: [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]], maxRank: 32000, minLen: 5, maxLen: 11 },
+  facil:   { size: 8,  n: 6,  dirs: [[0, 1], [1, 0]], maxRank: 1500, minLen: 3, maxLen: 7 },
+  normal:  { size: 10, n: 8,  dirs: [[0, 1], [1, 0], [0, -1], [-1, 0]], maxRank: 3000, minLen: 4, maxLen: 9 },
+  dificil: { size: 12, n: 10, dirs: [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1]], maxRank: 5500, minLen: 4, maxLen: 10 },
+  experto: { size: 14, n: 12, dirs: [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]], maxRank: 9999, minLen: 5, maxLen: 11 },
 };
 const FILLER = 'AAAAEEEEEIIIOOOUSSRRNNLLDCCTUMPBGVYQHFZJ';
 const FCOLORS = 5;
@@ -68,26 +70,41 @@ const FCOLORS = 5;
 /* ── Estado ──────────────────────────────────────────────────────────── */
 const S = {
   diff: store.get('sopa.diff', 'normal'),
-  size: 0, grid: [], words: [],    // words: [{w, n, cells:[i...], found, color}]
+  tema: '', temaN: '',
+  size: 0, grid: [], words: [],    // words: [{n, cells:[i...], found, color}]
   drag: null, foundCount: 0, pistas: 3, done: false,
 };
 const clock = makeClock(() => $('#clock'));
 
 /* ── Generación ──────────────────────────────────────────────────────── */
+/* Cada sopa tiene un tema (TEMAS_ES). Si el tema no da para llenar el tablero,
+   se completa con palabras del banco curado. En la cuadrícula solo caben letras
+   sin tilde, así que se trabaja siempre con la forma normalizada. */
 function pickWords(cfg) {
-  const pool = Dicc.where((e) =>
-    e.n.length >= cfg.minLen && e.n.length <= cfg.maxLen && /^[a-zñ]+$/.test(e.n), cfg.maxRank);
+  const tema = Banco.temaAzar();
+  const cabe = (n) => n.length >= 3 && n.length <= Math.min(cfg.maxLen, cfg.size);
   const out = [];
   const used = new Set();
-  let guard = 0;
-  while (out.length < cfg.n && guard++ < 4000) {
-    const e = pool[randInt(pool.length)];
-    if (!e || used.has(e.n)) continue;
-    if (out.some((o) => o.n.includes(e.n) || e.n.includes(o.n))) continue;
-    used.add(e.n);
-    out.push({ w: e.w, n: e.n });
+  const meter = (n) => {
+    if (!n || used.has(n) || !cabe(n)) return false;
+    if (out.some((o) => o.n.includes(n) || n.includes(o.n))) return false;
+    used.add(n);
+    out.push({ n });
+    return true;
+  };
+  // 1) palabras del tema, en orden distinto cada vez
+  for (const n of shuffle(Banco.tema(tema).map(Banco.norm))) {
+    if (out.length >= cfg.n) break;
+    meter(n);
   }
-  return out.sort((a, b) => b.n.length - a.n.length);
+  // 2) relleno del banco si el tema se queda corto
+  let guard = 0;
+  while (out.length < cfg.n && guard++ < 3000) {
+    // sin tilde: así la palabra de la lista se escribe igual que en la cuadrícula
+    const e = Banco.random({ minLen: cfg.minLen, maxLen: Math.min(cfg.maxLen, cfg.size), maxRank: cfg.maxRank, filtro: (x) => x.w === x.n });
+    if (e) meter(e.n);
+  }
+  return { tema, words: out.sort((a, b) => b.n.length - a.n.length) };
 }
 
 function generate() {
@@ -95,7 +112,7 @@ function generate() {
   for (let attempt = 0; attempt < 30; attempt++) {
     const size = cfg.size;
     const grid = new Array(size * size).fill('');
-    const words = pickWords(cfg);
+    const { tema, words } = pickWords(cfg);
     let ok = true;
     for (const wd of words) {
       const L = wd.n.length;
@@ -126,6 +143,8 @@ function generate() {
     }
     S.size = size;
     S.grid = grid;
+    S.tema = tema;
+    S.temaN = (window.TEMAS_ES_NOMBRE || {})[tema] || cap(tema);
     S.words = words.map((w, k) => ({ ...w, found: false, color: k % FCOLORS }));
     return true;
   }
@@ -133,7 +152,8 @@ function generate() {
 }
 
 /* ── Pantallas ───────────────────────────────────────────────────────── */
-const REGLAS = `<p>Las palabras de la lista están escondidas en el tablero: en horizontal, en vertical y, según la dificultad, también al revés o en diagonal.</p>
+const REGLAS = `<p>Cada sopa tiene un <b>tema</b> (frutas, animales, oficios…) que se enseña encima del tablero: casi todas las palabras escondidas son de ese tema.</p>
+<p>Las palabras de la lista están escondidas en el tablero: en horizontal, en vertical y, según la dificultad, también al revés o en diagonal.</p>
 <p><b>Arrastra el dedo</b> desde la primera letra hasta la última para marcar una palabra. Si acertaste, se pinta de color y se tacha de la lista.</p>
 <p>Encuéntralas todas: el reloj corre y tu mejor tiempo por dificultad queda guardado. El botón <b>Pista</b> ilumina un instante la primera letra de una palabra pendiente (tienes 3).</p>`;
 
@@ -182,6 +202,7 @@ function renderPlay() {
   <div class="screen">
     ${topbarHTML('Sopa de letras', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
     <div class="scroll">
+      <div class="tema">Tema · <b>${esc(S.temaN)}</b></div>
       <div class="board" id="board" style="grid-template-columns: repeat(${size}, 1fr); font-size: ${fs}px;">
         ${S.grid.map((ch, i) => `<div class="lc" data-i="${i}">${ch}</div>`).join('')}
       </div>
@@ -203,7 +224,7 @@ function renderPlay() {
 function paintWords() {
   $('#words').innerHTML = S.words.map((w, k) => `
     <span class="wchip ${w.found ? 'hit' : ''}" data-k="${k}">
-      ${w.found ? `<span class="dot" style="background: currentColor;"></span>` : ''}${esc(cap(w.w))}
+      ${w.found ? `<span class="dot" style="background: currentColor;"></span>` : ''}${esc(cap(w.n))}
     </span>`).join('');
 }
 
@@ -322,6 +343,7 @@ function win() {
   confetti(); vibrate([30, 60, 30]);
   openModal(`
     <h3>¡Todas encontradas!</h3>
+    <p style="text-align:center; margin-top:-4px;">Tema · <b>${esc(S.temaN)}</b></p>
     <div class="stats" style="margin:14px 0;">
       <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
       <div class="stat"><div class="n">${S.words.length}</div><div class="l">palabras</div></div>

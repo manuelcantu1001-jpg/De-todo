@@ -45,7 +45,8 @@
 <div id="app"></div>
 <div id="modal" role="dialog" aria-modal="true"></div>
 
-<script src="../../dicc-es.js"></script>
+<script src="../../banco-es.js"></script>
+<script src="../../vocab-es.js"></script>
 <script src="../../comun/nucleo.js"></script>
 <script>
 'use strict';
@@ -92,12 +93,17 @@ function vecinos(i, n) {
   return out;
 }
 
+/* Las palabras que la app da por escondidas en el tablero salen del banco
+   curado: son las que enseña al final. Lo que teclea el jugador se valida
+   aparte contra el diccionario y el léxico completo, así que puede encontrar
+   muchas más. */
 let CAND = null, PREF = null;
 function prepararDicc(minLen) {
   CAND = new Set(); PREF = new Set();
-  for (const e of Dicc.list) {
-    if (e.rank >= 24000) break;
+  for (const e of Banco.list) {
     const w = e.n;
+    // solo palabras que se escriben sin tilde: en el tablero no hay acentos
+    if (e.w !== e.n) continue;
     if (w.length < minLen || w.length > 9 || CAND.has(w)) continue;
     CAND.add(w);
     for (let i = 1; i <= w.length; i++) PREF.add(w.slice(0, i));
@@ -208,6 +214,7 @@ function renderPlay() {
 }
 
 function paint() {
+  if (!$('#palabra')) return;  // el jugador ya se fue de la pantalla
   $$('#bgrid button').forEach((el) => {
     const i = Number(el.dataset.i);
     el.classList.toggle('sel', S.path.includes(i));
@@ -241,7 +248,7 @@ function probar() {
   const c = CFG[S.diff];
   if (w.length < c.minLen) { setMsg(`Mínimo ${c.minLen} letras`, 'err'); return; }
   if (S.found.includes(w)) { setMsg('Esa ya la tenías', 'check'); S.path = []; paint(); return; }
-  const valida = Dicc.has(w) || (lex.loaded() && lex.has(w));
+  const valida = Banco.has(w) || Vocab.has(w) || (lex.loaded() && lex.has(w));
   if (!valida) {
     setMsg('No la conozco', 'err');
     $('#palabra').classList.add('shake');

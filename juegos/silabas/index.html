@@ -40,17 +40,22 @@
 <div id="app"></div>
 <div id="modal" role="dialog" aria-modal="true"></div>
 
-<script src="../../dicc-es.js"></script>
 <script src="../../comun/nucleo.js"></script>
+<script src="../../banco-es.js"></script>
+<script src="../../vocab-es.js"></script>
 <script>
 'use strict';
 
+/* rank = hasta qué punto del vocabulario amplio (vocab-es.js) tira la app. */
 const CFG = {
-  facil:   { turno: 45, rank: 9000 },
-  normal:  { turno: 30, rank: 15000 },
-  dificil: { turno: 20, rank: 22000 },
-  experto: { turno: 15, rank: 30000 },
+  facil:   { turno: 45, rank: 6000 },
+  normal:  { turno: 30, rank: 10000 },
+  dificil: { turno: 20, rank: 14000 },
+  experto: { turno: 15, rank: 99999 },
 };
+// Continuaciones mínimas que ha de tener una sílaba para que la app la deje:
+// si no, el jugador se quedaría atascado sin culpa.
+const SALIDAS_MIN = 6, SALIDAS_MIN_APURO = 2;
 
 const lex = crearLexico('../../lexico-es.txt.gz');
 
@@ -123,22 +128,44 @@ const S = {
   jugando: false, turno: 'nadie',
 };
 
-let ORIG = null, PREFC = null;
+let ORIG = null, PREFC = null, NSIL = null;
 function prepararIndices() {
   if (ORIG) return;
-  ORIG = new Map(); PREFC = new Map();
-  for (const e of Dicc.list) {
+  ORIG = new Map(); PREFC = new Map(); NSIL = new Map();
+  for (const e of Vocab.list) {
     if (!ORIG.has(e.n)) ORIG.set(e.n, e.w);
-    for (let l = 1; l <= Math.min(5, e.n.length); l++) {
+    for (let l = 1; l <= Math.min(6, e.n.length); l++) {
       const p = e.n.slice(0, l);
       PREFC.set(p, (PREFC.get(p) || 0) + 1);
     }
   }
+  for (const e of Banco.list) if (!ORIG.has(e.n)) ORIG.set(e.n, e.w);
 }
-const continuaciones = (sil) => sil.length <= 5 ? (PREFC.get(sil) || 0) : 1;
+// Cuántas palabras del vocabulario empiezan por esa sílaba.
+function continuaciones(sil) {
+  if (!sil) return 0;
+  if (sil.length <= 6) return PREFC.get(sil) || 0;
+  let n = 0;
+  for (const e of Vocab.list) if (e.n.startsWith(sil)) n++;
+  return n;
+}
+// Nº de sílabas, con memoria (se consulta mucho).
+function nSilabas(e) {
+  let v = NSIL.get(e.n);
+  if (v === undefined) { v = silabear(e.w).length; NSIL.set(e.n, v); }
+  return v;
+}
+// Una palabra sirve si tiene al menos dos sílabas y su última sílaba deja
+// suficientes continuaciones al de enfrente.
+function dejaSalida(e, minimo) {
+  if (nSilabas(e) < 2) return false;
+  const u = ultimaSilaba(e.w);
+  return u.length >= 2 && u !== e.n && continuaciones(u) >= minimo;
+}
 
 const REGLAS = `<p>Como las encadenadas del recreo, pero <b>por sílabas</b>: la app dice una palabra y tú respondes con una que <b>empiece con su última sílaba</b> (RA-<b>TÓN</b> → <b>TON</b>-TERÍA). Luego la app sigue con la tuya, y así.</p>
-<p>Sin repetir palabras, y con <b>reloj por turno</b>. Tu marca es el largo de la cadena; si dejas a la app sin palabras, ganas la ronda.</p>
+<p>Sin repetir palabras, con <b>reloj por turno</b> y con palabras de <b>dos sílabas o más</b> (si valieran los monosílabos, decir «reloj» ganaría siempre). Tu marca es el largo de la cadena; si dejas a la app sin palabras, ganas la ronda.</p>
+<p>La app nunca te deja una sílaba imposible: antes de decir una palabra comprueba que su última sílaba tenga salida.</p>
 <p>Las tildes no importan al comparar (la ñ sí). La dificultad cambia el tiempo y el vocabulario de la app.</p>`;
 
 function renderSetup() {
@@ -174,15 +201,15 @@ function startGame() {
   S.cadena = 0; S.usadas = new Set(); S.lista = [];
   S.jugando = true; S.turno = 'app';
   renderPlay();
-  // La app abre con una palabra cuya última sílaba tenga continuaciones.
+  // La app abre con una palabra bonita del banco curado, de dos sílabas o más
+  // y cuya última sílaba tenga salida de sobra.
   setTimeout(() => {
-    for (let t = 0; t < 300; t++) {
-      const e = Dicc.random({ minLen: 4, maxLen: 10, minRank: 200, maxRank: CFG[S.diff].rank });
-      if (!e) continue;
-      const ult = ultimaSilaba(e.w);
-      if (ult.length >= 2 && continuaciones(ult) >= 3) { decirApp(e); return; }
+    for (let t = 0; t < 400; t++) {
+      const e = Banco.random({ minLen: 4, maxLen: 10, maxRank: 4000 });
+      if (e && dejaSalida(e, SALIDAS_MIN)) { decirApp(e); return; }
     }
-    decirApp(Dicc.random({ maxRank: 9000 }) || { w: 'casa', n: 'casa' });
+    const resto = Vocab.where((e) => e.n.length >= 4 && dejaSalida(e, SALIDAS_MIN), CFG[S.diff].rank);
+    decirApp(resto.length ? resto[randInt(resto.length)] : { w: 'camino', n: 'camino' });
   }, 600);
 }
 
@@ -214,12 +241,14 @@ function renderPlay() {
 }
 
 function pintarPalabra(pal) {
+  if (!$('#dicho')) return;  // el jugador ya se fue de la pantalla
   const sils = silabear(pal);
   const ult = sils.pop();
   $('#dicho').innerHTML = `${esc(sils.join('·'))}${sils.length ? '·' : ''}<span class="fin">${esc(ult)}</span>`;
 }
 
 function decirApp(e) {
+  if (!$('#quien')) return;  // el jugador ya se fue de la pantalla
   if (!S.jugando) return;
   S.usadas.add(e.n);
   S.lista.push({ w: e.w, mia: false });
@@ -237,6 +266,7 @@ function decirApp(e) {
 }
 
 function pintarUsadas() {
+  if (!$('#usadas')) return;  // el jugador ya se fue de la pantalla
   $('#usadas').innerHTML = S.lista.slice(-24).map((u) =>
     `<span class="h ${u.mia ? 'mia' : ''}">${esc(u.w)}</span>`).join('');
   $('#cad').textContent = S.cadena;
@@ -264,7 +294,8 @@ function probar() {
   if (n.length < 2) return;
   if (!n.startsWith(S.silaba)) { setMsg(`Tiene que empezar con «${S.silaba.toUpperCase()}»`, 'err'); return; }
   if (S.usadas.has(n)) { setMsg('Esa ya salió', 'err'); return; }
-  const valida = Dicc.has(n) || (lex.loaded() && lex.has(n));
+  if (silabear(n).length < 2) { setMsg('Tiene que tener dos sílabas o más', 'err'); return; }
+  const valida = Banco.has(n) || Vocab.has(n) || (lex.loaded() && lex.has(n));
   if (!valida) { setMsg('No la conozco', 'err'); vibrate([60, 40, 60]); return; }
   clearInterval(S.timerId);
   const mostrada = ORIG.get(n) || crudo.toLowerCase();
@@ -284,14 +315,26 @@ function probar() {
   setTimeout(turnoApp, 800 + randInt(700));
 }
 
+/* Lo que la app puede contestar a una sílaba: palabras de dos sílabas o más
+   que además dejen salida al jugador. Primero busca entre las palabras del
+   nivel de dificultad y, si ahí no hay nada, en todo su vocabulario: solo se
+   rinde cuando de verdad no le queda ninguna. */
+function candidatosApp(sil) {
+  for (const tope of [CFG[S.diff].rank, Infinity]) {
+    const base = Vocab.where((e) => e.n.length >= Math.max(3, sil.length + 1) &&
+      e.n.startsWith(sil) && !S.usadas.has(e.n), tope);
+    let c = base.filter((e) => dejaSalida(e, SALIDAS_MIN));
+    if (!c.length) c = base.filter((e) => dejaSalida(e, SALIDAS_MIN_APURO));
+    if (c.length) return c;
+    if (tope === Infinity) break;
+  }
+  return [];
+}
+
 function turnoApp() {
   if (!S.jugando) return;
   const sil = S.silaba;
-  const cands = [];
-  for (const e of Dicc.list) {
-    if (e.rank >= CFG[S.diff].rank) break;
-    if (e.n.length >= Math.max(3, sil.length + 1) && e.n.startsWith(sil) && !S.usadas.has(e.n)) cands.push(e);
-  }
+  const cands = candidatosApp(sil);
   if (!cands.length) {
     clearInterval(S.timerId);
     S.jugando = false;
@@ -314,14 +357,9 @@ function turnoApp() {
     $('#m-out').onclick = () => { closeModal(); renderSetup(); };
     return;
   }
-  // Prefiere palabras que dejen la cadena viva (su última sílaba tiene continuaciones).
-  let pick = null;
-  for (const e of shuffle(cands).slice(0, 60)) {
-    const ult = ultimaSilaba(e.w);
-    if (ult.length >= 2 && continuaciones(ult) >= 2) { pick = e; break; }
-  }
-  if (!pick) pick = cands[randInt(cands.length)];
-  decirApp(pick);
+  // Sesgo hacia palabras comunes, sin ser predecible.
+  const idx = Math.floor(Math.pow(Math.random(), 1.5) * cands.length);
+  decirApp(cands[idx]);
 }
 
 function terminar(titulo, porque) {

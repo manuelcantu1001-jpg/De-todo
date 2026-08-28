@@ -15,19 +15,55 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
-  .twrap { display: flex; justify-content: center; padding: 24px 16px 0; }
-  .tgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: min(86vw, 340px); }
+  /* La rejilla vive en la MITAD DE ABAJO: es donde llega el pulgar. */
+  .twrap { display: flex; justify-content: center; padding: 10px 14px 0; }
+  .tgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px; width: min(90vw, 348px); }
   .tp {
-    aspect-ratio: 1; border: none; border-radius: 28px 16px 25px 26px / 26px 23px 18px 17px; cursor: pointer; padding: 0;
-    background: var(--soft); box-shadow: inset 0 2px 5px rgba(60,50,30,.14); transition: all .1s steps(3, jump-end);
+    aspect-ratio: 1; border: var(--trazo) solid var(--ink); cursor: pointer; padding: 0;
+    background: var(--soft); box-shadow: inset 0 3px 0 rgba(60, 50, 30, .13);
+    display: grid; place-items: center; transition: none;
+    font-family: var(--title-font); font-size: 40px; font-weight: 700; line-height: 1; color: transparent;
   }
-  .tp.on { background: var(--accent); box-shadow: 0 0 26px -4px var(--accent), var(--shadow); transform: scale(1.04); }
-  .tp.mala { background: var(--bad); box-shadow: 0 0 26px -4px var(--bad), var(--shadow); transform: scale(1.04); }
-  .tp:active { transform: scale(.95); }
-  .marcador { display: flex; justify-content: center; gap: 20px; padding-top: 20px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
-  .marcador b { color: var(--bg-ink); font-size: 16px; }
-  .marcador .vidas { color: var(--bad); letter-spacing: 2px; }
-  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tp:nth-child(3n+1) { border-radius: var(--mano-1); }
+  .tp:nth-child(3n+2) { border-radius: var(--mano-2); }
+  .tp:nth-child(3n)   { border-radius: var(--mano-3); }
+  /* Verde = tócala · Azul = vale por tres · Rojo = ni la roces.
+     Además del color, cada una lleva su dibujo: no hay que adivinar. */
+  .tp.on   { background: var(--good);   color: var(--ink); box-shadow: var(--shadow); }
+  .tp.oro  { background: var(--second); color: var(--ink); box-shadow: var(--shadow); }
+  .tp.mala { background: var(--bad);    color: var(--card); box-shadow: var(--shadow); }
+  .tp.brota { animation: brota var(--fps) steps(3, jump-none) 1; }
+  @keyframes brota { 0% { transform: translateY(10px) scale(.84); } 55% { transform: translateY(-3px) scale(1.05); } 100% { transform: none; } }
+  .tp:active { transform: translate(2px, 2.5px); }
+  .tp.falla { animation: falla calc(var(--fps) * .8) steps(2, jump-none) 2; }
+  @keyframes falla { 0% { transform: translateX(-4px); } 50% { transform: translateX(4px); } 100% { transform: none; } }
+
+  /* El hueco entre la barra y la rejilla es el marcador: número grande. */
+  .tanteo { margin: auto 0; text-align: center; padding: 8px 0; }
+  .tanteo .grande { font-family: var(--title-font); font-size: 62px; font-weight: 700; line-height: .95; color: var(--bg-ink); font-variant-numeric: tabular-nums; }
+  .tanteo .pie { font-size: 12px; font-style: italic; color: var(--bg-sub); margin-top: 2px; letter-spacing: .04em; }
+  .marcador { display: flex; justify-content: center; align-items: center; gap: 14px; padding-top: 14px;
+    font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
+  .marcador b { color: var(--bg-ink); font-size: 17px; font-variant-numeric: tabular-nums; }
+  .marcador .vidas { color: var(--bad); letter-spacing: 2px; font-size: 16px; }
+  .mult {
+    font-family: var(--title-font); font-size: 13px; font-weight: 700; color: var(--ink);
+    border: var(--trazo) solid var(--ink); border-radius: var(--pastilla); padding: 3px 11px;
+    background: var(--card); box-shadow: var(--shadow-sutil);
+  }
+  .mult.viva { background: var(--good); color: var(--card); }
+  /* Leyenda honesta: el mismo dibujo y el mismo color que en la rejilla. */
+  .leyenda { display: flex; justify-content: center; gap: 12px; padding: 12px 12px 0; flex-wrap: wrap; }
+  .leyenda span { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-style: italic; color: var(--bg-sub); }
+  .leyenda i {
+    width: 22px; height: 22px; border: var(--trazo) solid var(--ink); border-radius: var(--mano-2);
+    display: grid; place-items: center; font-family: var(--title-font); font-style: normal; font-size: 12px; font-weight: 700;
+  }
+  .leyenda .l-on { background: var(--good); color: var(--ink); }
+  .leyenda .l-oro { background: var(--second); color: var(--ink); }
+  .leyenda .l-mala { background: var(--bad); color: var(--card); }
+
+  .tools { margin: 14px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
   .tool { border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600;
     font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
     box-shadow: var(--shadow-sutil); }
@@ -42,26 +78,38 @@
 <script>
 'use strict';
 
+/* on/gap: cuánto vive un topo y cada cuánto asoma otro, en ms.
+   simult: cuántos puede haber a la vez. acel: cuánto se aprieta el ritmo
+   por cada topo cazado (con suelo en onMin/gapMin). */
 const CFG = {
-  facil:   { on: 1200, gap: 420, trampa: 0 },
-  normal:  { on: 950,  gap: 340, trampa: 0 },
-  dificil: { on: 750,  gap: 280, trampa: 0.18 },
-  experto: { on: 580,  gap: 220, trampa: 0.25 },
+  facil:   { on: 1150, gap: 900, onMin: 720, gapMin: 640, simult: 1, trampa: 0,    oro: 0.05, acel: 0.005, vidas: 3 },
+  normal:  { on: 980,  gap: 620, onMin: 560, gapMin: 410, simult: 2, trampa: 0.12, oro: 0.07, acel: 0.007, vidas: 3 },
+  dificil: { on: 800,  gap: 420, onMin: 460, gapMin: 265, simult: 2, trampa: 0.20, oro: 0.09, acel: 0.009, vidas: 4 },
+  experto: { on: 640,  gap: 300, onMin: 380, gapMin: 180, simult: 3, trampa: 0.24, oro: 0.11, acel: 0.010, vidas: 5 },
 };
+const CARA = { topo: '●', oro: '★', trampa: '✕' };
+const CLASE = { topo: 'on', oro: 'oro', trampa: 'mala' };
+const MULT_MAX = 4;      // el multiplicador no pasa de ×4
+const POR_MULT = 6;      // …y sube un escalón cada 6 topos seguidos
+const GRACIA = 260;      // ms de perdón al doble toque en la casilla recién cazada
 
 const S = {
   diff: store.get('topos.diff', 'normal'),
-  activo: -1, esTrampa: false, score: 0, vidas: 3,
-  timerId: null, jugando: false, atinado: false,
+  topos: new Map(),      // casilla -> { tipo, id }
+  recien: new Map(),     // casilla -> cuándo se apagó (para el doble toque)
+  score: 0, vidas: 3, racha: 0, mejorRacha: 0, caza: 0,
+  spawnId: 0, jugando: false,
 };
 
-const REGLAS = `<p>Se encienden casillas <b>verdes</b>: tócalas antes de que se apaguen. Cada una vale un punto y el ritmo <b>se acelera</b> con tu puntuación.</p>
-<p>Tienes <b>3 vidas</b>: pierdes una si se te escapa una verde o si tocas donde no era.</p>
-<p>En Difícil y Experto a veces se enciende una <b>roja</b>: esa NO se toca (déjala pasar). Tu marca es la puntuación.</p>`;
+const REGLAS = `<p>Asoman topos en la mitad de abajo de la pantalla. Cada dibujo dice lo que es, y el color acompaña:</p>
+<p><b>${CARA.topo} verde</b> — tócalo: vale 1 punto.<br>
+<b>${CARA.oro} azul</b> — el topo raro: vale <b>3 puntos</b>.<br>
+<b>${CARA.trampa} rojo</b> — ni lo roces: te cuesta una vida.</p>
+<p>Cada topo cazado seguido sube la <b>racha</b>, y cada ${POR_MULT} de racha suben el <b>multiplicador</b> hasta ×${MULT_MAX}. Tocar una casilla <b>apagada no cuesta vidas</b>: solo te rompe la racha.</p>
+<p>Las <b>vidas</b> (${CFG.facil.vidas} en Fácil, ${CFG.experto.vidas} en Experto) se van si dejas escapar un topo o si tocas un rojo. El ritmo se aprieta con cada caza, y la dificultad decide cuántos topos salen a la vez: <b>${CFG.facil.simult} en Fácil y hasta ${CFG.experto.simult} en Experto</b>.</p>`;
 
 function renderSetup() {
-  clearTimeout(S.timerId);
-  S.jugando = false;
+  pararTodo();
   const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
     const b = store.get('topos.best.' + d, 0);
     return `<div class="b"><div class="bn">${b || '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
@@ -86,94 +134,186 @@ function renderSetup() {
 }
 
 function startGame() {
-  S.score = 0; S.vidas = 3; S.activo = -1; S.jugando = true;
+  pararTodo();
+  S.score = 0; S.vidas = CFG[S.diff].vidas; S.racha = 0; S.mejorRacha = 0; S.caza = 0;
+  S.jugando = true;
   renderPlay();
-  S.timerId = setTimeout(prender, 900);
+  S.spawnId = setTimeout(salir, 800);
 }
 
 function renderPlay() {
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Topos', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
-    <div class="marcador"><span>Puntos <b id="pts">0</b></span><span class="vidas" id="vidas"></span></div>
+    <div class="tanteo">
+      <div class="grande" id="pts">0</div>
+      <div class="pie">puntos</div>
+      <div class="marcador">
+        <span>Racha <b id="racha">0</b></span>
+        <span class="mult" id="mult">×1</span>
+        <span class="vidas" id="vidas"></span>
+      </div>
+      <div class="msg" id="aviso" style="padding-top:10px;">Toca los verdes, esquiva los rojos</div>
+    </div>
+    <div class="leyenda">
+      <span><i class="l-on">${CARA.topo}</i> 1 punto</span>
+      <span><i class="l-oro">${CARA.oro}</i> 3 puntos</span>
+      <span><i class="l-mala">${CARA.trampa}</i> ni tocarlo</span>
+    </div>
     <div class="twrap">
       <div class="tgrid" id="tgrid">
-        ${Array.from({ length: 9 }, (_, i) => `<button class="tp" data-i="${i}"></button>`).join('')}
+        ${Array.from({ length: 9 }, (_, i) => `<button class="tp" data-i="${i}" aria-label="Casilla ${i + 1}"><span></span></button>`).join('')}
       </div>
     </div>
     <div class="tools">
       <button class="tool" id="t-salir">Salir</button>
     </div>
   </div>`;
-  $('#tgrid').onclick = (e) => {
+  CELDAS = $$('.tp');
+  // pointerdown: el toque cuenta en cuanto el dedo aterriza, no al soltar.
+  $('#tgrid').addEventListener('pointerdown', (e) => {
     const b = e.target.closest('.tp');
-    if (b) tap(Number(b.dataset.i));
-  };
-  $('#t-salir').onclick = () => { S.jugando = false; clearTimeout(S.timerId); renderSetup(); };
+    if (!b) return;
+    e.preventDefault();
+    tap(Number(b.dataset.i));
+  });
+  $('#t-salir').onclick = () => { pararTodo(); renderSetup(); };
   hud();
 }
 
+const mult = () => Math.min(MULT_MAX, 1 + Math.floor(S.racha / POR_MULT));
+
 function hud() {
-  $('#pts').textContent = S.score;
-  $('#vidas').textContent = '♥'.repeat(S.vidas);
+  const p = $('#pts'), v = $('#vidas'), m = $('#mult'), r = $('#racha');
+  if (!p || !v || !m || !r) return;
+  p.textContent = S.score;
+  v.textContent = '♥'.repeat(Math.max(0, S.vidas));
+  m.textContent = '×' + mult();
+  m.classList.toggle('viva', mult() > 1);
+  r.textContent = S.racha;
 }
 
-const ritmo = (base) => Math.max(320, base - S.score * 9);
+/* Ritmo actual: se aprieta con cada topo cazado, nunca por debajo del suelo. */
+function ritmo() {
+  const c = CFG[S.diff];
+  const r = Math.max(0.5, 1 - S.caza * c.acel);
+  return { on: Math.max(c.onMin, Math.round(c.on * r)), gap: Math.max(c.gapMin, Math.round(c.gap * r)) };
+}
 
-function prender() {
+/* Las casillas se guardan al dibujar el tablero: en Experto hay un cambio
+   cada 180 ms y buscarlas en el DOM cada vez costaba cuadros. */
+let CELDAS = [];
+
+function pintar(i, tipo) {
+  const el = CELDAS[i];
+  if (!el) return;
+  const reiniciar = el.classList.contains('brota');
+  el.classList.remove('on', 'oro', 'mala', 'brota');
+  if (!tipo) { el.firstElementChild.textContent = ''; return; }
+  if (reiniciar) void el.offsetWidth;   // solo si hay que rearrancar la animación
+  el.classList.add(CLASE[tipo], 'brota');
+  el.firstElementChild.textContent = CARA[tipo];
+}
+
+function quitar(i) {
+  const t = S.topos.get(i);
+  if (!t) return null;
+  clearTimeout(t.id);
+  S.topos.delete(i);
+  S.recien.set(i, performance.now());
+  pintar(i, null);
+  return t;
+}
+
+function salir() {
   if (!S.jugando) return;
   const c = CFG[S.diff];
-  S.activo = randInt(9);
-  S.esTrampa = Math.random() < c.trampa;
-  S.atinado = false;
-  const el = $(`.tp[data-i="${S.activo}"]`);
-  if (el) el.classList.add(S.esTrampa ? 'mala' : 'on');
-  S.timerId = setTimeout(() => apagar(true), ritmo(c.on));
+  if (S.topos.size < c.simult) {
+    const libres = [];
+    for (let i = 0; i < 9; i++) if (!S.topos.has(i)) libres.push(i);
+    if (libres.length) {
+      const i = libres[randInt(libres.length)];
+      const tipo = Math.random() < c.trampa ? 'trampa' : (Math.random() < c.oro ? 'oro' : 'topo');
+      const r = ritmo();
+      const vida = tipo === 'oro' ? Math.round(r.on * 0.7) : r.on;
+      S.topos.set(i, { tipo, id: setTimeout(() => escapar(i), vida) });
+      pintar(i, tipo);
+    }
+  }
+  S.spawnId = setTimeout(salir, ritmo().gap);
 }
 
-function apagar(porTiempo) {
-  const el = $(`.tp[data-i="${S.activo}"]`);
-  if (el) el.classList.remove('on', 'mala');
-  const escapoVerde = porTiempo && !S.esTrampa && !S.atinado;
-  S.activo = -1;
-  if (escapoVerde) return fallo('Se te escapó una verde');
-  if (!S.jugando) return;
-  S.timerId = setTimeout(prender, ritmo(CFG[S.diff].gap));
+/* Se acabó el tiempo del topo: si era bueno, se escapa y cuesta una vida.
+   Una trampa que se va sola no pasa nada: es lo que había que hacer. */
+function escapar(i) {
+  const t = quitar(i);
+  if (!t || !S.jugando) return;
+  if (t.tipo === 'trampa') return;
+  romperRacha();
+  restarVida('Se te escapó uno');
 }
 
 function tap(i) {
   if (!S.jugando) return;
-  if (i === S.activo && !S.esTrampa) {
-    S.score++;
-    S.atinado = true;
-    vibrate(8);
-    hud();
-    clearTimeout(S.timerId);
-    apagar(false);
-  } else if (i === S.activo && S.esTrampa) {
-    clearTimeout(S.timerId);
-    apagar(false);
-    fallo('¡Esa era roja!');
-  } else {
-    fallo('Ahí no era');
+  const t = S.topos.get(i);
+  if (!t) {
+    // Casilla apagada: NO cuesta vida. Y si es el segundo toque en la que
+    // acabas de cazar, ni siquiera rompe la racha.
+    const cuando = S.recien.get(i);
+    if (cuando != null && performance.now() - cuando < GRACIA) return;
+    const el = CELDAS[i];
+    if (el) { el.classList.remove('falla'); void el.offsetWidth; el.classList.add('falla'); }
+    if (S.racha) aviso('Racha rota');
+    romperRacha();
+    return;
   }
+  quitar(i);
+  if (t.tipo === 'trampa') {
+    romperRacha();
+    vibrate([70, 50, 70]);
+    restarVida('Tocaste un rojo');
+    return;
+  }
+  const base = t.tipo === 'oro' ? 3 : 1;
+  S.score += base * mult();
+  S.racha++; S.caza++;
+  S.mejorRacha = Math.max(S.mejorRacha, S.racha);
+  vibrate(t.tipo === 'oro' ? 14 : 8);
+  if (t.tipo === 'oro') aviso(`¡El azul! +${base * mult()}`);
+  else if (S.racha % POR_MULT === 0 && mult() > 1) aviso(`Racha ×${mult()}`);
+  hud();
 }
 
-function fallo(porque) {
-  if (!S.jugando) return;
+function romperRacha() { S.racha = 0; hud(); }
+
+function restarVida(porque) {
   S.vidas--;
   vibrate([70, 50, 70]);
+  aviso(porque);
   hud();
-  if (S.vidas <= 0) return terminar(porque);
-  if (S.activo === -1) {
-    clearTimeout(S.timerId);
-    S.timerId = setTimeout(prender, 700);
-  }
+  if (S.vidas <= 0) terminar(porque);
+}
+
+let avisoId = 0;
+function aviso(t) {
+  const el = $('#aviso');
+  if (!el) return;
+  el.textContent = t;
+  clearTimeout(avisoId);
+  avisoId = setTimeout(() => { const e2 = $('#aviso'); if (e2) e2.textContent = ''; }, 1000);
+}
+
+function pararTodo() {
+  S.jugando = false;
+  clearTimeout(S.spawnId); S.spawnId = 0;
+  clearTimeout(avisoId);
+  S.topos.forEach((t) => clearTimeout(t.id));
+  S.topos.clear();
+  S.recien.clear();
 }
 
 function terminar(porque) {
-  S.jugando = false;
-  clearTimeout(S.timerId);
+  pararTodo();
   const best = store.get('topos.best.' + S.diff, 0);
   const isRecord = S.score > best;
   if (isRecord && S.score > 0) {
@@ -187,6 +327,7 @@ function terminar(porque) {
       <p style="text-align:center;">${esc(porque)}.</p>
       <div class="stats" style="margin:14px 0;">
         <div class="stat"><div class="n">${S.score}</div><div class="l">puntos</div></div>
+        <div class="stat"><div class="n">${S.mejorRacha}</div><div class="l">mejor racha</div></div>
         <div class="stat"><div class="n">${Math.max(best, S.score)}</div><div class="l">mejor</div></div>
       </div>
       <div class="m-actions">

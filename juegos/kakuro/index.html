@@ -73,91 +73,294 @@ const kk = (r, c) => r + ',' + c;
 
 const REGLAS = `<p>Es un crucigrama de números. Cada bloque blanco seguido debe <b>sumar</b> lo que indica su casilla negra: el número de arriba a la derecha manda sobre el bloque a su derecha, y el de abajo a la izquierda sobre el bloque hacia abajo.</p>
 <p>Solo se usan dígitos del <b>1 al 9</b> y dentro de un mismo bloque <b>no se repiten</b>. Los repetidos se marcan en rojo, y un bloque completo con suma equivocada se sombrea.</p>
-<p>Toca una casilla y escribe con el teclado. Gana al llenar todo con las sumas correctas. <b>Pista</b> rellena una casilla (3 por partida).</p>`;
+<p>Toca una casilla y escribe con el teclado. Gana al llenar todo con las sumas correctas. <b>Pista</b> rellena una casilla (3 por partida).</p>
+<p>Cada tablero tiene <b>una sola solución</b>.</p>`;
 
 /* ── Generación ──────────────────────────────────────────────────────── */
+/* COMBOS[largo][suma] = máscaras de 9 bits (bit d-1) de dígitos distintos que suman eso. */
+const COMBOS = (() => {
+  const t = [];
+  for (let L = 0; L <= 9; L++) { t.push([]); for (let s = 0; s <= 45; s++) t[L].push([]); }
+  for (let m = 1; m < 512; m++) {
+    let L = 0, s = 0;
+    for (let d = 1; d <= 9; d++) if (m & (1 << (d - 1))) { L++; s += d; }
+    t[L][s].push(m);
+  }
+  return t;
+})();
+const BITS = (() => { const a = new Uint8Array(512); for (let m = 1; m < 512; m++) a[m] = a[m >> 1] + (m & 1); return a; })();
+const DIGS = (() => {
+  const t = [];
+  for (let m = 0; m < 512; m++) { const a = []; for (let d = 1; d <= 9; d++) if (m & (1 << (d - 1))) a.push(1 << (d - 1)); t.push(a); }
+  return t;
+})();
+const DP = new Uint8Array(1 << 9);
+
+const MAX_RUN = 5;                                        // bloques de 2 a 5 celdas
+const BONO = { facil: 220, normal: 220, dificil: 150, experto: 0 };  // ms extra buscando un tablero sin adivinar
+
+/* ── Patrón de negras: simétrico 180°, bloques de 2 a 5, 35-45% de negras ── */
+function largosOK(n, neg, exigirMax) {
+  const I = (r, c) => r * n + c;
+  let blancas = 0;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (neg[I(r, c)]) continue;
+    blancas++;
+    // largo mínimo 2: toda blanca necesita vecina blanca a los lados y arriba o abajo
+    const h = (c > 0 && !neg[I(r, c - 1)]) || (c < n - 1 && !neg[I(r, c + 1)]);
+    const v = (r > 0 && !neg[I(r - 1, c)]) || (r < n - 1 && !neg[I(r + 1, c)]);
+    if (!h || !v) return false;
+  }
+  if (!blancas) return false;
+  if (!exigirMax) return true;
+  for (let r = 0; r < n; r++) {
+    let len = 0;
+    for (let c = 0; c <= n; c++) { if (c < n && !neg[I(r, c)]) len++; else { if (len > MAX_RUN) return false; len = 0; } }
+  }
+  for (let c = 0; c < n; c++) {
+    let len = 0;
+    for (let r = 0; r <= n; r++) { if (r < n && !neg[I(r, c)]) len++; else { if (len > MAX_RUN) return false; len = 0; } }
+  }
+  return true;
+}
+
+function generarPatron(n) {
+  const total = n * n;
+  const minNeg = Math.round(total * 0.35), maxNeg = Math.round(total * 0.45);
+  const pares = [];
+  for (let i = 0; i < total; i++) {
+    const j = total - 1 - i;
+    if (j > i) pares.push([i, j]); else if (j === i) pares.push([i]);
+  }
+  for (let intento = 0; intento < 120; intento++) {
+    const neg = new Uint8Array(total);
+    let cuenta = 0;
+    const orden = shuffle(pares.slice());
+    for (let pasada = 0; pasada < 3; pasada++) {
+      for (const par of orden) {
+        if (cuenta + par.length > maxNeg) continue;
+        if (par.some((i) => neg[i])) continue;
+        par.forEach((i) => { neg[i] = 1; });
+        if (largosOK(n, neg, false)) cuenta += par.length;
+        else par.forEach((i) => { neg[i] = 0; });
+      }
+    }
+    if (cuenta < minNeg) continue;
+    if (!largosOK(n, neg, true)) continue;
+    return neg;
+  }
+  return null;
+}
+
+/* Relleno inicial: dígitos distintos dentro de cada bloque. */
+function rellenarDigitos(n, neg) {
+  const I = (r, c) => r * n + c;
+  const val = new Int8Array(n * n);
+  const orden = [];
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (!neg[I(r, c)]) orden.push([r, c]);
+  const cabe = (r, c, v) => {
+    for (let c2 = c - 1; c2 >= 0 && !neg[I(r, c2)]; c2--) if (val[I(r, c2)] === v) return false;
+    for (let r2 = r - 1; r2 >= 0 && !neg[I(r2, c)]; r2--) if (val[I(r2, c)] === v) return false;
+    // patrón mortal: un cuadro blanco 2×2 con a,b / b,a se voltea y da otra solución
+    if (r > 0 && c > 0 && !neg[I(r - 1, c - 1)] && !neg[I(r - 1, c)] && !neg[I(r, c - 1)]
+      && val[I(r - 1, c - 1)] === v && val[I(r - 1, c)] === val[I(r, c - 1)]) return false;
+    return true;
+  };
+  const opciones = orden.map(() => null);
+  let i = 0, vueltas = 0;
+  while (i >= 0 && i < orden.length && vueltas < 20000) {
+    const [r, c] = orden[i];
+    if (!opciones[i]) opciones[i] = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    let puesto = false;
+    while (opciones[i].length) {
+      const v = opciones[i].pop();
+      if (cabe(r, c, v)) { val[I(r, c)] = v; puesto = true; break; }
+    }
+    if (puesto) i++;
+    else { opciones[i] = null; val[I(r, c)] = 0; i--; if (i >= 0) val[I(orden[i][0], orden[i][1])] = 0; vueltas++; }
+  }
+  return i >= orden.length ? val : null;
+}
+
+/* ── Resolutor ── */
+/* ¿Los dígitos de la máscara caben uno por celda del bloque? */
+function emparejable(dom, cs, m, L) {
+  const digs = DIGS[m];
+  if (digs.length !== L) return false;
+  const full = (1 << L) - 1;
+  DP.fill(0, 0, full + 1);
+  DP[0] = 1;
+  for (let s = 0; s <= full; s++) {
+    if (!DP[s]) continue;
+    const k = BITS[s];
+    if (k === L) return true;
+    const d = dom[cs[k]];
+    for (let j = 0; j < L; j++) if (!(s & (1 << j)) && (d & digs[j])) DP[s | (1 << j)] = 1;
+  }
+  return !!DP[full];
+}
+
+/* Propagación: deja en cada celda solo los dígitos que caben en alguna combinación
+   válida de sus dos bloques. Nunca descarta un dígito de una solución real. */
+function propagar(est, runSums, dom, cola, enCola) {
+  const { runCells, cellRuns } = est;
+  cola.length = 0;
+  enCola.fill(1);
+  for (let i = 0; i < runCells.length; i++) cola.push(i);
+  while (cola.length) {
+    const ri = cola.pop();
+    enCola[ri] = 0;
+    const cs = runCells[ri], L = cs.length, lista = COMBOS[L][runSums[ri]];
+    if (!lista.length) return false;
+    let union = 0;
+    for (let k = 0; k < L; k++) union |= dom[cs[k]];
+    const permit = est.buf;
+    for (let k = 0; k < L; k++) permit[k] = 0;
+    let alguna = false;
+    for (let mi = 0; mi < lista.length; mi++) {
+      const m = lista[mi];
+      if ((m & union) !== m) continue;
+      let ok = true;
+      for (let k = 0; k < L; k++) if (!(dom[cs[k]] & m)) { ok = false; break; }
+      if (!ok || !emparejable(dom, cs, m, L)) continue;
+      alguna = true;
+      for (let k = 0; k < L; k++) permit[k] |= dom[cs[k]] & m;
+    }
+    if (!alguna) return false;
+    for (let k = 0; k < L; k++) {
+      const ci = cs[k];
+      if (dom[ci] !== permit[k]) {
+        dom[ci] = permit[k];
+        if (!permit[k]) return false;
+        for (const rj of cellRuns[ci]) if (!enCola[rj]) { enCola[rj] = 1; cola.push(rj); }
+      }
+    }
+  }
+  return true;
+}
+
+/* Cuenta soluciones hasta `limite`. */
+function contarSoluciones(est, runSums, limite) {
+  const nC = est.nCeldas;
+  const cola = [], enCola = new Uint8Array(est.runCells.length);
+  let total = 0;
+  function bt(dom0) {
+    if (total >= limite) return;
+    const dom = dom0.slice();
+    if (!propagar(est, runSums, dom, cola, enCola)) return;
+    let mejor = -1, mejorN = 10;
+    for (let i = 0; i < nC; i++) {
+      const sz = BITS[dom[i]];
+      if (sz > 1 && sz < mejorN) { mejorN = sz; mejor = i; if (sz === 2) break; }
+    }
+    if (mejor < 0) { total++; return; }
+    for (const bit of DIGS[dom[mejor]]) {
+      const d2 = dom.slice(); d2[mejor] = bit;
+      bt(d2);
+      if (total >= limite) return;
+    }
+  }
+  bt(new Int32Array(nC).fill(0x1FF));
+  return total;
+}
+
+/* Estructura de bloques del patrón (índices de celda, no sumas). */
+function estructura(n, neg) {
+  const W = n + 1;
+  const negro = (r, c) => (r === 0 || c === 0 || !!neg[(r - 1) * n + (c - 1)]);
+  const idx = new Map(), celdaDe = [];
+  for (let r = 1; r < W; r++) for (let c = 1; c < W; c++) if (!negro(r, c)) { idx.set(kk(r, c), idx.size); celdaDe.push((r - 1) * n + (c - 1)); }
+  const runCells = [], runInfo = [];
+  for (let r = 0; r < W; r++) for (let c = 0; c < W; c++) {
+    if (!negro(r, c)) continue;
+    if (c + 1 < W && !negro(r, c + 1)) {
+      const cs = [], cells = [];
+      for (let c2 = c + 1; c2 < W && !negro(r, c2); c2++) { cs.push(idx.get(kk(r, c2))); cells.push([r, c2]); }
+      runCells.push(cs); runInfo.push({ cells, dir: 'H', clave: [r, c] });
+    }
+    if (r + 1 < W && !negro(r + 1, c)) {
+      const cs = [], cells = [];
+      for (let r2 = r + 1; r2 < W && !negro(r2, c); r2++) { cs.push(idx.get(kk(r2, c))); cells.push([r2, c]); }
+      runCells.push(cs); runInfo.push({ cells, dir: 'V', clave: [r, c] });
+    }
+  }
+  const cellRuns = celdaDe.map(() => []);
+  runCells.forEach((cs, ri) => cs.forEach((ci) => cellRuns[ci].push(ri)));
+  return { runCells, cellRuns, runInfo, celdaDe, nCeldas: idx.size, buf: new Int32Array(MAX_RUN) };
+}
+
+/* Búsqueda local: retoca dígitos hasta que el tablero tiene UNA sola solución.
+   Energía = (soluciones-1)·100 + celdas que la lógica no deduce; 0 = deducible sin adivinar. */
+function buscarUnico(n, neg, tope, bono) {
+  const est = estructura(n, neg);
+  const { runCells, cellRuns, celdaDe, nCeldas } = est;
+  const val = rellenarDigitos(n, neg);
+  if (!val) return null;
+  const cval = new Int8Array(nCeldas);
+  for (let i = 0; i < nCeldas; i++) cval[i] = val[celdaDe[i]];
+  const runSums = runCells.map((cs) => cs.reduce((s, ci) => s + cval[ci], 0));
+  const dom = new Int32Array(nCeldas);
+  const cola = [], enCola = new Uint8Array(runCells.length);
+  const medir = () => {
+    dom.fill(0x1FF);
+    if (!propagar(est, runSums, dom, cola, enCola)) return 1e6;
+    let sinDeducir = 0;
+    for (let i = 0; i < nCeldas; i++) if (BITS[dom[i]] > 1) sinDeducir++;
+    if (!sinDeducir) return 0;
+    return (contarSoluciones(est, runSums, 6) - 1) * 100 + sinDeducir;
+  };
+  let e = medir();
+  const t0 = performance.now();
+  let tUnico = -1;
+  const amb = [];
+  while (e > 0) {
+    const ahora = performance.now();
+    if (ahora - t0 > tope) break;
+    if (e < 100) { if (tUnico < 0) tUnico = ahora; if (ahora - tUnico > bono) break; }
+    amb.length = 0;
+    for (let i = 0; i < nCeldas; i++) if (BITS[dom[i]] > 1) amb.push(i);
+    const ci = amb.length ? amb[randInt(amb.length)] : randInt(nCeldas);
+    let usados = 0;
+    for (const ri of cellRuns[ci]) for (const cj of runCells[ri]) if (cj !== ci) usados |= 1 << cval[cj];
+    const opts = [];
+    for (let d = 1; d <= 9; d++) if (!(usados & (1 << d)) && d !== cval[ci]) opts.push(d);
+    if (!opts.length) continue;
+    const viejo = cval[ci], nuevo = opts[randInt(opts.length)];
+    cval[ci] = nuevo;
+    for (const ri of cellRuns[ci]) runSums[ri] += nuevo - viejo;
+    const e2 = medir();
+    if (e2 <= e) e = e2;
+    else { cval[ci] = viejo; for (const ri of cellRuns[ci]) runSums[ri] += viejo - nuevo; }
+  }
+  if (e >= 100) return null;                 // no llegó a solución única
+  for (let i = 0; i < nCeldas; i++) val[celdaDe[i]] = cval[i];
+  return { est, val, runSums, deducible: e === 0 };
+}
+
 function generar() {
   const n = CFG[S.diff];
-  for (let intento = 0; intento < 2000; intento++) {
-    // patrón de negras dentro del área de juego
-    const negra = Array.from({ length: n }, () => new Array(n).fill(false));
-    const p = 0.12 + Math.random() * 0.16;
-    let cuenta = 0;
-    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
-      if (Math.random() < p) { negra[r][c] = true; cuenta++; }
-    }
-    if (n >= 6 && cuenta < 2) continue;
-    // valida largos de bloque (mínimo 2; el máximo crece con el tablero)
-    const maxRun = Math.min(9, n);
-    let ok = true;
-    const runLen = (r, c, dr, dc) => {
-      let r0 = r, c0 = c;
-      while (r0 - dr >= 0 && c0 - dc >= 0 && !negra[r0 - dr][c0 - dc]) { r0 -= dr; c0 -= dc; }
-      let len = 0, r1 = r0, c1 = c0;
-      while (r1 < n && c1 < n && !negra[r1][c1]) { len++; r1 += dr; c1 += dc; }
-      return len;
-    };
-    for (let r = 0; r < n && ok; r++) for (let c = 0; c < n && ok; c++) {
-      if (negra[r][c]) continue;
-      const lh = runLen(r, c, 0, 1), lv = runLen(r, c, 1, 0);
-      if (lh < 2 || lh > maxRun || lv < 2 || lv > maxRun) ok = false;
-    }
-    if (!ok) continue;
-
-    // dígitos: distintos dentro de cada bloque H y V
-    const val = Array.from({ length: n }, () => new Array(n).fill(0));
-    const cabe = (r, c, v) => {
-      for (let c2 = c - 1; c2 >= 0 && !negra[r][c2]; c2--) if (val[r][c2] === v) return false;
-      for (let r2 = r - 1; r2 >= 0 && !negra[r2][c]; r2--) if (val[r2][c] === v) return false;
-      return true;
-    };
-    const orden = [];
-    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (!negra[r][c]) orden.push([r, c]);
-    let i = 0, backtracks = 0;
-    const opciones = orden.map(() => null);
-    while (i >= 0 && i < orden.length && backtracks < 4000) {
-      const [r, c] = orden[i];
-      if (!opciones[i]) opciones[i] = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
-      let puesto = false;
-      while (opciones[i].length) {
-        const v = opciones[i].pop();
-        if (cabe(r, c, v)) { val[r][c] = v; puesto = true; break; }
-      }
-      if (puesto) i++;
-      else { opciones[i] = null; val[r][c] = 0; i--; if (i >= 0) val[orden[i][0]][orden[i][1]] = 0; backtracks++; }
-    }
-    if (i < orden.length) continue;
-
-    // arma tablero total con fila/columna de sumas
+  const bono = BONO[S.diff];
+  for (let intento = 0; intento < 40; intento++) {
+    const neg = generarPatron(n);
+    if (!neg) continue;
+    const r = buscarUnico(n, neg, 800, bono);
+    if (!r) continue;
+    const { est, val, runSums } = r;
     const W = n + 1, H = n + 1;
-    const celdas = Array.from({ length: H }, (_, r) => Array.from({ length: W }, (_, c) => {
-      if (r === 0 || c === 0 || negra[r - 1][c - 1]) return { negra: true, right: 0, down: 0 };
-      return { negra: false, sol: val[r - 1][c - 1], val: 0 };
+    const celdas = Array.from({ length: H }, (_, rr) => Array.from({ length: W }, (_, cc) => {
+      if (rr === 0 || cc === 0 || neg[(rr - 1) * n + (cc - 1)]) return { negra: true, right: 0, down: 0 };
+      return { negra: false, sol: val[(rr - 1) * n + (cc - 1)], val: 0 };
     }));
-    const runs = [];
+    const runs = est.runInfo.map((info, ri) => ({ cells: info.cells, sum: runSums[ri], dir: info.dir }));
+    est.runInfo.forEach((info, ri) => {
+      const [r0, c0] = info.clave;
+      if (info.dir === 'H') celdas[r0][c0].right = runSums[ri];
+      else celdas[r0][c0].down = runSums[ri];
+    });
     const deCelda = new Map();
-    for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
-      if (!celdas[r][c].negra) continue;
-      // bloque a la derecha
-      if (c + 1 < W && !celdas[r][c + 1].negra) {
-        const cells = [];
-        let suma = 0;
-        for (let c2 = c + 1; c2 < W && !celdas[r][c2].negra; c2++) { cells.push([r, c2]); suma += celdas[r][c2].sol; }
-        celdas[r][c].right = suma;
-        runs.push({ cells, sum: suma, dir: 'H' });
-      }
-      // bloque hacia abajo
-      if (r + 1 < H && !celdas[r + 1][c].negra) {
-        const cells = [];
-        let suma = 0;
-        for (let r2 = r + 1; r2 < H && !celdas[r2][c].negra; r2++) { cells.push([r2, c]); suma += celdas[r2][c].sol; }
-        celdas[r][c].down = suma;
-        runs.push({ cells, sum: suma, dir: 'V' });
-      }
-    }
-    runs.forEach((run, idx) => run.cells.forEach(([r, c]) => {
-      if (!deCelda.has(kk(r, c))) deCelda.set(kk(r, c), []);
-      deCelda.get(kk(r, c)).push(idx);
+    runs.forEach((run, idx) => run.cells.forEach(([rr, cc]) => {
+      if (!deCelda.has(kk(rr, cc))) deCelda.set(kk(rr, cc), []);
+      deCelda.get(kk(rr, cc)).push(idx);
     }));
     S.W = W; S.H = H; S.celdas = celdas; S.runs = runs; S.deCelda = deCelda;
     return true;

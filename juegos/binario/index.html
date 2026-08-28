@@ -58,7 +58,7 @@ const S = {
   clock: makeClock(() => $('#clk')), jugando: false,
 };
 
-const REGLAS = `<p>Llena la rejilla con fichas <b>verdes y naranjas</b> tocando cada casilla (un toque: verde; dos: naranja; tres: vacía).</p>
+const REGLAS = `<p>Llena la rejilla con fichas <b>naranjas y azules</b> tocando cada casilla (un toque: naranja; dos: azul; tres: vacía).</p>
 <p>Dos reglas: nunca <b>tres iguales seguidas</b> en fila o columna, y cada fila y columna lleva <b>la misma cantidad</b> de cada color.</p>
 <p>Cada tablero tiene <b>solución única</b> y sale sin adivinar. Las casillas grises vienen dadas.</p>`;
 
@@ -106,54 +106,56 @@ function genFull(n) {
   return bt(0) ? g : genFull(n);
 }
 
-// Cuenta soluciones (hasta limit) con propagación + ramificación.
-function contarSol(g0, n, limit) {
-  const lineas = [];
-  for (let r = 0; r < n; r++) lineas.push(Array.from({ length: n }, (_, c) => r * n + c));
-  for (let c = 0; c < n; c++) lineas.push(Array.from({ length: n }, (_, r) => r * n + c));
-  let total = 0;
-  function propaga(g) {
-    let cambio = true;
-    while (cambio) {
-      cambio = false;
-      for (const L of lineas) {
-        let c0 = 0, c1 = 0;
-        for (const i of L) { if (g[i] === 0) c0++; else if (g[i] === 1) c1++; }
-        if (c0 > n / 2 || c1 > n / 2) return false;
-        for (let k = 0; k < n; k++) {
-          if (g[L[k]] !== -1) continue;
-          let v = -1;
-          if (k >= 2 && g[L[k - 1]] !== -1 && g[L[k - 1]] === g[L[k - 2]]) v = 1 - g[L[k - 1]];
-          else if (k < n - 2 && g[L[k + 1]] !== -1 && g[L[k + 1]] === g[L[k + 2]]) v = 1 - g[L[k + 1]];
-          else if (k >= 1 && k < n - 1 && g[L[k - 1]] !== -1 && g[L[k - 1]] === g[L[k + 1]]) v = 1 - g[L[k - 1]];
-          else if (c0 === n / 2) v = 1;
-          else if (c1 === n / 2) v = 0;
-          if (v !== -1) {
-            g[L[k]] = v; cambio = true;
-            if (v === 0) c0++; else c1++;
-            if (c0 > n / 2 || c1 > n / 2) return false;
-          }
-        }
-        for (let k = 0; k + 2 < n; k++) {
-          if (g[L[k]] !== -1 && g[L[k]] === g[L[k + 1]] && g[L[k]] === g[L[k + 2]]) return false;
+// Líneas (filas y columnas) de un tablero n×n, cacheadas.
+const LINEAS = {};
+function lineasDe(n) {
+  if (!LINEAS[n]) {
+    const L = [];
+    for (let r = 0; r < n; r++) L.push(Array.from({ length: n }, (_, c) => r * n + c));
+    for (let c = 0; c < n; c++) L.push(Array.from({ length: n }, (_, r) => r * n + c));
+    LINEAS[n] = L;
+  }
+  return LINEAS[n];
+}
+
+// Propagación lógica: solo hace deducciones forzadas (nunca adivina).
+// Mutila `g` en el sitio. Devuelve false si el tablero se contradice.
+function propagaBin(g, n) {
+  const lineas = lineasDe(n);
+  let cambio = true;
+  while (cambio) {
+    cambio = false;
+    for (const L of lineas) {
+      let c0 = 0, c1 = 0;
+      for (const i of L) { if (g[i] === 0) c0++; else if (g[i] === 1) c1++; }
+      if (c0 > n / 2 || c1 > n / 2) return false;
+      for (let k = 0; k < n; k++) {
+        if (g[L[k]] !== -1) continue;
+        let v = -1;
+        if (k >= 2 && g[L[k - 1]] !== -1 && g[L[k - 1]] === g[L[k - 2]]) v = 1 - g[L[k - 1]];
+        else if (k < n - 2 && g[L[k + 1]] !== -1 && g[L[k + 1]] === g[L[k + 2]]) v = 1 - g[L[k + 1]];
+        else if (k >= 1 && k < n - 1 && g[L[k - 1]] !== -1 && g[L[k - 1]] === g[L[k + 1]]) v = 1 - g[L[k - 1]];
+        else if (c0 === n / 2) v = 1;
+        else if (c1 === n / 2) v = 0;
+        if (v !== -1) {
+          g[L[k]] = v; cambio = true;
+          if (v === 0) c0++; else c1++;
+          if (c0 > n / 2 || c1 > n / 2) return false;
         }
       }
-    }
-    return true;
-  }
-  function bt(g) {
-    if (total >= limit) return;
-    if (!propaga(g)) return;
-    const i = g.indexOf(-1);
-    if (i === -1) { total++; return; }
-    for (const v of [0, 1]) {
-      const g2 = g.slice(); g2[i] = v;
-      bt(g2);
-      if (total >= limit) return;
+      for (let k = 0; k + 2 < n; k++) {
+        if (g[L[k]] !== -1 && g[L[k]] === g[L[k + 1]] && g[L[k]] === g[L[k + 2]]) return false;
+      }
     }
   }
-  bt(g0.slice());
-  return total;
+  return true;
+}
+
+// ¿El tablero se termina entero solo con lógica? (y por tanto tiene solución única)
+function saleSinAdivinar(dado, n) {
+  const g = dado.slice();
+  if (!propagaBin(g, n)) return false;
+  return !g.includes(-1);
 }
 
 function genPuzzle() {
@@ -162,12 +164,16 @@ function genPuzzle() {
   const dado = sol.slice();
   const minPistas = Math.ceil(n * n * deja);
   let pistas = n * n;
-  for (const i of shuffle(dado.map((_, k) => k))) {
-    if (pistas <= minPistas) break;
-    const v = dado[i];
-    dado[i] = -1;
-    if (contarSol(dado, n, 2) !== 1) dado[i] = v;
-    else pistas--;
+  // Vacía casillas mientras el tablero siga saliendo SIN ADIVINAR (dos pasadas).
+  for (let pasada = 0; pasada < 2 && pistas > minPistas; pasada++) {
+    for (const i of shuffle(dado.map((_, k) => k))) {
+      if (pistas <= minPistas) break;
+      if (dado[i] === -1) continue;
+      const v = dado[i];
+      dado[i] = -1;
+      if (!saleSinAdivinar(dado, n)) dado[i] = v;
+      else pistas--;
+    }
   }
   S.n = n; S.sol = sol; S.dado = dado; S.celda = dado.slice();
 }

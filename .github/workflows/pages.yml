@@ -20,7 +20,7 @@ jobs:
       - name: Preparar sitio (solo los archivos de la app)
         run: |
           mkdir _site
-          cp index.html dicc-es.js lexico-es.txt.gz manifest.webmanifest sw.js _site/
+          cp index.html banco-es.js vocab-es.js lexico-es.txt.gz manifest.webmanifest sw.js _site/
           cp -r icons comun juegos _site/
           touch _site/.nojekyll
       - name: Publicar en la rama gh-pages

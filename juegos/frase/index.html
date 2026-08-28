@@ -226,6 +226,7 @@ function pista() {
 }
 
 function paint() {
+  if (!$('#prog')) return;  // el jugador ya se fue de la pantalla
   $('#prog').textContent = `Refrán ${S.ronda + 1} de ${RONDAS}`;
   const arm = $('#armado');
   arm.classList.remove('bien');
@@ -255,6 +256,7 @@ function quitar(k) {
 }
 
 function comprobar() {
+  if (!$('#armado')) return;  // el jugador ya se fue de la pantalla
   const intento = S.puesto.map((k) => S.banco[k].w).join(' ');
   if (intento === S.target.join(' ').toLowerCase()) {
     S.bloqueo = true;

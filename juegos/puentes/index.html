@@ -22,7 +22,11 @@
   .isla.pasada { fill: var(--bad-soft); stroke: var(--bad); }
   .num { font-family: var(--title-font); font-weight: 700; font-size: 15px; fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
   .puente { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
-  .strip { stroke: transparent; stroke-width: 20; cursor: pointer; }
+  /* el grafo de conexiones posibles, dibujado a lápiz para que se vea dónde tocar */
+  .guia { stroke: var(--faint); stroke-width: 1.7; stroke-dasharray: 1.7 6; stroke-linecap: round; }
+  .guia.puesta { opacity: 0; }
+  .guia.bloqueada { opacity: .2; stroke-dasharray: 1.7 10; }
+  .strip { stroke: transparent; stroke-width: 22; cursor: pointer; }
   .leyenda { text-align: center; padding-top: 12px; font-size: 12.5px; color: var(--bg-sub); font-weight: 600; }
   .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
   .tool { border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600;
@@ -54,7 +58,7 @@ const S = {
 };
 
 const REGLAS = `<p>Conecta las <b>islas</b> con puentes horizontales o verticales hasta que cada número tenga <b>exactamente esa cantidad</b> de puentes.</p>
-<p>Toca <b>entre dos islas</b> para poner un puente; otro toque lo hace doble y el tercero lo quita. Los puentes <b>no pueden cruzarse</b> y entre cada par cabe un máximo de dos.</p>
+<p>Las <b>líneas punteadas</b> marcan por dónde cabe un puente: ahí es donde hay que tocar. Un toque pone el puente, otro lo hace doble y el tercero lo quita. Los puentes <b>no pueden cruzarse</b> (las punteadas que quedan cortadas por otro puente se ven más tenues) y entre cada par cabe un máximo de dos.</p>
 <p>Para ganar, además, todas las islas deben quedar <b>conectadas entre sí</b> por los puentes. Verde: número completo · rojo: te pasaste.</p>`;
 
 /* ── Generador ───────────────────────────────────────────────────────── */
@@ -174,6 +178,13 @@ function renderSetup() {
 
 function centro(i) { return [S.islas[i].c * U + U / 2, S.islas[i].r * U + U / 2]; }
 
+/* Puntos de una arista recortados al borde de cada isla. */
+function tramo(e) {
+  const [x1, y1] = centro(e.a), [x2, y2] = centro(e.b);
+  const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy), R = 17.5;
+  return [x1 + dx / L * R, y1 + dy / L * R, x2 - dx / L * R, y2 - dy / L * R];
+}
+
 function renderPlay() {
   const size = S.n * U;
   $('#app').innerHTML = `
@@ -181,6 +192,12 @@ function renderPlay() {
     ${topbarHTML('Puentes', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clk">0:00</span>`)}
     <div class="pwrap">
       <svg id="tablero" viewBox="0 0 ${size} ${size}">
+        <g id="g-guias">
+          ${S.aristas.map((e, i) => {
+            const [x1, y1, x2, y2] = tramo(e);
+            return `<line class="guia" data-g="${i}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"></line>`;
+          }).join('')}
+        </g>
         <g id="g-puentes"></g>
         <g id="g-strips">
           ${S.aristas.map((e, i) => {
@@ -196,7 +213,7 @@ function renderPlay() {
         </g>
       </svg>
     </div>
-    <div class="leyenda">Toca entre dos islas para tender un puente</div>
+    <div class="leyenda">Las líneas punteadas son los puentes que caben: toca una para tenderlo</div>
     <div class="tools">
       <button class="tool" id="t-limpiar">Limpiar</button>
       <button class="tool" id="t-salir">Salir</button>
@@ -228,6 +245,11 @@ function paint() {
     }
     return out;
   }).join('');
+  $$('.guia').forEach((el) => {
+    const i = Number(el.dataset.g);
+    el.classList.toggle('puesta', S.cuenta[i] > 0);
+    el.classList.toggle('bloqueada', S.cuenta[i] === 0 && S.cruces[i].some((j) => S.cuenta[j] > 0));
+  });
   const grados = S.islas.map(() => 0);
   S.aristas.forEach((e, i) => { grados[e.a] += S.cuenta[i]; grados[e.b] += S.cuenta[i]; });
   $$('.isla').forEach((el) => {

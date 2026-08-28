@@ -27,6 +27,8 @@
   .hrow .res { display: flex; gap: 8px; font-size: 12px; font-weight: 700; }
   .hrow .res .fija { color: var(--good); }
   .hrow .res .pica { color: var(--warn); }
+  .quedan { text-align: center; font-size: 12px; font-weight: 700; color: var(--bg-sub); padding-top: 8px; }
+  .quedan.poco { color: var(--bad); }
   .kpad { padding: 8px 14px calc(12px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
   .kpad button {
     height: 50px; border: none; border-radius: 12px 13px 10px 13px / 8px 8px 12px 8px; background: var(--card); box-shadow: var(--shadow);
@@ -36,6 +38,10 @@
   .kpad button.accion { background: var(--accent); color: var(--accent-ink); font-size: 14px; }
   .kpad button.borrar { background: var(--soft); color: var(--sub); font-size: 14px; }
   .kpad button:disabled { opacity: .35; }
+  .racha { display: flex; gap: 5px; justify-content: center; padding-top: 6px; }
+  .racha i { font-family: var(--title-font); font-size: 11px; font-weight: 700; color: var(--sub);
+    border: 1.5px solid var(--ink); border-radius: 8px 6px 9px 7px / 7px 9px 6px 8px; padding: 1px 6px; font-style: normal; }
+  .racha i.perdida { color: var(--bad); border-color: var(--bad); }
 </style>
 </head>
 <body>
@@ -46,11 +52,12 @@
 <script>
 'use strict';
 
+/* Todas las dificultades tienen tope: si no se puede perder, no hay reto. */
 const CFG = {
-  facil:   { d: 3, max: 0 },
-  normal:  { d: 4, max: 0 },
-  dificil: { d: 4, max: 10 },
-  experto: { d: 5, max: 12 },
+  facil:   { d: 3, max: 9 },
+  normal:  { d: 4, max: 9 },
+  dificil: { d: 4, max: 7 },
+  experto: { d: 5, max: 8 },
 };
 
 const S = {
@@ -60,13 +67,38 @@ const S = {
 
 const REGLAS = `<p>La app piensa un número de <b>cifras distintas</b> y tú lo deduces intento por intento.</p>
 <p>Tras cada intento te dice cuántas <b>fijas</b> tienes (cifra correcta en su lugar) y cuántas <b>picas</b> (cifra que sí está, pero en otro lugar).</p>
-<p>En Difícil y Experto hay <b>límite de intentos</b>. Tu marca es adivinarlo en la menor cantidad.</p>`;
+<p>Las cuatro dificultades tienen <b>límite de intentos</b>: si se acaban, pierdes.</p>
+<p>La marca no es tu mejor partida suelta (esa puede salir de chiripa), sino la <b>media de cinco partidas seguidas</b>. Para bajarla hay que jugar bien cinco veces, no acertar una por suerte. Una derrota cuenta como el límite más dos.</p>`;
+
+const KM = 'picas.ult5.', KB = 'picas.media.';
+
+function media(arr) { return arr.reduce((a, b) => a + b, 0) / arr.length; }
+
+/* Anota el resultado, mueve la ventana de 5 y actualiza la mejor media. */
+function anota(diff, intentos) {
+  const arr = store.get(KM + diff, []);
+  arr.push(intentos);
+  while (arr.length > 5) arr.shift();
+  store.set(KM + diff, arr);
+  const m = media(arr);
+  let record = false;
+  if (arr.length === 5) {
+    const prev = store.get(KB + diff, null);
+    if (prev == null || m < prev - 1e-9) {
+      store.set(KB + diff, m);
+      store.set('pic.hub', `Media ${m.toFixed(1)} · ${DIFF_LABEL[diff]}`);
+      record = true;
+    }
+  }
+  return { arr, m, record };
+}
 
 function renderSetup() {
   const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
-    const b = store.get('picas.best.' + d, 0);
-    return `<div class="b"><div class="bn">${b || '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+    const b = store.get(KB + d, null);
+    return `<div class="b"><div class="bn">${b == null ? '—' : b.toFixed(1)}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
   }).join('');
+  const arr = store.get(KM + S.diff, []);
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Picas y fijas', '')}
@@ -74,8 +106,9 @@ function renderSetup() {
       <div class="card" style="padding: 14px 18px 18px;">
         <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div><div class="row-hint" id="d-hint"></div></div>
         ${diffSegHTML('seg-d', S.diff)}
+        <div class="racha" id="racha"></div>
       </div>
-      <div class="label-sm" style="margin-top:4px;">Menos intentos</div>
+      <div class="label-sm" style="margin-top:4px;">Mejor media de 5 partidas</div>
       <div class="bests">${bests}</div>
       <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
       <button class="howto" id="howto">¿Cómo se juega?</button>
@@ -83,7 +116,11 @@ function renderSetup() {
   </div>`;
   const hint = () => {
     const c = CFG[S.diff];
-    $('#d-hint').textContent = `${c.d} cifras${c.max ? ` · máx. ${c.max} intentos` : ''}`;
+    $('#d-hint').textContent = `${c.d} cifras · máx. ${c.max} intentos`;
+    const u = store.get(KM + S.diff, []);
+    $('#racha').innerHTML = u.length
+      ? `<i style="border:none;">últimas:</i>` + u.map((x) => `<i class="${x > CFG[S.diff].max ? 'perdida' : ''}">${x}</i>`).join('')
+      : '<i style="border:none;">sin partidas todavía</i>';
   };
   hint();
   bindSeg('seg-d', (v) => { S.diff = v; store.set('picas.diff', v); hint(); });
@@ -104,7 +141,8 @@ function renderPlay() {
   <div class="screen">
     ${topbarHTML('Picas y fijas', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="rest"></span>`)}
     <div class="intento" id="intento"></div>
-    <div class="msg" id="msg" style="padding-top:10px;"></div>
+    <div class="quedan" id="quedan"></div>
+    <div class="msg" id="msg" style="padding-top:6px;"></div>
     <div class="hist" id="hist"></div>
     <div class="kpad" id="kpad">
       ${[1, 2, 3, 4, 5, 0, 6, 7, 8, 9].map((n) => `<button data-n="${n}">${n}</button>`).join('')}
@@ -133,7 +171,11 @@ function paint() {
       <span class="num">${h.g}</span>
       <span class="res"><span class="fija">${h.f} fija${h.f === 1 ? '' : 's'}</span><span class="pica">${h.p} pica${h.p === 1 ? '' : 's'}</span></span>
     </div>`).reverse().join('');
-  $('#rest').textContent = max ? `${S.hist.length}/${max}` : `${S.hist.length}`;
+  $('#rest').textContent = `${S.hist.length}/${max}`;
+  const q = max - S.hist.length;
+  const el = $('#quedan');
+  el.textContent = q === 1 ? 'Te queda 1 intento' : `Te quedan ${q} intentos`;
+  el.classList.toggle('poco', q <= 2);
 }
 
 function probar() {
@@ -153,27 +195,32 @@ function probar() {
   vibrate(10);
   paint();
   if (f === d) return ganar();
-  if (max && S.hist.length >= max) return perder();
+  if (S.hist.length >= max) return perder();
+}
+
+function tarjetaMedia(r) {
+  const faltan = 5 - r.arr.length;
+  const mejor = store.get(KB + S.diff, null);
+  return `
+    <p style="text-align:center;">Media de ${r.arr.length === 1 ? 'tu partida' : 'tus ' + r.arr.length + ' últimas'}:
+      <b>${r.m.toFixed(1)}</b>${faltan > 0 ? ` <span style="color:var(--sub);">(faltan ${faltan} para contar)</span>` : ''}</p>
+    ${mejor != null ? `<p style="text-align:center;color:var(--sub);">Mejor media de 5: <b>${mejor.toFixed(1)}</b></p>` : ''}`;
 }
 
 function ganar() {
   S.jugando = false;
   const n = S.hist.length;
-  const best = store.get('picas.best.' + S.diff, 0);
-  const isRecord = !best || n < best;
-  if (isRecord) {
-    store.set('picas.best.' + S.diff, n);
-    store.set('pic.hub', `Mejor: ${n} intentos`);
-  }
+  const r = anota(S.diff, n);
   confetti(); vibrate([30, 60, 30]);
   setTimeout(() => {
     openModal(`
-      <h3>${isRecord ? '¡Récord!' : '¡Lo sacaste!'}</h3>
+      <h3>${r.record ? '¡Bajaste tu media!' : '¡Lo sacaste!'}</h3>
       <p style="text-align:center;">El número era <b>${S.secreto}</b>.</p>
       <div class="stats" style="margin:14px 0;">
-        <div class="stat"><div class="n">${n}</div><div class="l">intentos</div></div>
-        <div class="stat"><div class="n">${isRecord ? n : best}</div><div class="l">mejor</div></div>
+        <div class="stat"><div class="n">${n}</div><div class="l">intento${n === 1 ? '' : 's'}</div></div>
+        <div class="stat"><div class="n">${r.m.toFixed(1)}</div><div class="l">media de ${r.arr.length}</div></div>
       </div>
+      ${tarjetaMedia(r)}
       <div class="m-actions">
         <button class="btn btn-primary" id="m-again">Otro número</button>
         <button class="btn btn-ghost" id="m-out">Salir</button>
@@ -186,11 +233,15 @@ function ganar() {
 
 function perder() {
   S.jugando = false;
+  const { max } = CFG[S.diff];
+  const r = anota(S.diff, max + 2);   // perder pesa: cuenta como el límite más dos
   vibrate([80, 60, 80]);
   setTimeout(() => {
     openModal(`
       <h3>Se acabaron los intentos</h3>
       <p style="text-align:center;">El número era <b>${S.secreto}</b>.</p>
+      <p style="text-align:center;color:var(--sub);">La partida cuenta como <b>${max + 2}</b> intentos para la media.</p>
+      ${tarjetaMedia(r)}
       <div class="m-actions">
         <button class="btn btn-primary" id="m-again">Otro número</button>
         <button class="btn btn-ghost" id="m-out">Salir</button>

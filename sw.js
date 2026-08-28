@@ -3,7 +3,7 @@ const CACHE = 'juegos-v8';
 const ASSETS = [
   './', 'index.html',
   'comun/estilo.css', 'comun/nucleo.js',
-  'dicc-es.js', 'lexico-es.txt.gz',
+  'banco-es.js', 'vocab-es.js', 'lexico-es.txt.gz',
   'manifest.webmanifest',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-512-maskable.png',
   'juegos/encadena/', 'juegos/sopa/', 'juegos/crucigrama/', 'juegos/crucigrama/pistas-es.js',

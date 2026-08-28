@@ -64,8 +64,30 @@ const S = {
 };
 
 const REGLAS = `<p>El tres en raya de siempre: por turnos, X y O marcan casillas, y gana quien alinee <b>tres iguales</b> en fila, columna o diagonal.</p>
-<p>Juega <b>contra la app</b> (en Experto no pierde nunca: lo máximo es empatarle) o en <b>2 jugadores</b> pasando el teléfono.</p>
-<p>Quien inicia se alterna cada ronda y el marcador se va acumulando.</p>`;
+<p>Juega <b>contra la app</b> o en <b>2 jugadores</b> pasando el teléfono. En <b>Fácil</b> la app juega casi a lo tonto; en <b>Normal</b> se distrae una de cada cuatro jugadas, así que sí se le puede ganar; en <b>Experto</b> no pierde nunca — lo máximo es empatarle.</p>
+<p>Quien inicia se alterna cada ronda. <b>Tus victorias se guardan por nivel</b>: ganarle en Fácil no cuenta lo mismo que en Experto.</p>`;
+
+/* ── Marca por nivel ─────────────────────────────────────────────────── */
+const NIVELES = ['facil', 'normal', 'experto'];
+const victorias = (n) => store.get('gato.wins.' + n, 0);
+
+function anotaVictoria(nivel) {
+  const n = victorias(nivel) + 1;
+  store.set('gato.wins.' + nivel, n);
+  // Al hub va la marca del nivel más alto en el que se haya ganado.
+  let alto = null;
+  for (const v of NIVELES) if (victorias(v) > 0) alto = v;
+  if (alto) {
+    const k = victorias(alto);
+    store.set('gato.hub', `${DIFF_LABEL[alto]}: ${k} victoria${k === 1 ? '' : 's'}`);
+  }
+  return n;
+}
+
+function bestsHTML() {
+  return NIVELES.map((v) =>
+    `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
+}
 
 function renderSetup() {
   $('#app').innerHTML = `
@@ -83,7 +105,8 @@ function renderSetup() {
           ${diffSegHTML('seg-d', S.level, ['facil', 'normal', 'experto'])}
         </div>
       </div>
-      <div class="bests"><div class="b"><div class="bn">${store.get('gato.wins', 0)}</div><div class="bl">Victorias vs. app</div></div></div>
+      <div class="label-sm" style="margin-top:4px;">Victorias vs. app, por nivel</div>
+      <div class="bests">${bestsHTML()}</div>
       <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
       <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
@@ -141,6 +164,7 @@ function updateTurn() {
 }
 
 function paint(winCells) {
+  if (!$('#sx')) return;  // la app pensaba y el jugador ya se fue de la pantalla
   $$('.tc').forEach((el) => {
     const i = Number(el.dataset.i);
     const v = S.board[i];
@@ -189,7 +213,9 @@ function winnerOf(b) {
   return null;
 }
 
-/* IA: fácil (aleatoria con algo de vista), normal (gana/bloquea), experto (minimax) */
+/* IA: fácil (casi a ciegas), normal (gana/bloquea pero se distrae), experto (minimax) */
+const DESPISTE_NORMAL = .25;   // jugadas que Normal falla a propósito
+
 function appMove() {
   const empty = S.board.map((v, i) => v ? -1 : i).filter((i) => i >= 0);
   const tryWin = (p) => {
@@ -204,6 +230,9 @@ function appMove() {
     return empty[randInt(empty.length)];
   }
   if (S.level === 'normal') {
+    // Se distrae de a de veras: una de cada cuatro veces no mira el tablero,
+    // así que deja pasar remates y bloqueos. Por eso Normal sí es ganable.
+    if (Math.random() < DESPISTE_NORMAL) return empty[randInt(empty.length)];
     let m = tryWin('O'); if (m >= 0) return m;
     m = tryWin('X'); if (m >= 0) return m;
     if (!S.board[4]) return 4;
@@ -237,6 +266,7 @@ function minimax(b, isO, depth) {
 }
 
 function endRound(w) {
+  if (S.over || !$('#turnrow')) return;
   S.over = true;
   if (w) S.score[w.p]++; else S.score.E++;
   paint(w ? w.cells : null);
@@ -245,9 +275,7 @@ function endRound(w) {
   else if (S.mode === 'app') {
     if (w.p === 'X') {
       title = '¡Ganaste!';
-      const wins = store.get('gato.wins', 0) + 1;
-      store.set('gato.wins', wins);
-      store.set('gato.hub', 'Victorias vs. app: ' + wins);
+      sub = ` · <b>${anotaVictoria(S.level)}</b> en ${DIFF_LABEL[S.level]}`;
       confetti(); vibrate([30, 60, 30]);
     } else title = 'Ganó la app';
   } else {

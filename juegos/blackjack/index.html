@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#FAF9F5" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="description" content="Blackjack: llega a 21 sin pasarte y véncele la mano a la casa." />
+<meta name="description" content="Blackjack: llega de $200 a $500 sin quebrar la banca." />
 <title>Blackjack</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3E21%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
@@ -15,9 +15,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
-  .lado { padding: 12px 18px 0; }
-  .lado .quien { font-size: 12px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--bg-sub); display: flex; justify-content: space-between; }
-  .lado .quien b { color: var(--bg-ink); font-size: 13px; }
+  .lado { padding: 10px 18px 0; }
+  .quien { font-size: 12px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--bg-sub); display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .quien b { color: var(--bg-ink); font-size: 13px; font-family: var(--title-font); }
   .cartas { display: flex; gap: 8px; padding-top: 8px; flex-wrap: wrap; min-height: 86px; }
   .carta {
     width: 58px; height: 82px; border-radius: 7px 11px 9px 7px / 9px 11px 7px 9px; background: var(--tile-bg);
@@ -29,12 +29,35 @@
   .carta .s { font-size: 22px; line-height: 1; align-self: flex-end; }
   .carta.roja { color: var(--bad); }
   .carta.dorso { background: repeating-linear-gradient(45deg, var(--accent), var(--accent) 6px, color-mix(in srgb, var(--accent) 80%, black) 6px, color-mix(in srgb, var(--accent) 80%, black) 12px); border-color: transparent; }
-  .fichas { display: flex; justify-content: center; gap: 18px; padding: 14px 0 0; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
-  .fichas b { color: var(--bg-ink); font-size: 16px; }
-  .acciones { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; padding-top: 14px; }
+
+  /* Manos del jugador: una o dos (tras dividir). */
+  .manos { display: flex; gap: 8px; padding: 4px 14px 0; align-items: flex-start; }
+  .mano { flex: 1; min-width: 0; padding: 6px 6px 4px; border: var(--trazo) dashed transparent; border-radius: var(--mano-2); }
+  .manos.dos .mano.activa { border-color: var(--ink); border-style: solid; background: var(--card); box-shadow: var(--shadow-sutil); }
+  .manos.dos.vivo .mano:not(.activa) { opacity: .45; }
+  .manos.dos .carta { width: 42px; height: 60px; padding: 4px 5px; border-radius: 6px 9px 7px 6px / 7px 9px 6px 7px; }
+  .manos.dos .carta .r { font-size: 15px; }
+  .manos.dos .carta .s { font-size: 15px; }
+  .manos.dos .cartas { gap: 5px; min-height: 64px; }
+  .mano .pago { font-family: var(--title-font); font-size: 12px; font-weight: 700; }
+  .mano .pago.gana { color: var(--good); }
+  .mano .pago.pierde { color: var(--bad); }
+
+  .fichas { display: flex; justify-content: center; gap: 16px; padding: 12px 0 0; font-size: 13px; font-weight: 700; color: var(--bg-sub); }
+  .fichas b { color: var(--bg-ink); font-size: 15px; font-family: var(--title-font); }
+  .acciones { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; padding-top: 12px; }
   .acciones .fila { display: flex; gap: 10px; }
-  .acciones .fila .btn { flex: 1; }
-  .msg-mesa { text-align: center; padding-top: 12px; font-size: 15px; font-weight: 700; color: var(--bg-ink); min-height: 22px; }
+  .acciones .fila .btn { flex: 1; padding: 14px 10px; font-size: 15.5px; }
+  .msg-mesa { text-align: center; padding-top: 10px; font-size: 15px; font-weight: 700; color: var(--bg-ink); min-height: 22px; }
+
+  /* Barra de progreso de la sesión: de $200 a la meta. */
+  .meta-barra { border: var(--trazo) solid var(--ink); border-radius: var(--pastilla); height: 22px; padding: 3px; background: var(--card); }
+  .meta-barra i { display: block; height: 100%; background: var(--accent); border-radius: var(--pastilla); min-width: 6px; }
+  .meta-barra.quiebra i { background: var(--bad); }
+  .meta-pie { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--sub); font-style: italic; margin-top: 5px; }
+  .reglas-lista { font-size: 12.5px; color: var(--sub); line-height: 1.5; padding: 8px 2px 0; }
+  .reglas-lista b { color: var(--ink); }
+  #modal .niv p { font-size: 13.5px; line-height: 1.45; margin-bottom: 7px; }
 </style>
 </head>
 <body>
@@ -45,29 +68,56 @@
 <script>
 'use strict';
 
+/* Cada nivel cambia reglas que se sienten en el bolsillo, no decimales:
+   cuánto paga el blackjack, cuándo puedes doblar y si la casa pide con 17 suave. */
 const CFG = {
-  facil:   { mazos: 1, suave17: false },
-  normal:  { mazos: 2, suave17: false },
-  experto: { mazos: 6, suave17: true },
+  facil:   { mazos: 1, suave17: false, bj: 2,   bjTxt: '2 a 1', doblarSolo: null,      trasDividir: true },
+  normal:  { mazos: 2, suave17: false, bj: 1.5, bjTxt: '3 a 2', doblarSolo: null,      trasDividir: true },
+  experto: { mazos: 6, suave17: true,  bj: 1.2, bjTxt: '6 a 5', doblarSolo: [9, 10, 11], trasDividir: false },
 };
 const PALOS = ['♠', '♥', '♦', '♣'];
 const BANCA_INICIAL = 200;
+const META = 500;
+const APUESTA_MIN = 10;
 
 const S = {
   diff: store.get('blackjack.diff', 'normal'),
   banca: store.get('blackjack.banca', BANCA_INICIAL),
-  apuesta: store.get('blackjack.apuesta', 10),
-  mazo: [], tu: [], casa: [], oculta: true,
-  fase: 'apuesta', doblada: false,
+  apuesta: store.get('blackjack.apuesta', 25),
+  pico: store.get('blackjack.pico', BANCA_INICIAL),      // banca más alta de esta sesión
+  manosSesion: store.get('blackjack.manosSesion', 0),
+  mazo: [], manos: [], act: 0, casa: [], oculta: true,
+  fase: 'apuesta',
 };
 
-const REGLAS = `<p>Acércate a <b>21</b> más que la casa, sin pasarte. Las figuras valen 10 y el <b>as vale 11 u 1</b>, lo que más te convenga.</p>
-<p><b>Pide</b> cartas, <b>plántate</b>, o <b>dobla</b> la apuesta con tus dos primeras (recibes una sola más). La casa pide hasta llegar a 17. Un <b>blackjack</b> (21 con dos cartas) paga 3 a 2.</p>
-<p>La dificultad cambia las reglas de la casa: en Experto juega con 6 mazos y pide con 17 suave. Tu marca es la <b>banca más alta</b> que has llegado a juntar.</p>`;
+const REGLAS = `<p>Acércate a <b>21</b> más que la casa, sin pasarte. Las figuras valen 10 y el <b>as vale 11 o 1</b>.</p>
+<p><b>Pide</b>, <b>plántate</b>, <b>dobla</b> (apuesta doble y una sola carta más) o <b>divide</b>: con dos cartas del mismo valor juegas <b>dos manos</b>, cada una con su apuesta y una tras otra. Al dividir ases va una carta a cada mano y ahí se quedan; un 21 tras dividir es 21 normal, no blackjack.</p>
+<p><b>El reto:</b> de $${BANCA_INICIAL} a <b>$${META}</b>; si te quedas sin fichas, se acabó la sesión. Apostando poco dura cientos de manos y mandan las reglas; apostando fuerte se decide en veinte y pesa la suerte. Tu marca son los <b>retos superados</b>.</p>
+<p><b>Cada nivel cambia las reglas de la casa:</b></p>
+<div class="niv">
+<p>· <b>Fácil</b> — blackjack <b>2 a 1</b>, doblas con lo que sea (y tras dividir), la casa se planta en todo 17. Un mazo.</p>
+<p>· <b>Normal</b> — blackjack <b>3 a 2</b>, las mismas libertades. Dos mazos.</p>
+<p>· <b>Experto</b> — blackjack <b>6 a 5</b>, sólo doblas con <b>9, 10 u 11</b> y nunca tras dividir, y la casa <b>pide con 17 suave</b>. Seis mazos.</p>
+</div>`;
 
+/* ── Cartas ──────────────────────────────────────────────────────────── */
 const cartaHTML = (c, oculta) => oculta
-  ? '<div class="carta dorso"></div>'
-  : `<div class="carta ${c.s === 1 || c.s === 2 ? 'roja' : ''}"><span class="r">${c.r === 14 ? 'A' : c.r === 13 ? 'K' : c.r === 12 ? 'Q' : c.r === 11 ? 'J' : c.r}</span><span class="s">${PALOS[c.s]}</span></div>`;
+  ? '<div class="carta dorso" data-k="dorso"></div>'
+  : `<div class="carta ${c.s === 1 || c.s === 2 ? 'roja' : ''}" data-k="${c.r}-${c.s}"><span class="r">${c.r === 14 ? 'A' : c.r === 13 ? 'K' : c.r === 12 ? 'Q' : c.r === 11 ? 'J' : c.r}</span><span class="s">${PALOS[c.s]}</span></div>`;
+
+/* Pinta sin rehacer lo ya puesto: así solo la carta recién repartida se anima. */
+function pintaMano(sel, cartas, ocultaIdx) {
+  const cont = $(sel);
+  if (!cont) return;
+  while (cont.children.length > cartas.length) cont.lastElementChild.remove();
+  cartas.forEach((c, i) => {
+    const oculta = i === ocultaIdx;
+    const clave = oculta ? 'dorso' : `${c.r}-${c.s}`;
+    const hijo = cont.children[i];
+    if (!hijo) cont.insertAdjacentHTML('beforeend', cartaHTML(c, oculta));
+    else if (hijo.dataset.k !== clave) hijo.outerHTML = cartaHTML(c, oculta);
+  });
+}
 
 function barajar() {
   S.mazo = [];
@@ -77,35 +127,99 @@ function barajar() {
 }
 const roba = () => S.mazo.pop();
 
-function valor(mano) {
+/* ── Reglas puras (las usan el juego y las pruebas) ──────────────────── */
+const puntos = (c) => c.r === 14 ? 11 : Math.min(10, c.r);
+function valor(cartas) {
   let v = 0, ases = 0;
-  for (const c of mano) {
-    if (c.r === 14) { v += 11; ases++; }
-    else v += Math.min(10, c.r);
-  }
+  for (const c of cartas) { if (c.r === 14) { v += 11; ases++; } else v += Math.min(10, c.r); }
   while (v > 21 && ases--) v -= 10;
   return v;
 }
-const esBJ = (mano) => mano.length === 2 && valor(mano) === 21;
-const esSuave = (mano) => {
+function esSuave(cartas) {
   let v = 0, ases = 0;
-  for (const c of mano) { if (c.r === 14) { v += 11; ases++; } else v += Math.min(10, c.r); }
+  for (const c of cartas) { if (c.r === 14) { v += 11; ases++; } else v += Math.min(10, c.r); }
   while (v > 21 && ases--) v -= 10;
   return ases > 0;
-};
+}
+const nuevaMano = (ap) => ({ c: [], ap, doblada: false, plantada: false, deSplit: false, pago: null });
+/* Un 21 servido es blackjack sólo si no viene de dividir. */
+const esBJ = (m) => !m.deSplit && m.c.length === 2 && valor(m.c) === 21;
+
+function puedeDoblar(m, banca, cfg) {
+  if (m.c.length !== 2 || m.doblada) return false;
+  if (m.deSplit && !cfg.trasDividir) return false;
+  if (cfg.doblarSolo && !cfg.doblarSolo.includes(valor(m.c))) return false;
+  return banca >= m.ap;
+}
+function puedeDividir(m, banca, nManos) {
+  return nManos === 1 && m.c.length === 2 && !m.deSplit
+    && puntos(m.c[0]) === puntos(m.c[1]) && banca >= m.ap;
+}
+/* Cuánto DEVUELVE la casa por esta mano (0 = se lo quedó todo). */
+function pagoMano(m, casa, cfg) {
+  const ap = m.ap * (m.doblada ? 2 : 1);
+  const vt = valor(m.c), vc = valor(casa);
+  const bjCasa = casa.length === 2 && vc === 21;
+  if (esBJ(m)) return bjCasa ? ap : ap + Math.round(m.ap * cfg.bj);
+  if (vt > 21) return 0;
+  if (bjCasa) return 0;
+  if (vc > 21 || vt > vc) return ap * 2;
+  if (vt === vc) return ap;
+  return 0;
+}
+/* La casa juega su mano completa según el nivel. */
+function juegaCasa(casa, cfg, sacar) {
+  while (true) {
+    const v = valor(casa);
+    if (v < 17 || (v === 17 && cfg.suave17 && esSuave(casa))) casa.push(sacar());
+    else return casa;
+  }
+}
+
+/* ── Sesión ──────────────────────────────────────────────────────────── */
+const enSesion = () => S.manosSesion > 0 && S.banca >= APUESTA_MIN && S.banca < META;
+const quebrado = () => S.banca < APUESTA_MIN;
+
+function guardaSesion() {
+  store.set('blackjack.banca', S.banca);
+  store.set('blackjack.pico', S.pico);
+  store.set('blackjack.manosSesion', S.manosSesion);
+}
+function nuevaSesion() {
+  S.banca = BANCA_INICIAL; S.pico = BANCA_INICIAL; S.manosSesion = 0;
+  guardaSesion();
+}
+/* Al cerrar una sesión (ganada o quebrada) es cuando se apunta la marca. */
+function cierraSesion(ganada) {
+  const retos = store.get('blackjack.retos', 0) + (ganada ? 1 : 0);
+  const mejor = Math.max(store.get('blackjack.mejorSes', 0), S.pico);
+  if (ganada) store.set('blackjack.retos', retos);
+  store.set('blackjack.mejorSes', mejor);
+  store.set('bj.hub', retos
+    ? `${retos} reto${retos > 1 ? 's' : ''} superado${retos > 1 ? 's' : ''}`
+    : `Mejor sesión: $${mejor}`);
+  return { retos, mejor };
+}
 
 /* ── Pantallas ───────────────────────────────────────────────────────── */
 function renderSetup() {
-  const max = store.get('blackjack.max', 0);
+  const retos = store.get('blackjack.retos', 0);
+  const mejor = store.get('blackjack.mejorSes', 0);
+  const bloqueado = enSesion();
+  const pct = Math.max(0, Math.min(100, (S.banca - 0) / META * 100));
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Blackjack', '')}
     <div class="g-setup scroll">
       <div class="card" style="padding: 14px 18px 18px;">
-        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Reglas de la casa</div><div class="row-hint" id="d-hint"></div></div>
+        <div class="row" style="border:none; padding-bottom: 8px;">
+          <div><div class="row-title">Reglas de la casa</div>
+          <div class="row-hint">${bloqueado ? 'Se eligen al empezar la sesión' : 'Elige antes de repartir'}</div></div>
+        </div>
         ${diffSegHTML('seg-d', S.diff, ['facil', 'normal', 'experto'])}
+        <div class="reglas-lista" id="d-hint"></div>
         <div class="row" style="margin-top: 10px;">
-          <div><div class="row-title">Tu apuesta</div><div class="row-hint">De 5 en 5</div></div>
+          <div><div class="row-title">Tu apuesta</div><div class="row-hint">De 5 en 5 · apuesta grande, sesión corta</div></div>
           <div class="stepper">
             <button id="ap-menos">−</button>
             <div class="val" id="ap-val">$${S.apuesta}</div>
@@ -113,36 +227,93 @@ function renderSetup() {
           </div>
         </div>
       </div>
-      <div class="bests">
-        <div class="b"><div class="bn">$${S.banca}</div><div class="bl">Tu banca</div></div>
-        <div class="b"><div class="bn">${max ? '$' + max : '—'}</div><div class="bl">Banca máxima</div></div>
+
+      <div class="label-sm" style="margin-top:4px;">El reto de la sesión</div>
+      <div class="card" style="padding: 14px 16px 12px;">
+        <div class="meta-barra ${quebrado() ? 'quiebra' : ''}"><i style="width:${pct}%"></i></div>
+        <div class="meta-pie"><span>Banca <b style="font-style:normal;color:var(--ink)">$${S.banca}</b></span><span>Meta $${META}</span></div>
       </div>
-      <button class="btn btn-primary" style="margin-top:8px;" id="new">Repartir</button>
-      ${S.banca < 5 ? '<button class="btn btn-ghost" id="repo">Reponer banca ($' + BANCA_INICIAL + ')</button>' : ''}
+      <div class="bests">
+        <div class="b"><div class="bn">${retos}</div><div class="bl">retos superados</div></div>
+        <div class="b"><div class="bn">${mejor ? '$' + mejor : '—'}</div><div class="bl">mejor sesión</div></div>
+        <div class="b"><div class="bn">${S.manosSesion}</div><div class="bl">manos jugadas</div></div>
+      </div>
+      ${quebrado()
+        ? `<button class="btn btn-primary" style="margin-top:8px;" id="reinicia">Empezar otra sesión ($${BANCA_INICIAL})</button>`
+        : `<button class="btn btn-primary" style="margin-top:8px;" id="new">Repartir</button>`}
+      ${bloqueado ? '<button class="btn btn-ghost" id="abandona">Abandonar sesión</button>' : ''}
       <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
   </div>`;
-  const hint = () => { const c = CFG[S.diff]; $('#d-hint').textContent = `${c.mazos} mazo${c.mazos > 1 ? 's' : ''}${c.suave17 ? ' · pide con 17 suave' : ''}`; };
+  const hint = () => {
+    const c = CFG[S.diff];
+    $('#d-hint').innerHTML = `Blackjack paga <b>${c.bjTxt}</b> · ${c.doblarSolo ? 'doblas sólo con <b>9, 10 u 11</b>' : 'doblas con <b>cualquier mano</b>'}${c.trasDividir ? ' y tras dividir' : ', nunca tras dividir'} · la casa ${c.suave17 ? '<b>pide</b> con 17 suave' : 'se planta en todo 17'} · ${c.mazos} mazo${c.mazos > 1 ? 's' : ''}`;
+  };
   hint();
-  bindSeg('seg-d', (v) => { S.diff = v; store.set('blackjack.diff', v); hint(); barajar(); });
+  bindSeg('seg-d', (v) => {
+    if (bloqueado) { avisoBloqueo(); return; }
+    S.diff = v; store.set('blackjack.diff', v); hint(); barajar();
+  });
+  if (bloqueado) $$('#seg-d button').forEach((b) => { if (!b.classList.contains('sel')) b.style.opacity = '.45'; });
   const pintaAp = () => { $('#ap-val').textContent = '$' + S.apuesta; };
-  $('#ap-menos').onclick = () => { S.apuesta = Math.max(5, S.apuesta - 5); store.set('blackjack.apuesta', S.apuesta); pintaAp(); };
+  $('#ap-menos').onclick = () => { S.apuesta = Math.max(APUESTA_MIN, S.apuesta - 5); store.set('blackjack.apuesta', S.apuesta); pintaAp(); };
   $('#ap-mas').onclick = () => { S.apuesta = Math.min(100, S.apuesta + 5); store.set('blackjack.apuesta', S.apuesta); pintaAp(); };
-  $('#new').onclick = repartir;
-  const repo = $('#repo');
-  if (repo) repo.onclick = () => { S.banca = BANCA_INICIAL; store.set('blackjack.banca', S.banca); renderSetup(); };
+  const nuevo = $('#new');
+  if (nuevo) nuevo.onclick = repartir;
+  const rei = $('#reinicia');
+  if (rei) rei.onclick = () => { nuevaSesion(); renderSetup(); };
+  const ab = $('#abandona');
+  if (ab) ab.onclick = () => {
+    openModal(`<h3>¿Abandonar la sesión?</h3>
+      <p style="text-align:center;">Vas en <b>$${S.banca}</b> tras ${S.manosSesion} mano${S.manosSesion === 1 ? '' : 's'}. Si la dejas, no cuenta como reto superado.</p>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-si">Abandonar y empezar otra</button>
+        <button class="btn btn-ghost" id="m-no">Seguir jugando</button>
+      </div>`, closeModal);
+    $('#m-si').onclick = () => { cierraSesion(false); nuevaSesion(); closeModal(); renderSetup(); };
+    $('#m-no').onclick = closeModal;
+  };
   bindHowto(REGLAS);
 }
 
-function repartir() {
-  if (S.banca < 5) return;
-  S.apuesta = Math.min(S.apuesta, Math.floor(S.banca / 5) * 5);
-  if (S.mazo.length < 20) barajar();
-  S.tu = [roba(), roba()];
-  S.casa = [roba(), roba()];
-  S.oculta = true; S.doblada = false; S.fase = 'jugando';
+function avisoBloqueo() {
+  const cerrar = () => { closeModal(); renderSetup(); };   // repinta: el seg ya se había marcado solo
+  openModal(`<h3>Sesión en curso</h3>
+    <p style="text-align:center;">Las reglas se eligen al empezar. Termina el reto (o abandónalo) para cambiar de nivel.</p>
+    <div class="m-actions"><button class="btn btn-primary" id="m-ok">Entendido</button></div>`, cerrar);
+  $('#m-ok').onclick = cerrar;
+}
+
+/* El reparto es como en la mesa: una carta a la vez, alternando,
+   y la segunda de la casa boca abajo. */
+async function repartir() {
+  if (quebrado()) return;
+  S.apuesta = Math.max(APUESTA_MIN, Math.min(S.apuesta, Math.floor(S.banca / 5) * 5));
+  store.set('blackjack.apuesta', S.apuesta);
+  if (S.mazo.length < 25) barajar();
+  const m = nuevaMano(S.apuesta);
+  S.banca -= S.apuesta;                     // lo apostado sale de la banca al repartir
+  S.manos = [m]; S.act = 0; S.casa = [];
+  S.oculta = true; S.fase = 'repartiendo';
+  S.manosSesion++;
+  guardaSesion();
   renderMesa();
-  if (esBJ(S.tu) || esBJ(S.casa)) {
+  const msg = $('#msg-mesa');
+  if (msg) msg.textContent = 'Repartiendo…';
+  for (const quien of ['tu', 'casa', 'tu', 'casa']) {
+    await delay(330);
+    if (!$('#manos')) return;                       // saliste a media reparto
+    (quien === 'tu' ? S.manos[0].c : S.casa).push(roba());
+    vibrate(5);
+    paint();
+  }
+  await delay(260);
+  if (!$('#manos')) return;
+  if (msg) msg.textContent = '';
+  S.fase = 'jugando';
+  paint();
+  const bjCasa = S.casa.length === 2 && valor(S.casa) === 21;
+  if (esBJ(S.manos[0]) || bjCasa) {
     S.fase = 'dealer';
     setTimeout(() => { S.oculta = false; paint(); setTimeout(resolver, 700); }, 700);
   }
@@ -157,73 +328,169 @@ function renderMesa() {
       <div class="cartas" id="c-casa"></div>
     </div>
     <div class="msg-mesa" id="msg-mesa"></div>
-    <div class="lado">
-      <div class="quien"><span>Tú</span><b id="v-tu"></b></div>
-      <div class="cartas" id="c-tu"></div>
-    </div>
-    <div class="fichas"><span>Banca <b id="f-banca"></b></span><span>Apuesta <b id="f-ap"></b></span></div>
+    <div class="manos" id="manos"></div>
+    <div class="fichas"><span>Banca <b id="f-banca"></b></span><span>En juego <b id="f-ap"></b></span><span>Meta <b>$${META}</b></span></div>
     <div class="acciones">
-      <div class="fila" id="botones">
+      <div class="fila">
         <button class="btn btn-soft" id="b-pedir">Pedir</button>
         <button class="btn btn-primary" id="b-plantar">Plantarse</button>
       </div>
       <div class="fila">
         <button class="btn btn-ghost" id="b-doblar">Doblar</button>
-        <button class="btn btn-ghost" id="b-salir">Salir</button>
+        <button class="btn btn-ghost" id="b-dividir">Dividir</button>
       </div>
     </div>
   </div>`;
   $('#b-pedir').onclick = pedir;
   $('#b-plantar').onclick = plantarse;
   $('#b-doblar').onclick = doblar;
-  $('#b-salir').onclick = renderSetup;
+  $('#b-dividir').onclick = dividir;
   paint();
+}
+
+function construyeManos() {
+  const cont = $('#manos');
+  cont.innerHTML = S.manos.map((m, i) => `
+    <div class="mano" data-i="${i}">
+      <div class="quien"><span id="t-${i}"></span><b id="v-${i}"></b></div>
+      <div class="cartas" id="c-${i}"></div>
+      <div class="quien"><span id="a-${i}"></span><span class="pago" id="p-${i}"></span></div>
+    </div>`).join('');
 }
 
 function paint() {
-  $('#c-casa').innerHTML = S.casa.map((c, i) => cartaHTML(c, S.oculta && i === 1)).join('');
-  $('#c-tu').innerHTML = S.tu.map((c) => cartaHTML(c)).join('');
-  $('#v-casa').textContent = S.oculta ? valor([S.casa[0]]) + ' + ?' : valor(S.casa);
-  $('#v-tu').textContent = valor(S.tu);
+  if (!$('#v-casa')) return;  // el jugador ya se fue de la pantalla
+  const cont = $('#manos');
+  if (!cont) return;
+  if (cont.children.length !== S.manos.length) construyeManos();
+  cont.className = 'manos' + (S.manos.length > 1 ? ' dos' : '') + (S.fase === 'fin' ? '' : ' vivo');
+  pintaMano('#c-casa', S.casa, S.oculta ? 1 : -1);
+  S.manos.forEach((m, i) => {
+    pintaMano('#c-' + i, m.c, -1);
+    const v = valor(m.c);
+    const activa = i === S.act && (S.fase === 'jugando' || S.fase === 'repartiendo');
+    cont.children[i].classList.toggle('activa', activa);
+    $('#t-' + i).textContent = S.manos.length > 1 ? (activa ? '▸ Mano ' + (i + 1) : 'Mano ' + (i + 1)) : 'Tú';
+    $('#v-' + i).textContent = m.c.length ? (esBJ(m) ? 'Blackjack' : v > 21 ? v + ' · te pasaste' : v) : '';
+    $('#a-' + i).textContent = '$' + m.ap * (m.doblada ? 2 : 1);
+    const p = $('#p-' + i);
+    if (m.pago === null) { p.textContent = ''; p.className = 'pago'; }
+    else {
+      const neto = m.pago - m.ap * (m.doblada ? 2 : 1);
+      p.textContent = neto > 0 ? '+$' + neto : neto < 0 ? '−$' + (-neto) : 'empate';
+      p.className = 'pago ' + (neto > 0 ? 'gana' : neto < 0 ? 'pierde' : '');
+    }
+  });
+  $('#v-casa').textContent = !S.casa.length ? '' : S.oculta ? valor([S.casa[0]]) + ' + ?' : valor(S.casa);
   $('#f-banca').textContent = '$' + S.banca;
-  $('#f-ap').textContent = '$' + (S.doblada ? S.apuesta * 2 : S.apuesta);
-  const jugando = S.fase === 'jugando';
+  $('#f-ap').textContent = '$' + S.manos.reduce((s, m) => s + m.ap * (m.doblada ? 2 : 1), 0);
+  const m = S.manos[S.act];
+  const jugando = S.fase === 'jugando' && m;
   $('#b-pedir').disabled = !jugando;
   $('#b-plantar').disabled = !jugando;
-  $('#b-doblar').disabled = !jugando || S.tu.length !== 2 || S.banca < S.apuesta * 2;
+  $('#b-doblar').disabled = !jugando || !puedeDoblar(m, S.banca, CFG[S.diff]);
+  $('#b-dividir').disabled = !jugando || !puedeDividir(m, S.banca, S.manos.length);
 }
 
+/* ── Acciones ────────────────────────────────────────────────────────── */
 function pedir() {
   if (S.fase !== 'jugando') return;
-  S.tu.push(roba());
+  const m = S.manos[S.act];
+  m.c.push(roba());
   vibrate(8);
   paint();
-  if (valor(S.tu) > 21) { S.fase = 'dealer'; setTimeout(() => { S.oculta = false; paint(); resolver(); }, 500); }
+  if (valor(m.c) >= 21) { m.plantada = true; pausa(); setTimeout(siguienteMano, 500); }
 }
 
 function doblar() {
-  if (S.fase !== 'jugando' || S.tu.length !== 2 || S.banca < S.apuesta * 2) return;
-  S.doblada = true;
-  S.tu.push(roba());
+  if (S.fase !== 'jugando') return;
+  const m = S.manos[S.act];
+  if (!puedeDoblar(m, S.banca, CFG[S.diff])) return;
+  S.banca -= m.ap;
+  m.doblada = true;
+  m.c.push(roba());
+  m.plantada = true;
   vibrate(10);
+  pausa();
+  setTimeout(siguienteMano, 600);
+}
+
+async function dividir() {
+  if (S.fase !== 'jugando') return;
+  const a = S.manos[S.act];
+  if (!puedeDividir(a, S.banca, S.manos.length)) return;
+  S.banca -= a.ap;
+  const b = nuevaMano(a.ap);
+  b.c.push(a.c.pop());
+  a.deSplit = true; b.deSplit = true;
+  S.manos.push(b);
+  S.fase = 'repartiendo';
+  vibrate([10, 40, 10]);
   paint();
-  S.fase = 'dealer';
-  setTimeout(() => valor(S.tu) > 21 ? (S.oculta = false, paint(), resolver()) : turnoCasa(), 600);
+  const ases = a.c[0].r === 14;
+  await delay(340);
+  if (!$('#manos')) return;
+  a.c.push(roba()); paint();
+  if (ases) {                                   // con ases: una carta a cada uno y listo
+    a.plantada = true;
+    await delay(340);
+    if (!$('#manos')) return;
+    b.c.push(roba()); b.plantada = true; paint();
+    await delay(500);
+    return siguienteMano();
+  }
+  S.fase = 'jugando';
+  paint();
+  if (valor(a.c) === 21) { a.plantada = true; pausa(); await delay(600); siguienteMano(); }
 }
 
 function plantarse() {
   if (S.fase !== 'jugando') return;
+  S.manos[S.act].plantada = true;
+  pausa();
+  siguienteMano();
+}
+
+/* Congela los botones mientras corre una transición: sin esto un doble
+   toque podía lanzar dos veces la misma jugada. */
+function pausa() { S.fase = 'pausa'; paint(); }
+
+/* Pasa a la siguiente mano pendiente; si no queda ninguna, juega la casa. */
+async function siguienteMano() {
+  const sig = S.manos.findIndex((m, i) => i > S.act && !m.plantada && valor(m.c) <= 21);
+  if (sig >= 0) {
+    S.act = sig;
+    const m = S.manos[sig];
+    if (m.c.length < 2) {                        // la segunda mano recibe ahora su carta
+      S.fase = 'repartiendo';
+      paint();
+      await delay(340);
+      if (!$('#manos')) return;
+      m.c.push(roba());
+      vibrate(6);
+    }
+    S.fase = 'jugando';
+    paint();
+    if (valor(m.c) === 21) { m.plantada = true; pausa(); await delay(600); return siguienteMano(); }
+    return;
+  }
   S.fase = 'dealer';
+  paint();
+  await delay(400);
   turnoCasa();
 }
 
 function turnoCasa() {
+  if (!$('#manos')) return;
   S.oculta = false;
   paint();
+  const vivas = S.manos.some((m) => valor(m.c) <= 21 && !esBJ(m));
+  if (!vivas) { setTimeout(resolver, 700); return; }
+  const cfg = CFG[S.diff];
   const paso = () => {
+    if (!$('#manos')) return;
     const v = valor(S.casa);
-    const pide = v < 17 || (v === 17 && CFG[S.diff].suave17 && esSuave(S.casa));
-    if (pide) {
+    if (v < 17 || (v === 17 && cfg.suave17 && esSuave(S.casa))) {
       S.casa.push(roba());
       paint();
       setTimeout(paso, 650);
@@ -232,50 +499,87 @@ function turnoCasa() {
   setTimeout(paso, 650);
 }
 
+function tituloMano(m, casa) {
+  const vt = valor(m.c), vc = valor(casa);
+  const bjCasa = casa.length === 2 && vc === 21;
+  if (esBJ(m)) return bjCasa ? 'Empate de blackjacks' : '¡Blackjack!';
+  if (vt > 21) return 'Te pasaste';
+  if (bjCasa) return 'Blackjack de la casa';
+  if (vc > 21) return '¡La casa se pasó!';
+  if (vt > vc) return '¡Ganaste la mano!';
+  if (vt < vc) return 'Gana la casa';
+  return 'Empate';
+}
+
 function resolver() {
   S.fase = 'fin';
-  const ap = S.doblada ? S.apuesta * 2 : S.apuesta;
-  const vt = valor(S.tu), vc = valor(S.casa);
-  let delta, titulo, porque;
-  if (esBJ(S.tu) && !esBJ(S.casa)) { delta = Math.floor(ap * 1.5); titulo = '¡Blackjack!'; porque = 'Pagado 3 a 2.'; }
-  else if (vt > 21) { delta = -ap; titulo = 'Te pasaste'; porque = `Llevabas ${vt}.`; }
-  else if (esBJ(S.casa) && !esBJ(S.tu)) { delta = -ap; titulo = 'Blackjack de la casa'; porque = 'Nada que hacer.'; }
-  else if (vc > 21) { delta = ap; titulo = '¡La casa se pasó!'; porque = `Se fue a ${vc}.`; }
-  else if (vt > vc) { delta = ap; titulo = '¡Ganaste la mano!'; porque = `${vt} contra ${vc}.`; }
-  else if (vt < vc) { delta = -ap; titulo = 'Gana la casa'; porque = `${vc} contra ${vt}.`; }
-  else { delta = 0; titulo = 'Empate'; porque = `${vt} iguales: recuperas tu apuesta.`; }
-  S.banca += delta;
-  store.set('blackjack.banca', S.banca);
-  const max = store.get('blackjack.max', 0);
-  const isRecord = S.banca > max;
-  if (isRecord) {
-    store.set('blackjack.max', S.banca);
-    store.set('bj.hub', `Banca máxima: $${S.banca}`);
-  }
+  const cfg = CFG[S.diff];
+  let apostado = 0, retorno = 0;
+  S.manos.forEach((m) => {
+    m.pago = pagoMano(m, S.casa, cfg);
+    apostado += m.ap * (m.doblada ? 2 : 1);
+    retorno += m.pago;
+  });
+  const delta = retorno - apostado;
+  S.banca += retorno;
+  S.pico = Math.max(S.pico, S.banca);
+  guardaSesion();
+  const titulo = S.manos.length > 1
+    ? (delta > 0 ? '¡Ganaste la ronda!' : delta < 0 ? 'Gana la casa' : 'Ronda pareja')
+    : tituloMano(S.manos[0], S.casa);
   if (delta > 0) { confetti(); vibrate([30, 60, 30]); } else if (delta < 0) vibrate([70, 50, 70]);
-  $('#msg-mesa').textContent = titulo;
+  const msg = $('#msg-mesa');
+  if (msg) msg.textContent = titulo;
+  paint();
+
+  const gano = S.banca >= META;
+  const perdio = !gano && quebrado();
   setTimeout(() => {
-    const quebrado = S.banca < 5;
+    if (gano || perdio) return finDeSesion(gano);
+    const detalle = S.manos.length > 1
+      ? S.manos.map((m, i) => `Mano ${i + 1}: ${tituloMano(m, S.casa).replace(/[¡!]/g, '')} (${m.pago - m.ap * (m.doblada ? 2 : 1) >= 0 ? '+' : '−'}$${Math.abs(m.pago - m.ap * (m.doblada ? 2 : 1))})`).join('<br>')
+      : `Tú ${valor(S.manos[0].c)} · casa ${valor(S.casa)}`;
     openModal(`
       <h3>${titulo}</h3>
-      <p style="text-align:center;">${esc(porque)}</p>
+      <p style="text-align:center;">${detalle}</p>
       <div class="stats" style="margin:14px 0;">
-        <div class="stat"><div class="n">${delta > 0 ? '+$' + delta : delta < 0 ? '−$' + (-delta) : '$0'}</div><div class="l">esta mano</div></div>
-        <div class="stat"><div class="n">$${S.banca}</div><div class="l">banca${isRecord ? ' · récord' : ''}</div></div>
+        <div class="stat"><div class="n">${delta > 0 ? '+$' + delta : delta < 0 ? '−$' + (-delta) : '$0'}</div><div class="l">esta ronda</div></div>
+        <div class="stat"><div class="n">$${S.banca}</div><div class="l">banca</div></div>
+        <div class="stat"><div class="n">$${META - S.banca}</div><div class="l">te faltan</div></div>
       </div>
       <div class="m-actions">
-        ${quebrado
-          ? '<button class="btn btn-primary" id="m-repo">Reponer banca ($' + BANCA_INICIAL + ')</button>'
-          : '<button class="btn btn-primary" id="m-again">Otra mano</button>'}
-        <button class="btn btn-ghost" id="m-out">Salir</button>
+        <button class="btn btn-primary" id="m-again">Otra mano</button>
+        <button class="btn btn-ghost" id="m-out">Salir de la mesa</button>
       </div>
     `);
-    const again = $('#m-again');
-    if (again) again.onclick = () => { closeModal(); repartir(); };
-    const repo = $('#m-repo');
-    if (repo) repo.onclick = () => { S.banca = BANCA_INICIAL; store.set('blackjack.banca', S.banca); closeModal(); repartir(); };
+    $('#m-again').onclick = () => { closeModal(); repartir(); };
     $('#m-out').onclick = () => { closeModal(); renderSetup(); };
-  }, 900);
+  }, 950);
+}
+
+function finDeSesion(gano) {
+  const { retos, mejor } = cierraSesion(gano);
+  const cerrada = S.banca, pico = S.pico, manos = S.manosSesion;
+  if (gano) { confetti(); setTimeout(confetti, 500); }
+  nuevaSesion();
+  openModal(`
+    <h3>${gano ? '¡Reto superado!' : 'Se acabó la banca'}</h3>
+    <p style="text-align:center;">${gano
+      ? `Llegaste a <b>$${cerrada}</b> en ${manos} mano${manos === 1 ? '' : 's'} jugando en <b>${DIFF_LABEL[S.diff]}</b>.`
+      : `Te quedaste en <b>$${cerrada}</b> tras ${manos} mano${manos === 1 ? '' : 's'}; lo más alto que llegaste fue <b>$${pico}</b>.`}</p>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${retos}</div><div class="l">retos superados</div></div>
+      <div class="stat"><div class="n">$${mejor}</div><div class="l">mejor sesión</div></div>
+      <div class="stat"><div class="n">${manos}</div><div class="l">manos</div></div>
+    </div>
+    ${gano ? '<p style="text-align:center;"><span class="record">🏆 ¡Reto anotado!</span></p>' : ''}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-nueva">Empezar otra sesión ($${BANCA_INICIAL})</button>
+      <button class="btn btn-ghost" id="m-out">Salir de la mesa</button>
+    </div>
+  `);
+  $('#m-nueva').onclick = () => { closeModal(); repartir(); };
+  $('#m-out').onclick = () => { closeModal(); renderSetup(); };
 }
 
 barajar();

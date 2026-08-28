@@ -39,15 +39,17 @@
 <div id="modal" role="dialog" aria-modal="true"></div>
 
 <script src="../../comun/nucleo.js"></script>
-<script src="../../dicc-es.js"></script>
+<script src="../../banco-es.js"></script>
 <script>
 'use strict';
 
+/* Los rangos van sobre el banco curado (banco-es.js): la posición en la lista
+   es el ranking, de las palabras de diario a las más raras. */
 const CFG = {
-  facil:   { maxRank: 3000,  minLen: 4, maxLen: 6,  reveal: true },
-  normal:  { maxRank: 8000,  minLen: 5, maxLen: 8,  reveal: false },
-  dificil: { maxRank: 16000, minLen: 6, maxLen: 10, reveal: false },
-  experto: { maxRank: 32000, minLen: 7, maxLen: 12, reveal: false },
+  facil:   { maxRank: 1200, minLen: 4, maxLen: 6,  reveal: true },
+  normal:  { maxRank: 3000, minLen: 5, maxLen: 8,  reveal: false },
+  dificil: { maxRank: 5500, minLen: 6, maxLen: 10, reveal: false },
+  experto: { maxRank: 9999, minLen: 7, maxLen: 12, reveal: false },
 };
 const MAX_ERR = 6;
 
@@ -92,7 +94,7 @@ function renderSetup() {
 
 function nextWord() {
   const c = CFG[S.diff];
-  const e = Dicc.random({ minLen: c.minLen, maxLen: c.maxLen, maxRank: c.maxRank, minRank: 300 });
+  const e = Banco.random({ minLen: c.minLen, maxLen: c.maxLen, maxRank: c.maxRank });
   if (!e) return;
   S.word = e.w;
   S.wn = e.n;

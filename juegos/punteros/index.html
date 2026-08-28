@@ -153,6 +153,7 @@ function renderPlay() {
 }
 
 function paint() {
+  if (!$('#qn')) return;  // el jugador ya se fue de la pantalla
   $$('.pc').forEach((el) => {
     const i = Number(el.dataset.i);
     const d = S.grid[i];

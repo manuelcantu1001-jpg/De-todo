@@ -31,49 +31,6 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
 };
 
-/* ── Diccionario de frecuencias (requiere dicc-es.js cargado antes) ──── */
-const Dicc = (() => {
-  const list = [];               // [{w, n, rank}] por frecuencia
-  const map = new Map();         // norm -> {w, rank}
-  let inited = false;
-  function init() {
-    if (inited || !window.DICC_ES) return;
-    inited = true;
-    const arr = window.DICC_ES.split('\n');
-    for (let i = 0; i < arr.length; i++) {
-      const w = arr[i]; if (!w) continue;
-      const n = norm(w);
-      if (!map.has(n)) map.set(n, { w, rank: i });
-      list.push({ w, n, rank: i });
-    }
-  }
-  return {
-    get list() { init(); return list; },
-    ready() { init(); return list.length > 0; },
-    has(n) { init(); return map.has(n); },
-    rankOf(n) { init(); const e = map.get(n); return e ? e.rank : Infinity; },
-    // Palabras que cumplen un filtro, hasta cierto rango de frecuencia.
-    where(fn, maxRank) {
-      init();
-      const out = [];
-      for (const e of list) {
-        if (e.rank >= maxRank) break;
-        if (fn(e)) out.push(e);
-      }
-      return out;
-    },
-    // Una palabra al azar en una ventana de longitud y frecuencia.
-    random({ minLen = 4, maxLen = 12, minRank = 0, maxRank = 9000 } = {}) {
-      init();
-      for (let i = 0; i < 200; i++) {
-        const e = list[minRank + randInt(Math.min(maxRank, list.length) - minRank)];
-        if (e && e.n.length >= minLen && e.n.length <= maxLen && /^[a-zñ]+$/.test(e.n)) return e;
-      }
-      return null;
-    },
-  };
-})();
-
 /* ── Léxico completo bajo demanda (formas ya normalizadas, .gz) ──────── */
 function crearLexico(url) {
   let txt = null, done = false, promise = null;

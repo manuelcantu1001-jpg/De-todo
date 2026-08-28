@@ -223,6 +223,7 @@ function dibujar() {
 }
 
 function pintarHud() {
+  if (!$('#h-score')) return;  // el jugador ya se fue de la pantalla
   $('#h-score').textContent = S.score;
   $('#h-lineas').textContent = S.lineas;
   $('#h-nivel').textContent = S.nivel + 1;

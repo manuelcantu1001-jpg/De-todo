@@ -15,31 +15,42 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
-  .estado { text-align: center; padding: 10px 16px 0; font-size: 14px; font-weight: 700; color: var(--bg-ink); min-height: 20px; }
-  .appinfo { display: flex; justify-content: center; gap: 16px; padding-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--bg-sub); }
-  .mesa { flex: 1; min-height: 0; display: flex; align-items: center; overflow-x: auto; padding: 14px 18px; -webkit-overflow-scrolling: touch; }
-  .cadena { display: flex; gap: 4px; margin: 0 auto; align-items: center; }
+  .estado { text-align: center; padding: 9px 16px 0; font-size: 14px; font-weight: 700; color: var(--bg-ink); min-height: 20px; }
+  .appinfo { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 14px; padding-top: 6px; font-size: 12.5px; font-weight: 600; color: var(--bg-sub); }
+  /* La mesa ya no se come media pantalla en blanco: la cadena se acomoda en
+     renglones centrados y la mano de abajo se lleva el espacio que sobra. */
+  .mesa {
+    flex: 1 1 auto; min-height: 84px; display: flex; align-items: center; justify-content: center;
+    overflow-y: auto; padding: 8px 10px; -webkit-overflow-scrolling: touch;
+  }
+  .cadena { display: flex; flex-wrap: wrap; gap: 3px; margin: auto; align-items: center; justify-content: center; align-content: center; }
   .ficha {
+    --mh: 30px;
     display: flex; background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 9px 9px 8px 8px / 7px 5px 7px 5px;
     box-shadow: 0 2px 0 var(--tile-border); flex-shrink: 0;
   }
-  .ficha .mitad { width: 30px; height: 30px; display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px; }
+  .ficha .mitad { width: var(--mh); height: var(--mh); display: grid; grid-template-columns: repeat(3, 1fr); padding: calc(var(--mh) * .13); }
   .ficha .mitad i { border-radius: 999px; background: var(--ink); transform: scale(.62); }
   .ficha .sep { width: 1px; background: var(--tile-border); margin: 4px 0; }
   .ficha.vert { flex-direction: column; }
   .ficha.vert .sep { width: auto; height: 1px; margin: 0 4px; }
+  .cadena .ficha { --mh: 24px; }
+  .mano .ficha { --mh: 58px; box-shadow: 0 3px 0 var(--tile-border); }
   .zona-punta {
-    flex-shrink: 0; width: 46px; height: 60px; border-radius: 10px 10px 11px 12px / 9px 7px 9px 11px; border: 2px dashed var(--accent);
-    background: var(--accent-soft); color: var(--ink); font-weight: 800; font-size: 18px;
+    flex-shrink: 0; width: 30px; height: 50px; border-radius: 10px 10px 11px 12px / 9px 7px 9px 11px; border: 2px dashed var(--accent);
+    background: var(--accent-soft); color: var(--ink); font-weight: 800; font-size: 16px;
     display: none; align-items: center; justify-content: center; cursor: pointer;
   }
   .zona-punta.on { display: flex; }
-  .mano-wrap { padding: 0 0 calc(12px + env(safe-area-inset-bottom)); }
-  .mano-acciones { display: flex; gap: 10px; justify-content: center; padding: 8px 16px; }
-  .mano { display: flex; gap: 7px; overflow-x: auto; padding: 10px 16px 6px; -webkit-overflow-scrolling: touch; }
-  .mano .slot { flex-shrink: 0; cursor: pointer; opacity: .45; transition: transform .12s steps(3, jump-end), opacity .12s steps(3, jump-end); }
+  .mano-wrap { flex: 0 0 auto; margin-top: auto; padding: 0 0 calc(10px + env(safe-area-inset-bottom)); border-top: 1.5px dashed var(--soft); }
+  .mano-acciones { display: flex; gap: 10px; justify-content: center; padding: 6px 16px 0; }
+  /* La mano se acomoda en dos renglones de fichas grandes en vez de siete
+     apretadas al fondo: el espacio que sobraba en la mesa se va aquí. */
+  .mano { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 288px; margin: 0 auto; padding: 10px 0 4px; }
+  .mano .slot { flex-shrink: 0; cursor: pointer; opacity: .38; transition: transform .12s steps(3, jump-end), opacity .12s steps(3, jump-end); }
   .mano .slot.puede { opacity: 1; }
-  .mano .slot.elegida { transform: translateY(-8px); }
+  .mano .slot.elegida { transform: translateY(-9px); }
+  .mano .slot.puede .ficha { border-width: 1.5px; }
   .mano .slot.puede:active { transform: scale(.95); }
 </style>
 </head>
@@ -53,14 +64,15 @@
 
 const S = {
   diff: store.get('domino.diff', 'normal'),
-  mano: [], manoApp: [], monton: [], cadena: [],
-  turno: 'yo', pases: 0, pend: -1, sinSalida: new Set(),
-  score: { yo: 0, app: 0, emp: 0 }, jugando: false, robadas: 0,
+  J: null,                       // la mano en curso (motor puro)
+  pend: -1,
+  score: { yo: 0, app: 0, emp: 0 }, jugando: false,
 };
+const YO = 0, APP = 1;
 
 const REGLAS = `<p>El dominó de siempre, a <b>una mano contra la app</b>: 7 fichas cada quien y por turnos se colocan en <b>las puntas</b> de la cadena, casando los números.</p>
-<p>¿No llevas? <b>Roba del montón</b> hasta que salga una que sirva; si el montón se acabó, pasas. Gana quien se queda <b>sin fichas</b> — y si el juego se cierra, quien sume <b>menos puntos</b>.</p>
-<p>Si una ficha cabe en las dos puntas, tócala y elige punta. La dificultad cambia lo listo que juega el rival.</p>`;
+<p><b>Sale la mula más alta</b>: quien la tenga abre con ella (y si nadie lleva mula, abre la ficha más pesada). ¿No llevas? <b>Roba del montón</b> hasta que salga una que sirva; si el montón se acabó, pasas. Gana quien se queda <b>sin fichas</b> — y si el juego se cierra, quien sume <b>menos puntos</b>.</p>
+<p>Si una ficha cabe en las dos puntas, tócala y elige punta. Los niveles se notan: en <b>Difícil</b> y <b>Experto</b> la app <b>lleva cuenta de por qué números pasaste</b> y te deja esas puntas para atrancarte. Tus manos ganadas se guardan <b>por nivel</b>.</p>`;
 
 const pipsHTML = (n) => {
   const POS = { 0: [], 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
@@ -69,63 +81,267 @@ const pipsHTML = (n) => {
 const fichaHTML = (a, b, vert) =>
   `<div class="ficha ${vert ? 'vert' : ''}"><div class="mitad">${pipsHTML(a)}</div><div class="sep"></div><div class="mitad">${pipsHTML(b)}</div></div>`;
 
-/* ── Partida ─────────────────────────────────────────────────────────── */
-function repartir() {
+/* ── Motor puro ──────────────────────────────────────────────────────────
+   Todo lo de abajo trabaja sobre un objeto J y no toca la pantalla, así que
+   sirve igual para jugar y para simular miles de manos y medir las IAs. */
+const kv = (a, b) => (a < b ? a * 7 + b : b * 7 + a);
+const pips = (mano) => mano.reduce((s, f) => s + f.a + f.b, 0);
+const puntasDe = (cadena) => (cadena.length ? [cadena[0].izq, cadena[cadena.length - 1].der] : [-1, -1]);
+
+function reparto() {
   const todas = [];
   for (let a = 0; a <= 6; a++) for (let b = a; b <= 6; b++) todas.push({ a, b });
   const rev = shuffle(todas);
-  S.mano = rev.slice(0, 7);
-  S.manoApp = rev.slice(7, 14);
-  S.monton = rev.slice(14);
-  S.cadena = []; S.pases = 0; S.pend = -1; S.sinSalida = new Set();
-  S.turno = Math.random() < .5 ? 'yo' : 'app';
-  S.jugando = true; S.robadas = 0;
+  const J = {
+    manos: [rev.slice(0, 7), rev.slice(7, 14)],
+    monton: rev.slice(14),
+    cadena: [], turno: 0, pases: 0,
+    // Deducción: números por los que cada jugador ya demostró no poder casar.
+    faltan: [new Set(), new Set()],
+    robadas: [0, 0], obligada: null,
+  };
+  J.obligada = quienSale(J);
+  J.turno = J.obligada.jugador;
+  return J;
 }
 
-const puntas = () => S.cadena.length
-  ? [S.cadena[0].izq, S.cadena[S.cadena.length - 1].der]
-  : [-1, -1];
-const cabe = (f) => {
-  if (!S.cadena.length) return true;
-  const [L, R] = puntas();
-  return f.a === L || f.b === L || f.a === R || f.b === R;
+// Sale la mula más alta; si nadie lleva mula, la ficha más pesada.
+function quienSale(J) {
+  for (let v = 6; v >= 0; v--) {
+    for (let p = 0; p < 2; p++) {
+      const k = J.manos[p].findIndex((f) => f.a === v && f.b === v);
+      if (k >= 0) return { jugador: p, k, mula: true, ficha: { a: v, b: v } };
+    }
+  }
+  let mejor = null;
+  for (let p = 0; p < 2; p++) J.manos[p].forEach((f, k) => {
+    if (!mejor || f.a + f.b > mejor.suma) mejor = { jugador: p, k, suma: f.a + f.b, mula: false, ficha: f };
+  });
+  return mejor;
+}
+
+function opciones(mano, cadena) {
+  const out = [];
+  const [L, R] = puntasDe(cadena);
+  mano.forEach((f, k) => {
+    if (!cadena.length) { out.push({ k, lado: 'der', deja: -1 }); return; }
+    if (f.a === L || f.b === L) out.push({ k, lado: 'izq', deja: f.a === L ? f.b : f.a });
+    if (f.a === R || f.b === R) out.push({ k, lado: 'der', deja: f.a === R ? f.b : f.a });
+  });
+  return out;
+}
+
+function legales(J, p) {
+  const ops = opciones(J.manos[p], J.cadena);
+  // el que sale está obligado a abrir con la mula más alta
+  if (!J.cadena.length && J.obligada && J.obligada.jugador === p) return ops.filter((o) => o.k === J.obligada.k);
+  return ops;
+}
+
+function coloca(J, p, k, lado) {
+  const f = J.manos[p].splice(k, 1)[0];
+  J.faltan[p].delete(f.a); J.faltan[p].delete(f.b);   // ya vimos que sí las tenía
+  if (!J.cadena.length) J.cadena.push({ izq: f.a, der: f.b });
+  else {
+    const [L, R] = puntasDe(J.cadena);
+    if (lado === 'izq') J.cadena.unshift(f.b === L ? { izq: f.a, der: f.b } : { izq: f.b, der: f.a });
+    else J.cadena.push(f.a === R ? { izq: f.a, der: f.b } : { izq: f.b, der: f.a });
+  }
+  J.pases = 0;
+  return f;
+}
+
+// Apunta lo que se acaba de aprender: p no pudo con ninguna de las dos puntas.
+function apuntaAtranque(J, p) {
+  const [L, R] = puntasDe(J.cadena);
+  if (L < 0) return;
+  J.faltan[p].add(L); J.faltan[p].add(R);
+}
+
+const gana = (J) => (J.manos[0].length === 0 ? 0 : J.manos[1].length === 0 ? 1 : null);
+function cierre(J) {
+  const s0 = pips(J.manos[0]), s1 = pips(J.manos[1]);
+  return s0 < s1 ? 0 : s1 < s0 ? 1 : -1;   // -1 = empate
+}
+
+/* ── IA ──────────────────────────────────────────────────────────────────
+   Cuatro niveles que de verdad juegan distinto:
+   · Fácil    suelta lo ligero y se queda con lo pesado (justo al revés)
+   · Normal   suelta puntos y mulas, sin mirar al rival
+   · Difícil  además LLEVA CUENTA de por qué números pasó el rival y le
+              deja esas puntas para atrancarlo
+   · Experto  lo de Difícil + reparte a ciegas la mano del rival compatible
+              con lo deducido y simula la mano hasta el final varias veces */
+const cuentaDe = (mano) => {
+  const c = new Array(7).fill(0);
+  for (const f of mano) { c[f.a]++; if (f.b !== f.a) c[f.b]++; }
+  return c;
 };
 
-function colocar(mano, k, lado) {
-  const f = mano.splice(k, 1)[0];
-  if (!S.cadena.length) { S.cadena.push({ izq: f.a, der: f.b }); return; }
-  const [L, R] = puntas();
-  if (lado === 'izq') S.cadena.unshift(f.b === L ? { izq: f.a, der: f.b } : { izq: f.b, der: f.a });
-  else S.cadena.push(f.a === R ? { izq: f.a, der: f.b } : { izq: f.b, der: f.a });
-  S.pases = 0;
+// Fichas de cada número que aún no se han visto (ni en mi mano ni en la mesa).
+function sinVerPorNumero(mano, cadena) {
+  const vistas = new Set();
+  for (const t of cadena) vistas.add(kv(t.izq, t.der));
+  for (const f of mano) vistas.add(kv(f.a, f.b));
+  const c = new Array(7).fill(0);
+  for (let a = 0; a <= 6; a++) for (let b = a; b <= 6; b++) {
+    if (vistas.has(kv(a, b))) continue;
+    c[a]++; if (b !== a) c[b]++;
+  }
+  return c;
 }
 
-/* ── IA ──────────────────────────────────────────────────────────────── */
-function appElige() {
-  const opciones = [];
-  const [L, R] = puntas();
-  S.manoApp.forEach((f, k) => {
-    if (!S.cadena.length) { opciones.push({ k, lado: 'der', deja: -1 }); return; }
-    if (f.a === L || f.b === L) opciones.push({ k, lado: 'izq', deja: f.a === L ? f.b : f.a });
-    if (f.a === R || f.b === R) opciones.push({ k, lado: 'der', deja: f.a === R ? f.b : f.a });
-  });
-  if (!opciones.length) return null;
-  if (S.diff === 'facil') return opciones[randInt(opciones.length)];
-  const cuenta = new Array(7).fill(0);
-  for (const f of S.manoApp) { cuenta[f.a]++; if (f.b !== f.a) cuenta[f.b]++; }
-  let mejor = null, mejorV = -Infinity;
-  for (const o of opciones) {
-    const f = S.manoApp[o.k];
-    let v = f.a + f.b;                                   // suéltate de puntos
-    if (f.a === f.b) v += 5;                             // las mulas, pronto
-    if (S.diff === 'dificil' || S.diff === 'experto') {
-      if (o.deja >= 0) v += cuenta[o.deja] * 2;          // deja puntas que tú sí llevas
-      if (S.diff === 'experto' && S.sinSalida.has(o.deja)) v += 14; // punta que al rival ya lo atoró
+function puntua(nivel, J, p, o) {
+  const mano = J.manos[p], f = mano[o.k];
+  const c = cuentaDe(mano);
+  if (nivel === 'facil') {
+    // Juega al revés de lo que conviene: suelta lo ligero, se aferra a las
+    // mulas y a las pesadas (pierde los cierres) y deja puntas que ni él
+    // puede seguir. Es el nivel para ganar sin sufrir.
+    let v = -(f.a + f.b) * 1.5;
+    if (f.a === f.b) v -= 6;
+    if (o.deja >= 0) v -= (c[o.deja] - 1) * 2;
+    return v + Math.random() * 3;
+  }
+  let v = (f.a + f.b) * 1.2;                    // suéltate de puntos
+  if (f.a === f.b) v += 5;                      // las mulas, pronto
+  // Normal se queda aquí: descarga puntos y ya, sin mirar al rival ni cuidar
+  // sus propias puntas. Es la diferencia con Difícil.
+  if (nivel === 'normal') return v + Math.random() * 7;
+  if (o.deja >= 0) v += (c[o.deja] - 1) * 3;    // deja una punta que tú sí llevas
+
+  // Difícil y Experto: deducción sobre el rival
+  const falta = J.faltan[1 - p];
+  const [L, R] = puntasDe(J.cadena);
+  const otra = o.lado === 'izq' ? R : L;         // la punta que no toco
+  const libres = sinVerPorNumero(mano, J.cadena);
+  if (o.deja >= 0) {
+    if (falta.has(o.deja)) v += 20;              // punta que ya lo atrancó
+    if (falta.has(otra)) v += 10;                // y la otra también: doble cierre
+    v += (4 - Math.min(4, libres[o.deja])) * 2.5;// número escaso = difícil de casar
+    if (c[o.deja] <= 1) v -= 6;                  // no dejes una punta que ni tú puedes seguir
+  }
+  if (J.manos[1 - p].length <= 2) v += (f.a + f.b) * 0.8;   // va a pegar: descarga fuerte
+  return v + Math.random() * 2;
+}
+
+// Reparte a ciegas lo que no se ve, respetando lo deducido del rival.
+function mundoPosible(J, p) {
+  const vistas = new Set();
+  for (const t of J.cadena) vistas.add(kv(t.izq, t.der));
+  for (const f of J.manos[p]) vistas.add(kv(f.a, f.b));
+  const bolsa = [];
+  for (let a = 0; a <= 6; a++) for (let b = a; b <= 6; b++) if (!vistas.has(kv(a, b))) bolsa.push({ a, b });
+  const rev = shuffle(bolsa);
+  const falta = J.faltan[1 - p];
+  const compat = [], resto = [];
+  for (const f of rev) (falta.has(f.a) || falta.has(f.b) ? resto : compat).push(f);
+  const n = J.manos[1 - p].length;
+  const manoRival = compat.slice(0, n);
+  while (manoRival.length < n && resto.length) manoRival.push(resto.pop());
+  const usadas = new Set(manoRival.map((f) => kv(f.a, f.b)));
+  const monton = rev.filter((f) => !usadas.has(kv(f.a, f.b)));
+  return { manoRival, monton };
+}
+
+const clonaJ = (J) => ({
+  manos: [J.manos[0].map((f) => ({ ...f })), J.manos[1].map((f) => ({ ...f }))],
+  monton: J.monton.map((f) => ({ ...f })),
+  cadena: J.cadena.map((t) => ({ ...t })),
+  turno: J.turno, pases: J.pases,
+  faltan: [new Set(J.faltan[0]), new Set(J.faltan[1])],
+  robadas: [0, 0], obligada: null,
+});
+
+// Corre una mano hasta el final con las políticas dadas. Devuelve 0, 1 o -1.
+function corre(J, pols) {
+  for (let giro = 0; giro < 400; giro++) {
+    const p = J.turno;
+    let ops = legales(J, p);
+    while (!ops.length && J.monton.length) {
+      apuntaAtranque(J, p);
+      J.manos[p].push(J.monton.pop());
+      J.robadas[p]++;
+      ops = legales(J, p);
     }
-    v += Math.random() * 2;
+    if (!ops.length) {
+      apuntaAtranque(J, p);
+      J.pases++;
+      if (J.pases >= 2) return cierre(J);
+      J.turno = 1 - p;
+      continue;
+    }
+    const o = pols[p](J, p, ops);
+    coloca(J, p, o.k, o.lado);
+    if (!J.manos[p].length) return p;
+    J.turno = 1 - p;
+  }
+  return -1;
+}
+
+const POL_AZAR = (J, p, ops) => ops[randInt(ops.length)];
+const politica = (nivel) => (J, p, ops) => {
+  let mejor = ops[0], mejorV = -Infinity;
+  for (const o of ops) { const v = puntua(nivel, J, p, o); if (v > mejorV) { mejorV = v; mejor = o; } }
+  return mejor;
+};
+
+const ROLLOUTS = 60;
+function eligeExperto(J, p, ops) {
+  if (ops.length === 1) return ops[0];
+  const pol = politica('dificil');
+  let mejor = ops[0], mejorV = -Infinity;
+  for (const o of ops) {
+    let suma = 0;
+    for (let r = 0; r < ROLLOUTS; r++) {
+      const sim = clonaJ(J);
+      const { manoRival, monton } = mundoPosible(J, p);
+      sim.manos[1 - p] = manoRival;
+      sim.monton = monton;
+      coloca(sim, p, o.k, o.lado);
+      if (!sim.manos[p].length) { suma += 1; continue; }
+      sim.turno = 1 - p;
+      const g = corre(sim, [pol, pol]);
+      suma += g === p ? 1 : g === -1 ? 0.25 : 0;
+    }
+    const v = suma / ROLLOUTS + puntua('dificil', J, p, o) / 300;
     if (v > mejorV) { mejorV = v; mejor = o; }
   }
   return mejor;
+}
+
+const POLITICAS = {
+  azar: POL_AZAR,
+  facil: politica('facil'),
+  normal: politica('normal'),
+  dificil: politica('dificil'),
+  experto: eligeExperto,
+};
+
+const appElige = () => {
+  const ops = legales(S.J, APP);
+  return ops.length ? POLITICAS[S.diff](S.J, APP, ops) : null;
+};
+
+/* ── Marca por nivel ─────────────────────────────────────────────────── */
+const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+const victorias = (n) => store.get('domino.wins.' + n, 0);
+
+function anotaVictoria(nivel) {
+  const n = victorias(nivel) + 1;
+  store.set('domino.wins.' + nivel, n);
+  let alto = null;
+  for (const v of NIVELES) if (victorias(v) > 0) alto = v;
+  if (alto) {
+    const k = victorias(alto);
+    store.set('dom.hub', `${DIFF_LABEL[alto]}: ${k} mano${k === 1 ? '' : 's'}`);
+  }
+  return n;
+}
+
+function bestsHTML() {
+  return NIVELES.map((v) =>
+    `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
 }
 
 /* ── Pantallas ───────────────────────────────────────────────────────── */
@@ -137,22 +353,36 @@ function renderSetup() {
       <div class="card" style="padding: 14px 18px 18px;">
         <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
         ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
       </div>
-      <div class="bests"><div class="b"><div class="bn">${store.get('domino.wins', 0)}</div><div class="bl">Manos ganadas</div></div></div>
+      <div class="label-sm" style="margin-top:4px;">Manos ganadas, por nivel</div>
+      <div class="bests">${bestsHTML()}</div>
       <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
       <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
   </div>`;
-  bindSeg('seg-d', (v) => { S.diff = v; store.set('domino.diff', v); });
+  const PISTA = {
+    facil: 'Suelta lo ligero y se queda con lo pesado: se le gana.',
+    normal: 'Descarga puntos y mulas, pero no te está midiendo.',
+    dificil: 'Lleva cuenta de por qué números pasaste y te deja esas puntas.',
+    experto: 'Además reparte a ciegas tu mano y simula la partida antes de tirar.',
+  };
+  const hint = () => { $('#d-hint').textContent = PISTA[S.diff]; };
+  hint();
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('domino.diff', v); hint(); });
   $('#new').onclick = () => { S.score = { yo: 0, app: 0, emp: 0 }; nuevaMano(true); };
   bindHowto(REGLAS);
 }
 
 function nuevaMano(first) {
-  repartir();
+  S.J = reparto();
+  S.pend = -1;
+  S.jugando = true;
   if (first) renderPlay(); else paint();
-  avisa();
-  if (S.turno === 'app') setTimeout(turnoApp, 900);
+  const ob = S.J.obligada;
+  const quien = ob.jugador === YO ? 'Sales tú' : 'Sale la app';
+  avisa(`${quien} con la ${ob.mula ? 'mula' : 'ficha más alta'} ${ob.ficha.a}–${ob.ficha.b}`);
+  if (S.J.turno === APP) setTimeout(turnoApp, 1100);
 }
 
 function renderPlay() {
@@ -160,7 +390,10 @@ function renderPlay() {
   <div class="screen">
     ${topbarHTML('Dominó', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
     <div class="estado" id="estado"></div>
-    <div class="appinfo"><span>App: <b id="napp"></b> fichas</span><span>Montón: <b id="nmon"></b></span><span>Marcador <b id="marc"></b></span></div>
+    <div class="appinfo">
+      <span>App <b id="napp"></b></span><span>Montón <b id="nmon"></b></span>
+      <span>Puntas <b id="pts"></b></span><span>Marcador <b id="marc"></b></span>
+    </div>
     <div class="mesa" id="mesa">
       <div class="cadena" id="lachain"></div>
     </div>
@@ -180,7 +413,7 @@ function renderPlay() {
   };
   $('#lachain').onclick = (e) => {
     const z = e.target.closest('.zona-punta');
-    if (z && S.pend >= 0) { colocarMia(S.pend, z.dataset.lado); }
+    if (z && S.pend >= 0) colocarMia(S.pend, z.dataset.lado);
   };
   $('#b-robar').onclick = robar;
   $('#b-pasar').onclick = pasar;
@@ -188,51 +421,60 @@ function renderPlay() {
   paint();
 }
 
+const miTurno = () => S.jugando && S.J.turno === YO;
+const misLegales = () => legales(S.J, YO);
+
 function paint() {
-  const [L, R] = puntas();
+  if (!$('#lachain')) return;  // la app pensaba y el jugador ya se fue de la pantalla
+  const J = S.J;
+  const [L, R] = puntasDe(J.cadena);
   const doble = S.pend >= 0;
   $('#lachain').innerHTML =
     `<div class="zona-punta ${doble ? 'on' : ''}" data-lado="izq">◀</div>` +
-    S.cadena.map((t) => fichaHTML(t.izq, t.der, false)).join('') +
+    J.cadena.map((t) => fichaHTML(t.izq, t.der, false)).join('') +
     `<div class="zona-punta ${doble ? 'on' : ''}" data-lado="der">▶</div>`;
-  $('#mano').innerHTML = S.mano.map((f, k) =>
-    `<div class="slot ${S.turno === 'yo' && cabe(f) ? 'puede' : ''} ${S.pend === k ? 'elegida' : ''}" data-k="${k}">${fichaHTML(f.a, f.b, true)}</div>`).join('');
-  $('#napp').textContent = S.manoApp.length;
-  $('#nmon').textContent = S.monton.length;
+  const jugables = new Set(misLegales().map((o) => o.k));
+  $('#mano').innerHTML = J.manos[YO].map((f, k) =>
+    `<div class="slot ${miTurno() && jugables.has(k) ? 'puede' : ''} ${S.pend === k ? 'elegida' : ''}" data-k="${k}">${fichaHTML(f.a, f.b, true)}</div>`).join('');
+  $('#napp').textContent = J.manos[APP].length;
+  $('#nmon').textContent = J.monton.length;
+  $('#pts').textContent = L < 0 ? '—' : `${L} y ${R}`;
   $('#marc').textContent = `${S.score.yo} – ${S.score.app}`;
-  const puedo = S.mano.some(cabe);
-  $('#b-robar').style.display = S.turno === 'yo' && S.jugando && !puedo && S.monton.length ? '' : 'none';
-  $('#b-pasar').style.display = S.turno === 'yo' && S.jugando && !puedo && !S.monton.length ? '' : 'none';
+  const puedo = jugables.size > 0;
+  $('#b-robar').style.display = miTurno() && !puedo && J.monton.length ? '' : 'none';
+  $('#b-pasar').style.display = miTurno() && !puedo && !J.monton.length ? '' : 'none';
 }
 
 function avisa(txt) {
   const el = $('#estado');
-  if (el) el.textContent = txt || (S.turno === 'yo' ? 'Tu turno' : 'Piensa la app…');
+  if (el) el.textContent = txt || (miTurno() ? 'Tu turno' : 'Piensa la app…');
 }
 
 function tapFicha(k) {
-  if (S.turno !== 'yo' || !S.jugando) return;
-  const f = S.mano[k];
-  if (!cabe(f)) return;
-  if (!S.cadena.length) return colocarMia(k, 'der');
-  const [L, R] = puntas();
-  const izq = f.a === L || f.b === L, der = f.a === R || f.b === R;
-  if (izq && der && L !== R) {
+  if (!$('#msg')) return;  // el jugador ya se fue de la pantalla
+  if (!miTurno()) return;
+  const ops = misLegales().filter((o) => o.k === k);
+  if (!ops.length) {
+    if (!S.J.cadena.length) $('#msg').textContent = 'Sale la mula más alta: esa no';
+    return;
+  }
+  if (ops.length === 2) {
     S.pend = S.pend === k ? -1 : k;
     paint();
     $('#msg').textContent = S.pend >= 0 ? 'Elige punta: ◀ o ▶' : '';
     return;
   }
-  colocarMia(k, izq ? 'izq' : 'der');
+  colocarMia(k, ops[0].lado);
 }
 
 function colocarMia(k, lado) {
+  if (!$('#msg')) return;  // el jugador ya se fue de la pantalla
   S.pend = -1;
   $('#msg').textContent = '';
-  colocar(S.mano, k, lado);
+  coloca(S.J, YO, k, lado);
   vibrate(10);
-  if (!S.mano.length) return finMano('yo');
-  S.turno = 'app';
+  if (!S.J.manos[YO].length) { paint(); return finMano('yo'); }
+  S.J.turno = APP;
   paint(); avisa();
   ajustaScroll(lado);
   setTimeout(turnoApp, 700 + randInt(600));
@@ -240,76 +482,74 @@ function colocarMia(k, lado) {
 
 function ajustaScroll(lado) {
   const m = $('#mesa');
-  if (m) m.scrollLeft = lado === 'izq' ? 0 : m.scrollWidth;
+  if (m) m.scrollTop = lado === 'izq' ? 0 : m.scrollHeight;
 }
 
 function robar() {
-  if (S.turno !== 'yo' || !S.monton.length) return;
-  S.mano.push(S.monton.pop());
-  S.robadas++;
-  const [L, R] = puntas();
-  S.sinSalida.add(L); S.sinSalida.add(R);
+  if (!miTurno() || !S.J.monton.length) return;
+  apuntaAtranque(S.J, YO);
+  S.J.manos[YO].push(S.J.monton.pop());
   vibrate(8);
   paint();
 }
 
 function pasar() {
-  if (S.turno !== 'yo') return;
-  const [L, R] = puntas();
-  S.sinSalida.add(L); S.sinSalida.add(R);
-  S.pases++;
-  if (S.pases >= 2) return cerrada();
-  S.turno = 'app';
+  if (!miTurno()) return;
+  apuntaAtranque(S.J, YO);
+  S.J.pases++;
+  if (S.J.pases >= 2) return cerrada();
+  S.J.turno = APP;
   paint(); avisa();
   setTimeout(turnoApp, 800);
 }
 
 function turnoApp() {
-  if (!S.jugando || S.turno !== 'app') return;
+  if (!S.jugando || S.J.turno !== APP) return;
   let robo = 0;
   let el = appElige();
-  while (!el && S.monton.length) { S.manoApp.push(S.monton.pop()); robo++; el = appElige(); }
+  while (!el && S.J.monton.length) {
+    apuntaAtranque(S.J, APP);
+    S.J.manos[APP].push(S.J.monton.pop());
+    robo++;
+    el = appElige();
+  }
   if (!el) {
-    S.pases++;
+    apuntaAtranque(S.J, APP);
+    S.J.pases++;
     avisa('La app pasa');
     paint();
-    if (S.pases >= 2) return setTimeout(cerrada, 700);
-    S.turno = 'yo';
+    if (S.J.pases >= 2) return setTimeout(cerrada, 700);
+    S.J.turno = YO;
     setTimeout(() => { paint(); avisa(); }, 800);
     return;
   }
-  colocar(S.manoApp, el.k, el.lado);
-  if (robo) avisa(`La app robó ${robo} y jugó`);
-  if (!S.manoApp.length) { paint(); return finMano('app'); }
-  S.turno = 'yo';
+  coloca(S.J, APP, el.k, el.lado);
+  if (!S.J.manos[APP].length) { paint(); return finMano('app'); }
+  S.J.turno = YO;
   paint();
-  if (!robo) avisa();
+  avisa(robo ? `La app robó ${robo} y jugó` : undefined);
   ajustaScroll(el.lado);
 }
 
-const pipsDe = (mano) => mano.reduce((s, f) => s + f.a + f.b, 0);
-
 function finMano(quien) {
   S.jugando = false;
-  const tuyos = pipsDe(S.mano), suyos = pipsDe(S.manoApp);
+  const tuyos = pips(S.J.manos[YO]), suyos = pips(S.J.manos[APP]);
   ganador(quien, `Se quedó sin fichas. Tú cargabas ${tuyos} puntos; la app, ${suyos}.`);
 }
 
 function cerrada() {
   S.jugando = false;
-  const tuyos = pipsDe(S.mano), suyos = pipsDe(S.manoApp);
+  const tuyos = pips(S.J.manos[YO]), suyos = pips(S.J.manos[APP]);
   const quien = tuyos < suyos ? 'yo' : suyos < tuyos ? 'app' : 'emp';
   ganador(quien, `Juego cerrado: tú sumas ${tuyos} puntos y la app ${suyos}.`);
 }
 
 function ganador(quien, porque) {
-  let titulo;
+  let titulo, pie = '';
   if (quien === 'yo') {
     titulo = '¡Ganaste la mano!';
     S.score.yo++;
-    const wins = store.get('domino.wins', 0) + 1;
-    store.set('domino.wins', wins);
-    store.set('dom.hub', 'Manos ganadas: ' + wins);
+    pie = `<p style="text-align:center;">Llevas <b>${anotaVictoria(S.diff)}</b> mano(s) ganada(s) en <b>${DIFF_LABEL[S.diff]}</b></p>`;
     confetti(); vibrate([30, 60, 30]);
   } else if (quien === 'app') { titulo = 'La app ganó la mano'; S.score.app++; }
   else { titulo = 'Empate'; S.score.emp++; }
@@ -319,6 +559,7 @@ function ganador(quien, porque) {
       <h3>${titulo}</h3>
       <p style="text-align:center;">${esc(porque)}</p>
       <p style="text-align:center;">Marcador: <b>${S.score.yo}</b> – <b>${S.score.emp}</b> – <b>${S.score.app}</b></p>
+      ${pie}
       <div class="m-actions">
         <button class="btn btn-primary" id="m-again">Otra mano</button>
         <button class="btn btn-ghost" id="m-out">Salir</button>

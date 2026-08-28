@@ -46,10 +46,10 @@
 'use strict';
 
 const CFG = {
-  facil:   { n: 5, sombra: 5 },
-  normal:  { n: 6, sombra: 8 },
-  dificil: { n: 7, sombra: 10 },
-  experto: { n: 8, sombra: 13 },
+  facil:   { n: 5 },
+  normal:  { n: 6 },
+  dificil: { n: 7 },
+  experto: { n: 8 },
 };
 
 const S = {
@@ -60,7 +60,8 @@ const S = {
 
 const REGLAS = `<p><b>Tacha números</b> (tocando una vez) hasta que en cada fila y columna no quede <b>ningún número repetido</b> sin tachar.</p>
 <p>Dos reglas más: los tachones <b>no pueden tocarse</b> en horizontal ni vertical, y las casillas sin tachar deben quedar <b>todas conectadas</b> entre sí.</p>
-<p>Un segundo toque pone un círculo (para apuntar «esta es buena») y el tercero la deja normal.</p>`;
+<p>Un segundo toque pone un círculo (para apuntar «esta es buena») y el tercero la deja normal.</p>
+<p>Cada tablero tiene <b>una sola solución</b> y sale razonando. Los números en <b>rojo</b> son los que ahora mismo te siguen quedando repetidos: avisan de dónde falta trabajo, no de cuál hay que tachar.</p>`;
 
 /* ── Generador ───────────────────────────────────────────────────────── */
 function conectadas(n, negras, extra) {
@@ -81,35 +82,179 @@ function conectadas(n, negras, extra) {
   return vista.size === total;
 }
 
-function genPuzzle() {
-  const { n, sombra } = CFG[S.diff];
-  const I = (r, c) => r * n + c;
-  // Cuadrado latino barajado
-  const rp = shuffle([...Array(n).keys()]), cp = shuffle([...Array(n).keys()]), sp = shuffle([...Array(n).keys()]);
-  const val = new Array(n * n);
-  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) val[I(r, c)] = sp[(rp[r] + cp[c]) % n] + 1;
-  // Elegir tachones: sin tocarse y sin partir las blancas
-  const negras = new Set();
-  for (const i of shuffle(val.map((_, k) => k))) {
-    if (negras.size >= sombra) break;
-    const r = Math.floor(i / n), c = i % n;
-    const vecinos = [r > 0 ? i - n : -1, r < n - 1 ? i + n : -1, c > 0 ? i - 1 : -1, c < n - 1 ? i + 1 : -1];
-    if (vecinos.some((j) => j >= 0 && negras.has(j))) continue;
-    if (!conectadas(n, negras, i)) continue;
-    negras.add(i);
+/* ── Resolutor: cuenta soluciones (deducción + ramificación) ───────────── */
+function vecinos4(n) {
+  const v = [];
+  for (let i = 0; i < n * n; i++) {
+    const r = Math.floor(i / n), c = i % n, o = [];
+    if (r > 0) o.push(i - n);
+    if (r < n - 1) o.push(i + n);
+    if (c > 0) o.push(i - 1);
+    if (c < n - 1) o.push(i + 1);
+    v.push(o);
   }
-  // Cada tachón copia un valor blanco de su fila o columna (crea el repetido)
-  for (const i of negras) {
-    const r = Math.floor(i / n), c = i % n;
-    const fuentes = [];
-    for (let k = 0; k < n; k++) {
-      if (k !== c && !negras.has(I(r, k))) fuentes.push(I(r, k));
-      if (k !== r && !negras.has(I(k, c))) fuentes.push(I(k, c));
+  return v;
+}
+
+/* Grupos: celdas con el mismo valor dentro de una fila o de una columna.
+   En la solución, de cada grupo queda blanca exactamente una. */
+function gruposDe(val, n) {
+  const gr = [];
+  const meter = (idxs) => {
+    const por = new Map();
+    for (const i of idxs) {
+      if (!por.has(val[i])) por.set(val[i], []);
+      por.get(val[i]).push(i);
     }
-    if (fuentes.length) val[i] = val[fuentes[randInt(fuentes.length)]];
+    for (const arr of por.values()) if (arr.length > 1) gr.push(arr);
+  };
+  for (let r = 0; r < n; r++) meter(Array.from({ length: n }, (_, c) => r * n + c));
+  for (let c = 0; c < n; c++) meter(Array.from({ length: n }, (_, r) => r * n + c));
+  return gr;
+}
+
+// est: 0 sin decidir · 1 blanca · 2 tachada
+function propagaHitori(est, n, vec, gr) {
+  let cambio = true;
+  while (cambio) {
+    cambio = false;
+    for (let i = 0; i < n * n; i++) {
+      if (est[i] === 2) {
+        for (const j of vec[i]) {
+          if (est[j] === 2) return false;          // dos tachones pegados
+          if (est[j] === 0) { est[j] = 1; cambio = true; }
+        }
+      }
+    }
+    for (let k = 0; k < gr.length; k++) {
+      const g = gr[k];
+      let blancas = 0, negras = 0;
+      for (const i of g) { if (est[i] === 1) blancas++; else if (est[i] === 2) negras++; }
+      if (blancas > 1) return false;               // dos iguales sin tachar en la misma línea
+      // si una queda blanca, las demás del grupo van tachadas
+      if (blancas === 1 && negras < g.length - 1) {
+        for (const i of g) if (est[i] === 0) { est[i] = 2; cambio = true; }
+      }
+    }
   }
-  S.n = n; S.val = val; S.estado = new Array(n * n).fill(0);
-  S.solNegras = [...negras]; // una solución válida conocida
+  // las casillas que no están tachadas deben poder seguir conectadas
+  let inicio = -1, total = 0;
+  for (let i = 0; i < n * n; i++) if (est[i] !== 2) { total++; if (inicio < 0) inicio = i; }
+  if (inicio < 0) return false;
+  const vista = new Uint8Array(n * n);
+  const cola = [inicio];
+  vista[inicio] = 1;
+  let vistos = 1;
+  while (cola.length) {
+    const i = cola.pop();
+    for (const j of vec[i]) if (est[j] !== 2 && !vista[j]) { vista[j] = 1; vistos++; cola.push(j); }
+  }
+  return vistos === total;
+}
+
+/* Cuenta soluciones según las reglas tal cual: sin repetidos blancos, sin tachones
+   pegados y blancas conectadas. NO da por hecho que una casilla sin repetidos
+   tenga que quedar blanca: tacharla de más también sería una solución válida. */
+function contarHitori(val, n, limite) {
+  const vec = vecinos4(n);
+  const gr = gruposDe(val, n);
+  let total = 0, pasos = 0, cortado = false;
+  function bt(est0) {
+    if (total >= limite || cortado) return;
+    if (++pasos > 300000) { cortado = true; return; }
+    const est = est0.slice();
+    if (!propagaHitori(est, n, vec, gr)) return;
+    let elegida = -1;
+    for (let k = 0; k < gr.length && elegida < 0; k++) {
+      for (const i of gr[k]) if (est[i] === 0) { elegida = i; break; }
+    }
+    if (elegida < 0) for (let i = 0; i < n * n; i++) if (est[i] === 0) { elegida = i; break; }
+    if (elegida < 0) { total++; return; }
+    for (const v of [2, 1]) {
+      const e2 = est.slice(); e2[elegida] = v;
+      bt(e2);
+      if (total >= limite) return;
+    }
+  }
+  bt(new Uint8Array(n * n));
+  return cortado ? limite : total;
+}
+
+/* ── Generador ───────────────────────────────────────────────────────── */
+/* Tachones: conjunto MÁXIMO de casillas no pegadas que deja las blancas conectadas.
+   Que sea máximo es lo que hace única la solución: si sobrara una blanca que se
+   pudiera tachar sin romper nada, tacharla sería otra solución igual de válida. */
+function elegirNegras(n) {
+  const negras = new Set();
+  for (let pasada = 0; pasada < 3; pasada++) {
+    for (const i of shuffle([...Array(n * n).keys()])) {
+      if (negras.has(i)) continue;
+      const r = Math.floor(i / n), c = i % n;
+      const vs = [r > 0 ? i - n : -1, r < n - 1 ? i + n : -1, c > 0 ? i - 1 : -1, c < n - 1 ? i + 1 : -1];
+      if (vs.some((j) => j >= 0 && negras.has(j))) continue;
+      if (!conectadas(n, negras, i)) continue;
+      negras.add(i);
+    }
+  }
+  return negras;
+}
+
+/* ¿Ya no cabe ni un tachón más? (si cabe, habría más de una solución) */
+function esMaximo(n, negras) {
+  for (let i = 0; i < n * n; i++) {
+    if (negras.has(i)) continue;
+    const r = Math.floor(i / n), c = i % n;
+    const vs = [r > 0 ? i - n : -1, r < n - 1 ? i + n : -1, c > 0 ? i - 1 : -1, c < n - 1 ? i + 1 : -1];
+    if (vs.some((j) => j >= 0 && negras.has(j))) continue;
+    if (conectadas(n, negras, i)) return false;
+  }
+  return true;
+}
+
+function genPuzzle() {
+  const { n } = CFG[S.diff];
+  const I = (r, c) => r * n + c;
+  const tope = performance.now() + 1400;
+  let ultimo = null;
+  for (let intento = 0; intento < 600; intento++) {
+    // 1) cuadrado latino barajado: sin repetidos, todas las líneas completas
+    const rp = shuffle([...Array(n).keys()]), cp = shuffle([...Array(n).keys()]), sp = shuffle([...Array(n).keys()]);
+    const val = new Array(n * n);
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) val[I(r, c)] = sp[(rp[r] + cp[c]) % n] + 1;
+    // 2) tachones
+    const negras = elegirNegras(n);
+    const maximo = esMaximo(n, negras);
+    // 3) valores de los tachones: todos los de una misma línea copian el MISMO
+    //    número blanco, así ese número sale tres o más veces en la línea.
+    const pendientes = new Set(negras);
+    const lineas = [];
+    for (let r = 0; r < n; r++) lineas.push(Array.from({ length: n }, (_, c) => I(r, c)));
+    for (let c = 0; c < n; c++) lineas.push(Array.from({ length: n }, (_, r) => I(r, c)));
+    while (pendientes.size) {
+      // la línea con más tachones sin número todavía
+      let mejor = null, mejorN = 0;
+      for (const L of shuffle(lineas)) {
+        const k = L.reduce((s, i) => s + (pendientes.has(i) ? 1 : 0), 0);
+        if (k > mejorN) { mejorN = k; mejor = L; }
+      }
+      if (!mejor) break;
+      const blancas = mejor.filter((i) => !negras.has(i));
+      if (!blancas.length) { mejor.forEach((i) => pendientes.delete(i)); continue; }
+      const v = val[blancas[randInt(blancas.length)]];
+      for (const i of mejor) if (pendientes.has(i)) { val[i] = v; pendientes.delete(i); }
+    }
+    // 4) ¿solución única?
+    ultimo = { val, negras };
+    if (maximo && contarHitori(val, n, 2) === 1) {
+      S.n = n; S.val = val; S.estado = new Array(n * n).fill(0);
+      S.solNegras = [...negras];
+      return;
+    }
+    if (performance.now() > tope) break;
+  }
+  // salvavidas: casi nunca ocurre
+  S.n = n; S.val = ultimo.val; S.estado = new Array(n * n).fill(0);
+  S.solNegras = [...ultimo.negras];
 }
 
 /* ── Validación ──────────────────────────────────────────────────────── */

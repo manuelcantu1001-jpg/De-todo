@@ -15,7 +15,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
-  .lwrap { display: flex; justify-content: center; padding: 22px 16px 0; }
+  .lwrap { display: flex; justify-content: center; padding: 18px 16px 0; }
   .lgrid { display: grid; gap: 8px; width: min(88vw, 360px); }
   .lc {
     aspect-ratio: 1; border: none; border-radius: 13px 19px 16px 18px / 12px 12px 17px 18px; cursor: pointer; padding: 0;
@@ -24,8 +24,11 @@
   .lc.on {
     background: var(--warn); box-shadow: 0 0 22px -2px var(--warn), var(--shadow);
   }
-  .marcador { display: flex; justify-content: center; gap: 20px; padding-top: 18px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
+  .marcador { display: flex; justify-content: center; gap: 18px; padding-top: 16px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
   .marcador b { color: var(--bg-ink); font-size: 15px; }
+  .marcador .sobre { color: var(--good); }
+  .marcador .sobre.mal { color: var(--bad); }
+  .pie { text-align: center; font-size: 12px; color: var(--faint); font-weight: 600; padding-top: 12px; }
   .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
   .tool { border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600;
     font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
@@ -41,26 +44,82 @@
 <script>
 'use strict';
 
+/* min = mínimo real que se le exige al tablero (se calcula, no se estima) */
 const CFG = {
-  facil:   { n: 4, mezcla: 5 },
-  normal:  { n: 5, mezcla: 9 },
-  dificil: { n: 5, mezcla: 15 },
-  experto: { n: 6, mezcla: 22 },
+  facil:   { n: 4, mezcla: 6,  min: 4 },
+  normal:  { n: 5, mezcla: 10, min: 7 },
+  dificil: { n: 6, mezcla: 16, min: 11 },
+  experto: { n: 7, mezcla: 24, min: 16 },
 };
 
 const S = {
   diff: store.get('luces.diff', 'normal'),
-  n: 0, luz: null, moves: 0, jugando: false,
+  n: 0, luz: null, moves: 0, opt: 0, jugando: false,
 };
 
 const REGLAS = `<p>Apaga <b>todas las luces</b>. Cada toque invierte esa casilla <b>y sus cuatro vecinas</b> (la de arriba, abajo, izquierda y derecha).</p>
-<p>El tablero se revuelve con toques al azar, así que <b>siempre tiene solución</b>. Tu marca es apagarlo en la menor cantidad de movimientos.</p>
+<p>Arriba ves el <b>óptimo</b>: el número exacto de toques con el que se puede apagar ese tablero. Lo calcula el juego resolviendo el tablero, así que no es una estimación.</p>
+<p>Tu marca no es cuántos toques diste, sino <b>cuántos te sobraron</b>: 0 = clavado en el óptimo. Así da igual que un tablero salga fácil, porque se compara contra su propio mínimo.</p>
 <p>Pista clásica: fíjate en qué luces de la fila de arriba siguen prendidas y «persíguelas» tocando justo debajo.</p>`;
+
+/* ── Mínimo real del tablero: sistema lineal en GF(2) ────────────────── */
+function vecindad(i, n) {
+  const r = Math.floor(i / n), c = i % n, out = [i];
+  if (r > 0) out.push(i - n);
+  if (r < n - 1) out.push(i + n);
+  if (c > 0) out.push(i - 1);
+  if (c < n - 1) out.push(i + 1);
+  return out;
+}
+const bits = (v) => { let k = 0; while (v) { v &= v - 1n; k++; } return k; };
+
+/* Devuelve el número mínimo de toques para apagar «luz», o null si no tiene
+   solución. Eliminación gaussiana + recorrido del núcleo (a lo sumo 2^4). */
+function optimo(luz, n) {
+  const N = n * n;
+  const filas = [];
+  for (let i = 0; i < N; i++) {
+    let m = 0n;
+    for (const j of vecindad(i, n)) m |= 1n << BigInt(j);
+    if (luz[i]) m |= 1n << BigInt(N);
+    filas.push(m);
+  }
+  const pivotes = [];
+  let r = 0;
+  for (let c = 0; c < N && r < N; c++) {
+    let p = -1;
+    for (let i = r; i < N; i++) if ((filas[i] >> BigInt(c)) & 1n) { p = i; break; }
+    if (p < 0) continue;
+    const t = filas[r]; filas[r] = filas[p]; filas[p] = t;
+    for (let i = 0; i < N; i++) if (i !== r && ((filas[i] >> BigInt(c)) & 1n)) filas[i] ^= filas[r];
+    pivotes.push(c); r++;
+  }
+  for (let i = r; i < N; i++) if (filas[i] === (1n << BigInt(N))) return null;
+  let x0 = 0n;
+  for (let i = 0; i < pivotes.length; i++) if ((filas[i] >> BigInt(N)) & 1n) x0 |= 1n << BigInt(pivotes[i]);
+  const esPiv = new Set(pivotes);
+  const base = [];
+  for (let c = 0; c < N; c++) {
+    if (esPiv.has(c)) continue;
+    let v = 1n << BigInt(c);
+    for (let i = 0; i < pivotes.length; i++) if ((filas[i] >> BigInt(c)) & 1n) v |= 1n << BigInt(pivotes[i]);
+    base.push(v);
+  }
+  let mejor = bits(x0);
+  const k = base.length;
+  for (let m = 1; m < (1 << k); m++) {
+    let v = x0;
+    for (let j = 0; j < k; j++) if (m & (1 << j)) v ^= base[j];
+    const w = bits(v);
+    if (w < mejor) mejor = w;
+  }
+  return mejor;
+}
 
 function renderSetup() {
   const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
-    const b = store.get('luces.best.' + d, 0);
-    return `<div class="b"><div class="bn">${b || '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+    const b = store.get('luces.mejor.' + d, null);
+    return `<div class="b"><div class="bn">${b == null ? '—' : '+' + b}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
   }).join('');
   $('#app').innerHTML = `
   <div class="screen">
@@ -70,13 +129,13 @@ function renderSetup() {
         <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div><div class="row-hint" id="d-hint"></div></div>
         ${diffSegHTML('seg-d', S.diff)}
       </div>
-      <div class="label-sm" style="margin-top:4px;">Menos movimientos</div>
+      <div class="label-sm" style="margin-top:4px;">Toques de más sobre el óptimo</div>
       <div class="bests">${bests}</div>
       <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
       <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
   </div>`;
-  const hint = () => { $('#d-hint').textContent = `${CFG[S.diff].n}×${CFG[S.diff].n}`; };
+  const hint = () => { $('#d-hint').textContent = `${CFG[S.diff].n}×${CFG[S.diff].n} · mínimo ${CFG[S.diff].min}+`; };
   hint();
   bindSeg('seg-d', (v) => { S.diff = v; store.set('luces.diff', v); hint(); });
   $('#new').onclick = startGame;
@@ -84,21 +143,23 @@ function renderSetup() {
 }
 
 function toggle(luz, n, i) {
-  const r = Math.floor(i / n), c = i % n;
-  luz[i] = !luz[i];
-  if (r > 0) luz[i - n] = !luz[i - n];
-  if (r < n - 1) luz[i + n] = !luz[i + n];
-  if (c > 0) luz[i - 1] = !luz[i - 1];
-  if (c < n - 1) luz[i + 1] = !luz[i + 1];
+  for (const j of vecindad(i, n)) luz[j] = !luz[j];
 }
 
 function startGame() {
-  const { n, mezcla } = CFG[S.diff];
+  const { n, mezcla, min } = CFG[S.diff];
   S.n = n;
-  do {
-    S.luz = new Array(n * n).fill(false);
-    for (let k = 0; k < mezcla; k++) toggle(S.luz, n, randInt(n * n));
-  } while (!S.luz.includes(true));
+  let mejor = null, mejorOpt = -1;
+  for (let intento = 0; intento < 400; intento++) {
+    const luz = new Array(n * n).fill(false);
+    for (let k = 0; k < mezcla; k++) toggle(luz, n, randInt(n * n));
+    if (!luz.includes(true)) continue;
+    const o = optimo(luz, n);
+    if (o == null) continue;
+    if (o > mejorOpt) { mejorOpt = o; mejor = luz; }
+    if (o >= min) break;
+  }
+  S.luz = mejor; S.opt = mejorOpt;
   S.moves = 0; S.jugando = true;
   renderPlay();
 }
@@ -107,12 +168,17 @@ function renderPlay() {
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Luces fuera', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
-    <div class="marcador"><span>Movimientos <b id="mv">0</b></span><span>Prendidas <b id="on">0</b></span></div>
+    <div class="marcador">
+      <span>Toques <b id="mv">0</b></span>
+      <span>Óptimo <b id="op">${S.opt}</b></span>
+      <span>Prendidas <b id="on">0</b></span>
+    </div>
     <div class="lwrap">
       <div class="lgrid" id="lgrid" style="grid-template-columns: repeat(${S.n}, 1fr);">
         ${S.luz.map((_, i) => `<button class="lc" data-i="${i}"></button>`).join('')}
       </div>
     </div>
+    <div class="pie" id="pie">Se puede apagar en ${S.opt} toques</div>
     <div class="tools">
       <button class="tool" id="t-otra">Revolver otra vez</button>
       <button class="tool" id="t-salir">Salir</button>
@@ -131,6 +197,13 @@ function paint() {
   $$('.lc').forEach((el) => el.classList.toggle('on', S.luz[Number(el.dataset.i)]));
   $('#mv').textContent = S.moves;
   $('#on').textContent = S.luz.filter(Boolean).length;
+  const falta = optimo(S.luz, S.n);
+  const sobra = S.moves + (falta == null ? 0 : falta) - S.opt;
+  $('#pie').innerHTML = S.moves === 0
+    ? `Se puede apagar en ${S.opt} toques`
+    : (sobra === 0
+      ? 'Vas clavado en el camino corto'
+      : `Llevas <b>${sobra}</b> toque${sobra === 1 ? '' : 's'} de más`);
 }
 
 function tap(i) {
@@ -144,20 +217,26 @@ function tap(i) {
 
 function ganar() {
   S.jugando = false;
-  const best = store.get('luces.best.' + S.diff, 0);
-  const isRecord = !best || S.moves < best;
+  const sobra = S.moves - S.opt;
+  const k = 'luces.mejor.' + S.diff;
+  const best = store.get(k, null);
+  const isRecord = best == null || sobra < best;
   if (isRecord) {
-    store.set('luces.best.' + S.diff, S.moves);
-    store.set('luz.hub', `Mejor: ${S.moves} mov.`);
+    store.set(k, sobra);
+    store.set('luz.hub', sobra === 0 ? `Óptimo clavado · ${DIFF_LABEL[S.diff]}` : `+${sobra} sobre el óptimo · ${DIFF_LABEL[S.diff]}`);
   }
   confetti(); vibrate([30, 60, 30]);
   setTimeout(() => {
     openModal(`
-      <h3>${isRecord ? '¡Récord!' : '¡Todas apagadas!'}</h3>
+      <h3>${sobra === 0 ? '¡Camino perfecto!' : (isRecord ? '¡Récord!' : '¡Todas apagadas!')}</h3>
       <div class="stats" style="margin:14px 0;">
-        <div class="stat"><div class="n">${S.moves}</div><div class="l">movimientos</div></div>
-        <div class="stat"><div class="n">${isRecord ? S.moves : best}</div><div class="l">mejor</div></div>
+        <div class="stat"><div class="n">${S.moves}</div><div class="l">toques</div></div>
+        <div class="stat"><div class="n">${S.opt}</div><div class="l">óptimo</div></div>
+        <div class="stat"><div class="n">+${sobra}</div><div class="l">de más</div></div>
       </div>
+      <p style="text-align:center;">${sobra === 0
+        ? 'No se podía apagar con menos.'
+        : `Tu mejor marca en ${DIFF_LABEL[S.diff]}: <b>+${isRecord ? sobra : best}</b> sobre el óptimo.`}</p>
       <div class="m-actions">
         <button class="btn btn-primary" id="m-again">Otro tablero</button>
         <button class="btn btn-ghost" id="m-out">Salir</button>

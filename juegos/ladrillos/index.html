@@ -38,16 +38,23 @@
 'use strict';
 
 const W = 360, H = 500;
+/* La velocidad va en píxeles por PASO de 16,67 ms (60 pasos por segundo),
+   no por cuadro: el bucle la normaliza con delta time, así que la bola
+   corre igual en una pantalla de 60 Hz que en una de 120 Hz. */
+const PASO_MS = 1000 / 60;
 const CFG = { facil: 3.2, normal: 4.0, dificil: 4.8, experto: 5.6 };
+const ANG_MAX = Math.PI / 3;   // ±60° respecto de la vertical: nunca un rebote rasante
+const VY_MIN = 0.45;           // la bola siempre sube o baja al menos a este ritmo
+const SENS = 1.4;              // cuánto corre la paleta por cada píxel de dedo
 
 const S = {
   diff: store.get('ladrillos.diff', 'normal'),
   x: W / 2, y: 0, vx: 0, vy: 0, px: W / 2, pw: 86,
   ladrillos: [], nivel: 1, vidas: 3, score: 0,
-  lanzada: false, jugando: false, rafId: 0,
+  lanzada: false, jugando: false, rafId: 0, ultimo: 0,
 };
 
-const REGLAS = `<p>Mueve la <b>paleta</b> arrastrando el dedo por el tablero y rebota la bola para <b>romper todos los ladrillos</b>. Toca para lanzar.</p>
+const REGLAS = `<p><b>Arrastra</b> el dedo por cualquier parte del tablero para mover la paleta: se mueve <b>lo que se mueva tu dedo</b>, así que no hace falta taparla. <b>Un toque</b> (sin arrastrar) saca la bola.</p>
 <p>El punto de la paleta donde pega la bola cambia el ángulo del rebote: úsalo para apuntar. Si la bola cae abajo, pierdes una de tus <b>3 vidas</b>.</p>
 <p>Cada nivel limpio trae un patrón nuevo y más velocidad (la paleta también se encoge un poco). Tu marca es la puntuación.</p>`;
 
@@ -70,56 +77,91 @@ function resetBola() {
   const vel = CFG[S.diff] + (S.nivel - 1) * 0.35;
   const ang = -Math.PI / 2 + (Math.random() * 0.7 - 0.35);
   S.vx = Math.cos(ang) * vel; S.vy = Math.sin(ang) * vel;
+  enderezar();
+}
+
+/* Nunca dejes que la bola viaje casi horizontal: los finales de nivel
+   se volvían eternos persiguiendo los dos últimos ladrillos. */
+function enderezar() {
+  const vel = Math.hypot(S.vx, S.vy);
+  if (!vel) return;
+  const min = vel * VY_MIN;
+  if (Math.abs(S.vy) < min) {
+    S.vy = (S.vy < 0 ? -1 : 1) * min;
+    S.vx = (S.vx < 0 ? -1 : 1) * Math.sqrt(Math.max(0, vel * vel - S.vy * S.vy));
+  }
 }
 
 /* ── Bucle ───────────────────────────────────────────────────────────── */
-let ctx = null, COLORES = [], dpr = 1;
-function paso() {
+let ctx = null, COLORES = [], INK = '#141413', dpr = 1;
+
+/* Un sub-paso de física. `f` es la fracción de paso de 16,67 ms que avanza. */
+function avanzar(f) {
+  S.x += S.vx * f; S.y += S.vy * f;
+  if (S.x < 8) { S.x = 8; S.vx = -S.vx; }
+  if (S.x > W - 8) { S.x = W - 8; S.vx = -S.vx; }
+  if (S.y < 8) { S.y = 8; S.vy = -S.vy; }
+  // paleta
+  const py = H - 30;
+  if (S.vy > 0 && S.y > py - 8 && S.y < py + 10 && Math.abs(S.x - S.px) < S.pw / 2 + 8) {
+    const rel = Math.max(-1, Math.min(1, (S.x - S.px) / (S.pw / 2)));
+    const vel = Math.hypot(S.vx, S.vy);
+    const ang = -Math.PI / 2 + rel * ANG_MAX;
+    S.vx = Math.cos(ang) * vel; S.vy = Math.sin(ang) * vel;
+    enderezar();
+    S.y = py - 9;
+    vibrate(4);
+  }
+  // ladrillos
+  for (let i = 0; i < S.ladrillos.length; i++) {
+    const b = S.ladrillos[i];
+    if (S.x > b.x - 8 && S.x < b.x + b.w + 8 && S.y > b.y - 8 && S.y < b.y + b.h + 8) {
+      const dx = Math.min(S.x - (b.x - 8), (b.x + b.w + 8) - S.x);
+      const dy = Math.min(S.y - (b.y - 8), (b.y + b.h + 8) - S.y);
+      if (dx < dy) S.vx = -S.vx; else S.vy = -S.vy;
+      S.ladrillos.splice(i, 1);
+      S.score += 10 * S.nivel;
+      vibrate(6);
+      break;
+    }
+  }
+  if (!S.ladrillos.length) {
+    S.nivel++;
+    S.score += 100;
+    armarNivel();
+    resetBola();
+    aviso(`Nivel ${S.nivel}`);
+    return false;   // corta los sub-pasos: el nivel es otro
+  }
+  if (S.y > H + 10) {
+    S.vidas--;
+    if (S.vidas <= 0) { terminar(); return false; }
+    S.lanzada = false;
+    aviso('Se fue la bola');
+    return false;
+  }
+  return true;
+}
+
+function paso(ts) {
   if (!S.jugando) return;
+  if (!S.ultimo) S.ultimo = ts;
+  // Delta time contra el paso fijo de 16,67 ms. Con el tope de 3 pasos,
+  // volver de segundo plano no teletransporta la bola.
+  let dt = (ts - S.ultimo) / PASO_MS;
+  S.ultimo = ts;
+  if (!(dt > 0)) dt = 0;
+  if (dt > 3) dt = 3;
   if (S.lanzada) {
-    S.x += S.vx; S.y += S.vy;
-    if (S.x < 8) { S.x = 8; S.vx = -S.vx; }
-    if (S.x > W - 8) { S.x = W - 8; S.vx = -S.vx; }
-    if (S.y < 8) { S.y = 8; S.vy = -S.vy; }
-    // paleta
-    const py = H - 30;
-    if (S.vy > 0 && S.y > py - 8 && S.y < py + 10 && Math.abs(S.x - S.px) < S.pw / 2 + 8) {
-      const rel = (S.x - S.px) / (S.pw / 2);
-      const vel = Math.hypot(S.vx, S.vy);
-      const ang = -Math.PI / 2 + rel * 1.05;
-      S.vx = Math.cos(ang) * vel; S.vy = Math.sin(ang) * vel;
-      S.y = py - 9;
-      vibrate(4);
-    }
-    // ladrillos
-    for (let i = 0; i < S.ladrillos.length; i++) {
-      const b = S.ladrillos[i];
-      if (S.x > b.x - 8 && S.x < b.x + b.w + 8 && S.y > b.y - 8 && S.y < b.y + b.h + 8) {
-        const dx = Math.min(S.x - (b.x - 8), (b.x + b.w + 8) - S.x);
-        const dy = Math.min(S.y - (b.y - 8), (b.y + b.h + 8) - S.y);
-        if (dx < dy) S.vx = -S.vx; else S.vy = -S.vy;
-        S.ladrillos.splice(i, 1);
-        S.score += 10 * S.nivel;
-        vibrate(6);
-        break;
-      }
-    }
-    if (!S.ladrillos.length) {
-      S.nivel++;
-      S.score += 100;
-      armarNivel();
-      resetBola();
-      aviso(`Nivel ${S.nivel}`);
-    }
-    if (S.y > H + 10) {
-      S.vidas--;
-      if (S.vidas <= 0) return terminar();
-      S.lanzada = false;
-      aviso('Se fue la bola');
-    }
+    // Sub-pasos de 4 px como mucho: a 120 Hz o a 30 Hz la bola nunca
+    // atraviesa un ladrillo ni la paleta.
+    const vel = Math.hypot(S.vx, S.vy) || 1;
+    const n = Math.max(1, Math.ceil(vel * dt / 4));
+    for (let k = 0; k < n; k++) if (!avanzar(dt / n)) break;
   } else {
     S.x = S.px; S.y = H - 46;
   }
+  if (!S.jugando) return;
   dibujar();
   hud();
   S.rafId = requestAnimationFrame(paso);
@@ -133,7 +175,7 @@ function dibujar() {
     ctx.roundRect(b.x, b.y, b.w, b.h, 5);
     ctx.fill();
   }
-  ctx.fillStyle = COLORES[0];
+  ctx.fillStyle = INK;   // la paleta es de tinta: nunca se confunde con un ladrillo
   ctx.beginPath();
   ctx.roundRect(S.px - S.pw / 2, H - 30, S.pw, 12, 6);
   ctx.fill();
@@ -182,7 +224,7 @@ function renderSetup() {
 }
 
 function startGame() {
-  S.nivel = 1; S.vidas = 3; S.score = 0; S.px = W / 2;
+  S.nivel = 1; S.vidas = 3; S.score = 0; S.px = W / 2; S.ultimo = 0;
   armarNivel();
   S.jugando = true;
   renderPlay();
@@ -198,7 +240,7 @@ function renderPlay() {
   <div class="screen">
     ${topbarHTML('Ladrillos', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
     <div class="marcador"><span>Puntos <b id="h-score">0</b></span><span>Nivel <b id="h-nivel">1</b></span><span>Vidas <b id="h-vidas"></b></span></div>
-    <div class="msg" id="aviso" style="padding-top:6px;"></div>
+    <div class="msg" id="aviso" style="padding-top:6px;">Toca para sacar · arrastra para mover</div>
     <div class="lwrap">
       <canvas id="juego" width="${W * dpr}" height="${H * dpr}"></canvas>
     </div>
@@ -210,13 +252,36 @@ function renderPlay() {
   ctx = cv.getContext('2d');
   ctx.scale(dpr, dpr);
   const cs = getComputedStyle(document.body);
-  COLORES = ['--tinta-1', '--tinta-3', '--tinta-4', '--tinta-5'].map((v) => cs.getPropertyValue(v).trim()).concat([cs.getPropertyValue('--tinta-2').trim()]);
-  const mueve = (e) => {
-    const r = cv.getBoundingClientRect();
-    S.px = Math.max(S.pw / 2, Math.min(W - S.pw / 2, (e.clientX - r.left) / r.width * W));
+  COLORES = ['--tinta-1', '--tinta-3', '--tinta-4', '--tinta-5', '--tinta-2'].map((v) => cs.getPropertyValue(v).trim());
+  INK = cs.getPropertyValue('--ink').trim();
+  /* Arrastre RELATIVO: la paleta se mueve lo que se mueve el dedo, esté
+     donde esté. Así el pulgar nunca la tapa y el primer toque no la
+     teletransporta. Un toque limpio (sin arrastrar) es «sacar la bola». */
+  let gesto = null;
+  cv.onpointerdown = (e) => {
+    e.preventDefault();
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    gesto = { id: e.pointerId, ultimo: e.clientX, recorrido: 0 };
   };
-  cv.onpointerdown = (e) => { mueve(e); if (!S.lanzada) { S.lanzada = true; resetBola(); } };
-  cv.onpointermove = mueve;
+  cv.onpointermove = (e) => {
+    if (!gesto || e.pointerId !== gesto.id) return;
+    const r = cv.getBoundingClientRect();
+    const d = (e.clientX - gesto.ultimo) / r.width * W * SENS;
+    gesto.recorrido += Math.abs(e.clientX - gesto.ultimo);
+    gesto.ultimo = e.clientX;
+    S.px = Math.max(S.pw / 2, Math.min(W - S.pw / 2, S.px + d));
+  };
+  const suelta = (e) => {
+    if (!gesto || e.pointerId !== gesto.id) return;
+    const toque = gesto.recorrido < 9;   // no arrastró: es un toque
+    gesto = null;
+    if (toque && !S.lanzada) {
+      S.lanzada = true; resetBola();
+      const a = $('#aviso'); if (a) a.textContent = '';
+    }
+  };
+  cv.onpointerup = suelta;
+  cv.onpointercancel = suelta;
   $('#t-salir').onclick = renderSetup;
 }
 
