@@ -132,6 +132,17 @@ function makeClock(el) {
   };
 }
 
+/* ── «¿Cómo se juega?» estándar ──────────────────────────────────────── */
+function bindHowto(html) {
+  const b = $('#howto');
+  if (!b) return;
+  b.onclick = () => {
+    openModal(`<h3>Cómo se juega</h3>${html}
+      <div class="m-actions"><button class="btn btn-primary" id="m-howto-ok">Entendido</button></div>`, closeModal);
+    $('#m-howto-ok').onclick = closeModal;
+  };
+}
+
 /* ── Dificultades estándar ───────────────────────────────────────────── */
 const DIFF_LABEL = { facil: 'Fácil', normal: 'Normal', dificil: 'Difícil', experto: 'Experto' };
 function diffSegHTML(id, value, levels) {

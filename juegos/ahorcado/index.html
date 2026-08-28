@@ -58,6 +58,10 @@ const S = {
 };
 
 /* ── Pantallas ───────────────────────────────────────────────────────── */
+const REGLAS = `<p>Adivina la palabra oculta tocando letras. Las que sí están se colocan en su lugar; cada fallo dibuja una parte del muñeco, y al <b>sexto error</b> pierdes.</p>
+<p>Las tildes no cuentan: si la palabra lleva É, basta con tocar la E. En Fácil te regalamos la primera letra.</p>
+<p>Cada palabra adivinada alarga tu <b>racha</b>; fallar la corta. Tu mejor racha queda guardada.</p>`;
+
 function renderSetup() {
   const best = store.get('ahorcado.best', 0);
   $('#app').innerHTML = `
@@ -73,6 +77,7 @@ function renderSetup() {
         <div class="b"><div class="bn">${best || '—'}</div><div class="bl">Mejor racha</div></div>
       </div>
       <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
   </div>`;
   const hint = () => {
@@ -82,6 +87,7 @@ function renderSetup() {
   bindSeg('seg-d', (v) => { S.diff = v; store.set('ahorcado.diff', v); hint(); });
   hint();
   $('#new').onclick = () => { S.racha = 0; nextWord(); };
+  bindHowto(REGLAS);
 }
 
 function nextWord() {

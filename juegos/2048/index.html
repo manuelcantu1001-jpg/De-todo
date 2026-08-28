@@ -67,6 +67,10 @@ const S = {
   size: 4, grid: null, score: 0, over: false, won: false, keepGoing: false,
 };
 
+const REGLAS = `<p><b>Desliza</b> en cualquier dirección: todas las fichas se mueven hacia allá, y cuando chocan dos iguales se <b>suman en una</b>.</p>
+<p>Tras cada movimiento aparece una ficha nueva. Junta, suma y llega a la ficha de <b>2048</b>… y sigue después si te atreves.</p>
+<p>Pierdes cuando el tablero se llena y ya no hay movimientos posibles. En tableros más chicos hay menos aire: más difícil.</p>`;
+
 function renderSetup() {
   $('#app').innerHTML = `
   <div class="screen">
@@ -79,6 +83,7 @@ function renderSetup() {
       </div>
       <div class="bests" id="bests"></div>
       <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
   </div>`;
   const paintBests = () => {
@@ -92,6 +97,7 @@ function renderSetup() {
   bindSeg('seg-d', (v) => { S.diff = v; store.set('m2048.diff', v); hint(); paintBests(); });
   hint(); paintBests();
   $('#new').onclick = startGame;
+  bindHowto(REGLAS);
 }
 
 function startGame() {

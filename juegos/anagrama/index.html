@@ -67,6 +67,10 @@ const S = {
 };
 const clock = makeClock(() => $('#clock'));
 
+const REGLAS = `<p>Te damos las letras revueltas de una palabra real. <b>Toca las fichas</b> para ir formándola; toca una ficha ya colocada para devolverla.</p>
+<p>Al completar todas las casillas se comprueba sola. Y ojo: si formas <b>otra palabra real</b> con las mismas letras, ¡también cuenta!</p>
+<p>Son 5 palabras por partida. Puedes <b>mezclar</b> las fichas, <b>saltar</b> la que se atore o usar hasta 3 <b>pistas</b> (colocan la siguiente letra correcta).</p>`;
+
 function renderSetup() {
   clock.stop();
   const b = store.get('ana.best.' + S.diff, null);
@@ -81,6 +85,7 @@ function renderSetup() {
       </div>
       <div class="bests" id="bests"></div>
       <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar (${ROUNDS} palabras)</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
   </div>`;
   const paintBests = () => {
@@ -95,6 +100,7 @@ function renderSetup() {
   bindSeg('seg-d', (v) => { S.diff = v; store.set('ana.diff', v); hint(); paintBests(); });
   hint(); paintBests();
   $('#new').onclick = startGame;
+  bindHowto(REGLAS);
 }
 
 function startGame() {

@@ -89,6 +89,10 @@ const S = {
 };
 const clock = makeClock(() => $('#clock'));
 
+const REGLAS = `<p>Todas las cartas están boca abajo. <b>Voltea dos</b>: si tienen el mismo dibujo, se quedan descubiertas; si no, se vuelven a ocultar.</p>
+<p>Memoriza dónde viste cada dibujo para ir juntando las parejas.</p>
+<p>Cada par de volteos cuenta como un <b>movimiento</b>: gana quien complete el tablero con menos. Tu mejor marca por dificultad queda guardada.</p>`;
+
 function renderSetup() {
   clock.stop();
   $('#app').innerHTML = `
@@ -102,6 +106,7 @@ function renderSetup() {
       </div>
       <div class="bests" id="bests"></div>
       <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
   </div>`;
   const paintBests = () => {
@@ -116,6 +121,7 @@ function renderSetup() {
   bindSeg('seg-d', (v) => { S.diff = v; store.set('memo.diff', v); hint(); paintBests(); });
   hint(); paintBests();
   $('#new').onclick = startGame;
+  bindHowto(REGLAS);
 }
 
 function startGame() {

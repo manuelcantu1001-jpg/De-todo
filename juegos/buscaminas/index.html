@@ -69,6 +69,10 @@ const S = {
 };
 const clock = makeClock(() => $('#clock'));
 
+const REGLAS = `<p>Despeja todas las casillas que no esconden mina. Cada número te dice <b>cuántas minas hay pegadas</b> a esa casilla (incluidas las diagonales).</p>
+<p><b>Toca</b> para abrir una casilla; <b>mantén presionado</b> —o activa el modo <b>Bandera</b>— para marcar donde crees que hay mina. El primer toque nunca explota.</p>
+<p>Si abres una mina, boom: fin de la partida. Abre todo lo seguro y ganas; tu mejor tiempo queda guardado.</p>`;
+
 function renderSetup() {
   clock.stop();
   const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
@@ -88,6 +92,7 @@ function renderSetup() {
       <div class="bests">${bests}</div>
       <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
       <div class="row-hint" style="text-align:center;">Toque: abrir · Toque largo o modo bandera: marcar</div>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
   </div>`;
   const hint = () => {
@@ -97,6 +102,7 @@ function renderSetup() {
   bindSeg('seg-d', (v) => { S.diff = v; store.set('mina.diff', v); hint(); });
   hint();
   $('#new').onclick = startGame;
+  bindHowto(REGLAS);
 }
 
 function idx(r, c) { return r * S.w + c; }

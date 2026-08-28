@@ -166,6 +166,10 @@ function save() {
 }
 
 /* ── Pantallas ───────────────────────────────────────────────────────── */
+const REGLAS = `<p>Rellena la cuadrícula: cada <b>fila</b>, cada <b>columna</b> y cada <b>caja de 3×3</b> debe tener los números del 1 al 9 sin repetir.</p>
+<p>Toca una casilla y luego un número del teclado. Si un número choca con otro igual en su fila, columna o caja, se marca en rojo.</p>
+<p>Activa <b>Notas</b> para apuntar candidatos en chiquito. Tienes 3 <b>pistas</b> que rellenan una casilla. Si sales a media partida, queda guardada para continuar. Todos los tableros tienen solución única.</p>`;
+
 function renderSetup() {
   clock.stop();
   const app = $('#app');
@@ -188,10 +192,12 @@ function renderSetup() {
         ${saved ? '<button class="btn btn-primary" id="continue">Continuar partida</button>' : ''}
         <button class="btn ${saved ? 'btn-soft' : 'btn-primary'}" id="new">Nueva partida</button>
       </div>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
   </div>`;
   bindSeg('seg-d', (v) => { S.diff = v; store.set('sud.diff', v); });
   $('#new').onclick = () => startGame(null);
+  bindHowto(REGLAS);
   const c = $('#continue');
   if (c) c.onclick = () => startGame(saved);
 }

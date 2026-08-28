@@ -61,6 +61,10 @@ const S = {
   thinking: false,
 };
 
+const REGLAS = `<p>El tres en raya de siempre: por turnos, X y O marcan casillas, y gana quien alinee <b>tres iguales</b> en fila, columna o diagonal.</p>
+<p>Juega <b>contra la app</b> (en Experto no pierde nunca: lo máximo es empatarle) o en <b>2 jugadores</b> pasando el teléfono.</p>
+<p>Quien inicia se alterna cada ronda y el marcador se va acumulando.</p>`;
+
 function renderSetup() {
   $('#app').innerHTML = `
   <div class="screen">
@@ -79,11 +83,13 @@ function renderSetup() {
       </div>
       <div class="bests"><div class="b"><div class="bn">${store.get('gato.wins', 0)}</div><div class="bl">Victorias vs. app</div></div></div>
       <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
   </div>`;
   bindSeg('seg-m', (v) => { S.mode = v; store.set('gato.mode', v); $('#lvl-wrap').style.display = v === 'app' ? '' : 'none'; });
   bindSeg('seg-d', (v) => { S.level = v; store.set('gato.level', v); });
   $('#new').onclick = () => { S.score = { X: 0, O: 0, E: 0 }; S.starter = 'X'; startRound(true); };
+  bindHowto(REGLAS);
 }
 
 function startRound(first) {

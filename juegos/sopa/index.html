@@ -135,6 +135,10 @@ function generate() {
 }
 
 /* ── Pantallas ───────────────────────────────────────────────────────── */
+const REGLAS = `<p>Las palabras de la lista están escondidas en el tablero: en horizontal, en vertical y, según la dificultad, también al revés o en diagonal.</p>
+<p><b>Arrastra el dedo</b> desde la primera letra hasta la última para marcar una palabra. Si acertaste, se pinta de color y se tacha de la lista.</p>
+<p>Encuéntralas todas: el reloj corre y tu mejor tiempo por dificultad queda guardado. El botón <b>Pista</b> ilumina un instante la primera letra de una palabra pendiente (tienes 3).</p>`;
+
 function renderSetup() {
   clock.stop();
   const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
@@ -153,6 +157,7 @@ function renderSetup() {
       <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
       <div class="bests">${bests}</div>
       <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
   </div>`;
   const hint = () => {
@@ -162,6 +167,7 @@ function renderSetup() {
   bindSeg('seg-d', (v) => { S.diff = v; store.set('sopa.diff', v); hint(); });
   hint();
   $('#new').onclick = startGame;
+  bindHowto(REGLAS);
 }
 
 function startGame() {
