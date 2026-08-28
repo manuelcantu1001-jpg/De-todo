@@ -23,7 +23,7 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
   inunda (límite = resolutor voraz + margen).
 - **Sistema compartido** en `comun/`: `estilo.css` (TODA la identidad visual vive ahí,
   tokens en `:root`) y `nucleo.js` (utilidades + diccionario). Cada juego enlaza ambos.
-- **PWA instalable** (manifest «Juegos» provisional, `sw.js` cache `juegos-v8`).
+- **PWA instalable** (manifest «Juegos» provisional, `sw.js` cache `juegos-v9`).
   Al añadir/cambiar assets: bump de versión del cache.
 - **Publicación automática**: push a esta rama → workflow construye `_site` → rama
   `gh-pages` → **https://manuelcantu1001-jpg.github.io/De-todo/**
@@ -56,11 +56,12 @@ demás como hecho a mano, con lápiz o tinta, y los movimientos tipo stopmotion�
   sobre todo (`body::after`) y **filtro `#tinta`** (feTurbulence + feDisplacementMap,
   inyectado desde `nucleo.js`) que tuerce todos los SVG: `#app svg`.
   Excepción: `.sale`/`.vuela` sin filtro, porque recortaría lo que se sale volando.
-- **Stopmotion**: ninguna transición es suave; todas llevan `steps()`. Animaciones
-  `boil` (3 dibujos, ~7 fps) en marca, títulos e iconos del hub, `boil-borde` en
-  botones y `hervor` (alterna `#tinta`/`#tinta2`/`#tinta3`) disponible con `.hierve`.
-  Medido: 60 fps en el hub y en los juegos de canvas. Respeta
-  `prefers-reduced-motion`.
+- **Stopmotion**: ninguna transición es suave; todas llevan `steps()`. El `boil`
+  (3 dibujos por ciclo, ~7 fps) va **solo en la marca de la portada**: ponerlo en
+  los 42 iconos del hub, en todos los botones y en el título de cada juego era
+  repintar sin parar mientras juegas. El dibujo a mano no depende del temblor —
+  vive en el trazo, las esquinas irregulares, el grano y el filtro de tinta.
+  Respeta `prefers-reduced-motion`.
 
 Sigue **pendiente el nombre** de la colección (hoy «Juegos» provisional en
 manifest/hub/README). Las 4 direcciones viejas (Quiosco/Arcadia/Recreo/Casillas)
@@ -111,6 +112,24 @@ en la política de red del entorno; el script lo detecta y avisa en vez de colga
   frecuencias de subtítulos y metía nombres propios ingleses («jeff», «randy») como
   respuestas. NO volver a usar frecuencias crudas para preguntar.
 - `norm()`: minúsculas, sin tildes, conserva la ñ.
+- **Cuidado al medir en este entorno.** Dos trampas que ya invalidaron mediciones:
+  (1) el **service worker sirve desde su caché**, así que un `page.route` que
+  sustituye CSS o HTML no se aplica y acabas comparando una versión contra sí
+  misma — usa `browser.newContext({ serviceWorkers: 'block' })`;
+  (2) Chromium sin pantalla declara `prefers-reduced-motion: reduce` y el CSS
+  apaga las animaciones — usa `reducedMotion: 'no-preference'`. Además **no puede
+  medir pintado/composición**: los fps de `requestAnimationFrame` salen 60 aunque
+  haya trabajo de sobra, así que para coste gráfico vale más contar trabajo
+  (llamadas al canvas, `getComputedStyle`, elementos filtrados) que cronometrar.
+- **`steps(1, jump-none)` es CSS inválido** (con `jump-none` hacen falta ≥2 pasos)
+  y tira la declaración `animation` entera. Estuvo semanas en el estilo: el
+  «hervor» de la identidad nunca se ejecutó. Si una animación no se ve, valida la
+  sintaxis con `getComputedStyle(el).animationName` antes de buscar otra causa.
+- **Coste gráfico en el teléfono**: nada de `mix-blend-mode` a pantalla completa
+  (obliga a rehacer la mezcla en cada cuadro que dibuja el canvas de abajo: era la
+  causa de los tirones), nada de `getComputedStyle` dentro de un bucle de dibujo
+  (usa `color()` de `nucleo.js`, que lo cachea) y el fondo fijo de un tablero se
+  pinta una vez en un canvas aparte y se estampa, no se redibuja por cuadro.
 - **La pantalla se puede ir antes que el temporizador.** Los juegos con rival piensan
   con `setTimeout`, y si el jugador toca «Salir» o «Nueva» mientras tanto, el repintado
   llega a un `#id` que ya no existe y revienta la página. Mordió en Dominó, Memorama,

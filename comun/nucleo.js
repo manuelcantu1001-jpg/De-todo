@@ -31,6 +31,19 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
 };
 
+/* ── Paleta en caché ──────────────────────────────────────────────────
+   Los juegos de canvas necesitan los colores como texto para pintarlos, pero
+   getComputedStyle obliga al navegador a recalcular estilos, y llamarlo en
+   cada cuadro se sentía como tirones en el teléfono. Se lee una vez por token
+   y se guarda; la paleta no cambia mientras juegas. */
+const color = (() => {
+  const cache = new Map();
+  return (v) => {
+    if (!cache.has(v)) cache.set(v, getComputedStyle(document.body).getPropertyValue(v).trim());
+    return cache.get(v);
+  };
+})();
+
 /* ── Léxico completo bajo demanda (formas ya normalizadas, .gz) ──────── */
 function crearLexico(url) {
   let txt = null, done = false, promise = null;

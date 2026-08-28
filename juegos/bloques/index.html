@@ -322,11 +322,16 @@ function renderPlay() {
   $('#c-soltar').onclick = soltar;
   $('#c-salir').onclick = renderSetup;
   // gestos sobre el tablero
-  let px = 0, py = 0, movido = 0, t0 = 0;
-  cv.onpointerdown = (e) => { px = e.clientX; py = e.clientY; movido = 0; t0 = Date.now(); cv.setPointerCapture(e.pointerId); };
+  let px = 0, py = 0, movido = 0, t0 = 0, ancho = 0;
+  cv.onpointerdown = (e) => {
+    px = e.clientX; py = e.clientY; movido = 0; t0 = Date.now();
+    // Se mide al posar el dedo, no en cada movimiento: medirlo dentro del
+    // arrastre obliga a recalcular la disposición decenas de veces por segundo.
+    ancho = cv.getBoundingClientRect().width / COLS;
+    cv.setPointerCapture(e.pointerId);
+  };
   cv.onpointermove = (e) => {
-    if (!t0) return;
-    const ancho = cv.getBoundingClientRect().width / COLS;
+    if (!t0 || !ancho) return;
     const dx = Math.trunc((e.clientX - px) / ancho);
     if (dx) { mover(dx > 0 ? 1 : -1); px += Math.sign(dx) * ancho; movido++; }
   };

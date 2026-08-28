@@ -52,11 +52,14 @@ body {
   background: var(--bg); color: var(--bg-ink); font-family: var(--font);
   min-height: 100dvh; -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
 }
-/* Grano del papel, encima de todo */
+/* Grano del papel, encima de todo.
+   Sin mix-blend-mode a propósito: mezclar una capa del tamaño de la pantalla
+   obliga al navegador a rehacer la mezcla en CADA cuadro que dibuja lo de
+   abajo, y eso se sentía como tirones en los juegos de canvas. Sobre papel
+   claro el multiply y la transparencia se ven igual, y esto no cuesta nada. */
 body::after {
   content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 200;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='170' height='170'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='170' height='170' filter='url(%23g)' opacity='.048'/%3E%3C/svg%3E");
-  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='170' height='170'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='170' height='170' filter='url(%23g)' opacity='.052'/%3E%3C/svg%3E");
 }
 button { font-family: var(--title-font); touch-action: manipulation; -webkit-user-select: none; user-select: none; }
 input { font-family: var(--font); }
@@ -81,14 +84,10 @@ a { color: var(--accent); }
   33%  { border-radius: var(--mano-2); }
   66%  { border-radius: var(--mano-3); }
 }
-.tiembla { animation: boil var(--fps) steps(1, jump-none) infinite; }
-/* El hervido de verdad: el contorno se vuelve a trazar en cada dibujo */
-@keyframes hervor {
-  0%   { filter: url(#tinta); }
-  33%  { filter: url(#tinta2); }
-  66%  { filter: url(#tinta3); }
-}
-.hierve { animation: hervor calc(var(--fps) * 1.2) steps(1, jump-none) infinite; }
+/* El hervor va SOLO en la marca de la portada. Antes lo llevaban también los
+   42 iconos del hub, los botones y el título de cada juego: eso es repintar
+   sin parar mientras juegas, y de ahí venían los tirones. El dibujo a mano
+   ya no depende del temblor — vive en el trazo, las esquinas y el grano. */
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
@@ -100,8 +99,11 @@ a { color: var(--accent); }
   border-radius: var(--pastilla); padding: 15px 22px; width: 100%;
   letter-spacing: -0.2px; background: var(--card); color: var(--ink);
   box-shadow: var(--shadow); transition: none;
-  animation: boil-borde calc(var(--fps) * 2.4) steps(1, jump-none) infinite;
 }
+/* Esquinas trazadas a pulso: ninguna igual a la de al lado, pero quietas.
+   Animarlas obligaba a repintar cada botón para siempre. */
+.btn:nth-of-type(2) { border-radius: var(--mano-2); }
+.btn:nth-of-type(3n) { border-radius: var(--mano-3); }
 .btn:active { transform: translate(2px, 2.5px); box-shadow: 0 0 0 rgba(0,0,0,0); }
 /* Deshabilitado: como un boceto sin repasar */
 .btn:disabled {
@@ -202,7 +204,6 @@ a { color: var(--accent); }
 .topbar h1 {
   margin: 0; font-family: var(--title-font); font-size: 21px; font-weight: 600;
   letter-spacing: var(--title-track); color: var(--bg-ink);
-  animation: boil var(--fps) steps(1, jump-none) infinite;
 }
 .topbar .meta { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .topbar .clock { font-family: var(--title-font); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 16px; color: var(--bg-ink); }
@@ -212,7 +213,10 @@ a { color: var(--accent); }
 .brand h1 {
   margin: 0; font-family: var(--title-font); font-size: 42px; font-weight: 700;
   color: var(--bg-ink); letter-spacing: var(--title-track); line-height: 1;
-  animation: boil var(--fps) steps(1, jump-none) infinite;
+  /* OJO: iba en steps(1, jump-none), que es inválido (jump-none necesita 2 o
+     más pasos), así que el navegador tiraba la declaración entera y el hervor
+     nunca se vio. Con 3 pasos son los tres dibujos por ciclo que se buscaban. */
+  animation: boil var(--fps) steps(3, jump-none) infinite;
 }
 .brand .tag { font-size: 13.5px; color: var(--bg-sub); margin-top: 6px; font-style: italic; }
 
@@ -239,10 +243,10 @@ a { color: var(--accent); }
   width: 42px; height: 42px; border-radius: 58% 62% 55% 60% / 60% 55% 62% 58%;
   display: flex; align-items: center; justify-content: center;
   background: var(--accent-soft); color: var(--ink); border: 1.5px solid var(--ink);
-  animation: boil var(--fps) steps(1, jump-none) infinite;
 }
-.gcard:nth-child(even) .gi { animation-delay: calc(var(--fps) / -3); }
-.gcard:nth-child(3n) .gi { animation-delay: calc(var(--fps) / -1.5); }
+/* Cada icono con su propia forma, en vez de 42 animaciones a la vez */
+.gcard:nth-child(even) .gi { border-radius: 60% 55% 62% 58% / 58% 60% 55% 62%; }
+.gcard:nth-child(3n) .gi { border-radius: 55% 60% 58% 62% / 62% 58% 60% 55%; }
 .gcard .gi.alt { background: var(--second-soft); }
 /* Los iconos son chiquitos: trazo más fino para que no se emborronen */
 .gcard .gi svg, .backbtn svg, .tool svg { filter: url(#tinta-fina); }

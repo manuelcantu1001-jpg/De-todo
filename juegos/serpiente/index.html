@@ -226,28 +226,40 @@ function paso() {
   dibujar();
 }
 
+/* El tablero de fondo no cambia nunca: se pinta una vez aparte y luego se
+   estampa de un golpe. Antes eran 400 rectángulos en cada cuadro. */
+let fondo = null, fondoClave = '';
+function fondoDelTablero(lado, cell) {
+  const clave = `${lado}x${N}`;
+  if (fondo && fondoClave === clave) return fondo;
+  fondo = document.createElement('canvas');
+  fondo.width = fondo.height = lado;
+  fondoClave = clave;
+  const f = fondo.getContext('2d');
+  f.fillStyle = color('--card');
+  f.fillRect(0, 0, lado, lado);
+  f.fillStyle = color('--soft');
+  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) {
+    if ((x + y) % 2 === 0) f.fillRect(x * cell, y * cell, cell, cell);
+  }
+  return fondo;
+}
+
 function dibujar() {
   const cv = $('#cv');
   if (!cv) return;
   const ctx = cv.getContext('2d');
-  const cs = getComputedStyle(document.body);
   const cell = cv.width / N;
-  ctx.fillStyle = cs.getPropertyValue('--card').trim();
-  ctx.fillRect(0, 0, cv.width, cv.height);
-  // rejilla sutil
-  ctx.fillStyle = cs.getPropertyValue('--soft').trim();
-  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) {
-    if ((x + y) % 2 === 0) ctx.fillRect(x * cell, y * cell, cell, cell);
-  }
+  ctx.drawImage(fondoDelTablero(cv.width, cell), 0, 0);
   // comida
   if (S.food) {
-    ctx.fillStyle = cs.getPropertyValue('--second').trim();
+    ctx.fillStyle = color('--second');
     ctx.beginPath();
     ctx.arc((S.food[0] + .5) * cell, (S.food[1] + .5) * cell, cell * .34, 0, Math.PI * 2);
     ctx.fill();
   }
   // serpiente
-  const acc = cs.getPropertyValue('--accent').trim();
+  const acc = color('--accent');
   S.snake.forEach(([x, y], i) => {
     const esCabeza = i === S.snake.length - 1;
     ctx.fillStyle = acc;
@@ -259,7 +271,7 @@ function dibujar() {
     ctx.fill();
     ctx.globalAlpha = 1;
     if (esCabeza) {
-      ctx.fillStyle = cs.getPropertyValue('--card').trim();
+      ctx.fillStyle = color('--card');
       const ox = S.dir[0], oy = S.dir[1];
       ctx.beginPath();
       ctx.arc((x + .5 + ox * .15 - oy * .18) * cell, (y + .5 + oy * .15 + ox * .18) * cell, cell * .07, 0, Math.PI * 2);

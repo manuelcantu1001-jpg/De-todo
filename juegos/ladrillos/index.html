@@ -179,7 +179,7 @@ function dibujar() {
   ctx.beginPath();
   ctx.roundRect(S.px - S.pw / 2, H - 30, S.pw, 12, 6);
   ctx.fill();
-  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--ink');
+  ctx.fillStyle = color('--ink');
   ctx.beginPath();
   ctx.arc(S.x, S.y, 8, 0, Math.PI * 2);
   ctx.fill();
@@ -261,12 +261,13 @@ function renderPlay() {
   cv.onpointerdown = (e) => {
     e.preventDefault();
     try { cv.setPointerCapture(e.pointerId); } catch (err) {}
-    gesto = { id: e.pointerId, ultimo: e.clientX, recorrido: 0 };
+    // El ancho se mide UNA vez al posar el dedo: medirlo en cada movimiento
+    // obliga al navegador a recalcular la disposición 60 veces por segundo.
+    gesto = { id: e.pointerId, ultimo: e.clientX, recorrido: 0, ancho: cv.getBoundingClientRect().width };
   };
   cv.onpointermove = (e) => {
     if (!gesto || e.pointerId !== gesto.id) return;
-    const r = cv.getBoundingClientRect();
-    const d = (e.clientX - gesto.ultimo) / r.width * W * SENS;
+    const d = (e.clientX - gesto.ultimo) / gesto.ancho * W * SENS;
     gesto.recorrido += Math.abs(e.clientX - gesto.ultimo);
     gesto.ultimo = e.clientX;
     S.px = Math.max(S.pw / 2, Math.min(W - S.pw / 2, S.px + d));

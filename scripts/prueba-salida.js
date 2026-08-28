@@ -12,11 +12,15 @@ const JUEGOS = require('path').join(__dirname, '..', 'juegos');
 
 (async () => {
   const browser = await chromium.launch({ executablePath: EXE });
+  // Sin service worker y con movimiento: si no, el SW sirve archivos viejos
+  // desde su caché y Chromium sin pantalla apaga las animaciones.
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 },
+    serviceWorkers: 'block', reducedMotion: 'no-preference' });
   const dirs = fs.readdirSync(JUEGOS).sort();
   const fallas = [];
 
   for (const d of dirs) {
-    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const page = await ctx.newPage();
     await page.route('**/fonts.g*', (r) => r.abort());
     const errs = [];
     page.on('pageerror', (e) => errs.push('PAGEERROR: ' + e.message));
