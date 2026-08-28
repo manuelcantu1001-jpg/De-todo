@@ -74,6 +74,36 @@ const Dicc = (() => {
   };
 })();
 
+/* ── Léxico completo bajo demanda (formas ya normalizadas, .gz) ──────── */
+function crearLexico(url) {
+  let txt = null, done = false, promise = null;
+  function load() {
+    if (promise) return promise;
+    promise = (async () => {
+      try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error('http ' + r.status);
+        const buf = await r.arrayBuffer();
+        const u8 = new Uint8Array(buf);
+        let out;
+        if (u8[0] === 0x1f && u8[1] === 0x8b) {
+          if (typeof DecompressionStream === 'undefined') throw new Error('sin DecompressionStream');
+          out = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+        } else out = new TextDecoder().decode(buf);
+        txt = '\n' + out + '\n';
+      } catch (e) { /* seguimos sin léxico */ }
+      done = true;
+    })();
+    return promise;
+  }
+  return {
+    ready: load,
+    settled: () => done,
+    loaded: () => !!txt,
+    has: (n) => !!txt && txt.includes('\n' + n + '\n'),
+  };
+}
+
 /* ── Modal ───────────────────────────────────────────────────────────── */
 function openModal(html, onVeil) {
   const m = $('#modal');

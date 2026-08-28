@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Adivina la palabra de cinco letras en seis intentos. Una diaria para todos, o al azar sin límite." />
+<title>La palabra del día</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .grid5 { display: flex; flex-direction: column; gap: 6px; align-items: center; padding: 14px 0 4px; }
+  .grow { display: flex; gap: 6px; }
+  .gt {
+    width: 56px; height: 56px; border-radius: 9px; border: 1.5px solid var(--tile-border);
+    background: var(--tile-bg); color: var(--tile-ink);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--title-font); font-size: 28px; font-weight: 600; text-transform: uppercase;
+  }
+  .gt.filled { border-color: var(--faint); }
+  .gt.ok   { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .gt.near { background: var(--warn); border-color: var(--warn); color: #FFFDF6; }
+  .gt.no   { background: var(--faint); border-color: var(--faint); color: #FFFDF6; }
+  .gt.reveal { animation: flipIn .4s ease; }
+  @keyframes flipIn { 0% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
+  .grow.shake { animation: shake .4s; }
+  .kbd button.near { background: var(--warn); color: #FFFDF6; opacity: 1; }
+  .kbd button.hit { background: var(--accent); color: var(--accent-ink); }
+  .kbd button.miss { background: var(--faint); color: #FFFDF6; opacity: .8; }
+  .statusrow { display: flex; justify-content: center; gap: 18px; padding: 4px 0 0; font-size: 13px; font-weight: 600; color: var(--sub); }
+  .statusrow b { color: var(--ink); }
+  .kwrap { margin-top: auto; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script src="../../dicc-es.js"></script>
+<script>
+'use strict';
+
+const Lex = crearLexico('../../lexico-es.txt.gz');
+Lex.ready();
+
+const INTENTOS = 6, LARGO = 5;
+
+/* Respuestas: palabras comunes de 5 letras; se aceptan como intento
+   todas las del diccionario y el léxico. */
+let ANSWERS = null;
+function answers() {
+  if (!ANSWERS) {
+    ANSWERS = Dicc.where((e) => e.n.length === LARGO && /^[a-zñ]+$/.test(e.n), 12000);
+  }
+  return ANSWERS;
+}
+
+const hoy = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+function palabraDelDia() {
+  const pool = answers();
+  let h = 0;
+  for (const c of hoy()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return pool[h % pool.length];
+}
+
+const S = {
+  modo: 'diaria',
+  target: null,          // {w, n}
+  rows: [],              // intentos confirmados (norm)
+  draft: '',
+  done: false, win: false,
+};
+
+const REGLAS = `<p>Adivina la palabra de <b>5 letras</b> en 6 intentos. Cada intento debe ser una palabra real.</p>
+<p>Tras cada intento, las fichas te dan pistas: <b>verde</b> = letra en su lugar; <b>ámbar</b> = está en la palabra pero en otra posición; <b>gris</b> = no está.</p>
+<p>En <b>Diaria</b> hay una sola palabra al día (la misma para todos) y cada día ganado alarga tu racha. En <b>Libre</b> juegas al azar sin límite. Las tildes no cuentan.</p>`;
+
+/* ── Estado diario persistente ───────────────────────────────────────── */
+function cargarDiaria() {
+  const d = store.get('pal.diaria', null);
+  if (d && d.date === hoy()) return d;
+  return { date: hoy(), rows: [], done: false, win: false };
+}
+function guardarDiaria() {
+  if (S.modo !== 'diaria') return;
+  store.set('pal.diaria', { date: hoy(), rows: S.rows, done: S.done, win: S.win });
+}
+function registrarRachaDiaria(win) {
+  const r = store.get('pal.racha', { n: 0, last: '' });
+  if (win) {
+    const ayer = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+    r.n = (r.last === ayer) ? r.n + 1 : 1;
+  } else r.n = 0;
+  r.last = hoy();
+  store.set('pal.racha', r);
+  const best = store.get('pal.mejorRacha', 0);
+  if (r.n > best) store.set('pal.mejorRacha', r.n);
+  store.set('pal.hub', r.n > 0 ? `Racha diaria: ${r.n}` : `Mejor racha: ${Math.max(best, r.n)}`);
+  return r.n;
+}
+
+/* ── Juego ───────────────────────────────────────────────────────────── */
+function empezar(modo) {
+  S.modo = modo;
+  S.draft = '';
+  if (modo === 'diaria') {
+    S.target = palabraDelDia();
+    const d = cargarDiaria();
+    S.rows = d.rows; S.done = d.done; S.win = d.win;
+  } else {
+    const pool = answers();
+    S.target = pool[randInt(pool.length)];
+    S.rows = []; S.done = false; S.win = false;
+  }
+  render();
+}
+
+function render() {
+  const racha = store.get('pal.racha', { n: 0 }).n;
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('La palabra del día', `<span class="chip">${S.modo === 'diaria' ? 'Diaria' : 'Libre'}</span>`)}
+    <div style="padding: 0 20px 6px;">
+      <div class="seg" id="seg-m">
+        <button data-v="diaria" class="${S.modo === 'diaria' ? 'sel' : ''}">Diaria</button>
+        <button data-v="libre" class="${S.modo === 'libre' ? 'sel' : ''}">Libre</button>
+      </div>
+    </div>
+    <div class="statusrow">
+      ${S.modo === 'diaria' ? `<span>Racha <b>${racha}</b></span><span>Mejor <b>${store.get('pal.mejorRacha', 0)}</b></span>` : `<span>Sin límite: una tras otra</span>`}
+    </div>
+    <div class="grid5" id="grid"></div>
+    <div class="msg" id="msg"></div>
+    <div class="kwrap">
+      <div class="kbd" id="kbd">
+        ${['QWERTYUIOP', 'ASDFGHJKLÑ'].map((row) =>
+          `<div class="krow">${[...row].map((ch) => `<button data-ch="${ch.toLowerCase()}">${ch}</button>`).join('')}</div>`).join('')}
+        <div class="krow">
+          <button class="wide" data-ch="↵">Enviar</button>
+          ${[...'ZXCVBNM'].map((ch) => `<button data-ch="${ch.toLowerCase()}">${ch}</button>`).join('')}
+          <button class="wide" data-ch="←" aria-label="Borrar"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H9l-6 6 6 6h11a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"></path><path d="M17 10l-4 4M13 10l4 4"></path></svg></button>
+        </div>
+      </div>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-m', (v) => empezar(v));
+  $('#kbd').onclick = (e) => {
+    const b = e.target.closest('button');
+    if (b) tecla(b.dataset.ch);
+  };
+  bindHowto(REGLAS);
+  pintar();
+  if (S.done) setTimeout(() => resultado(false), 400);
+}
+
+function evalRow(guess) {
+  const t = [...S.target.n];
+  const g = [...guess];
+  const res = new Array(LARGO).fill('no');
+  const left = {};
+  for (let i = 0; i < LARGO; i++) {
+    if (g[i] === t[i]) res[i] = 'ok';
+    else left[t[i]] = (left[t[i]] || 0) + 1;
+  }
+  for (let i = 0; i < LARGO; i++) {
+    if (res[i] === 'ok') continue;
+    if (left[g[i]]) { res[i] = 'near'; left[g[i]]--; }
+  }
+  return res;
+}
+
+function pintar(revealRow) {
+  const rows = [];
+  for (let r = 0; r < INTENTOS; r++) {
+    const cells = [];
+    if (r < S.rows.length) {
+      const res = evalRow(S.rows[r]);
+      for (let i = 0; i < LARGO; i++) {
+        cells.push(`<div class="gt ${res[i]} ${r === revealRow ? 'reveal' : ''}" style="${r === revealRow ? 'animation-delay:' + i * 70 + 'ms' : ''}">${S.rows[r][i]}</div>`);
+      }
+    } else if (r === S.rows.length && !S.done) {
+      for (let i = 0; i < LARGO; i++) {
+        cells.push(`<div class="gt ${i < S.draft.length ? 'filled' : ''}">${S.draft[i] || ''}</div>`);
+      }
+    } else {
+      for (let i = 0; i < LARGO; i++) cells.push('<div class="gt"></div>');
+    }
+    rows.push(`<div class="grow" data-r="${r}">${cells.join('')}</div>`);
+  }
+  $('#grid').innerHTML = rows.join('');
+  // teclado
+  const state = {};
+  const rank = { no: 1, near: 2, ok: 3 };
+  for (const row of S.rows) {
+    const res = evalRow(row);
+    [...row].forEach((ch, i) => {
+      const s = res[i];
+      if (!state[ch] || rank[s] > rank[state[ch]]) state[ch] = s;
+    });
+  }
+  $$('#kbd button[data-ch]').forEach((b) => {
+    const ch = b.dataset.ch;
+    b.classList.remove('hit', 'near', 'miss');
+    if (state[ch] === 'ok') b.classList.add('hit');
+    else if (state[ch] === 'near') b.classList.add('near');
+    else if (state[ch] === 'no') b.classList.add('miss');
+  });
+}
+
+async function tecla(ch) {
+  if (S.done) return;
+  if (ch === '←') { S.draft = S.draft.slice(0, -1); pintar(); return; }
+  if (ch === '↵') { await enviar(); return; }
+  if (S.draft.length < LARGO) { S.draft += ch; pintar(); }
+}
+
+async function enviar() {
+  if (S.draft.length !== LARGO) { aviso('Faltan letras'); return; }
+  const n = S.draft;
+  let valida = Dicc.has(n);
+  if (!valida) {
+    if (!Lex.settled()) { aviso('Comprobando…', 'check'); await Lex.ready(); }
+    valida = Lex.has(n) || !Lex.loaded();
+  }
+  if (!valida) { aviso('No conozco esa palabra'); sacudir(); return; }
+  S.rows.push(n);
+  S.draft = '';
+  const row = S.rows.length - 1;
+  if (n === S.target.n) { S.win = true; S.done = true; }
+  else if (S.rows.length >= INTENTOS) { S.done = true; }
+  pintar(row);
+  guardarDiaria();
+  if (S.done) setTimeout(() => resultado(true), 700);
+}
+
+function aviso(text, tipo) {
+  const m = $('#msg');
+  m.className = 'msg ' + (tipo || 'err');
+  m.textContent = text;
+  setTimeout(() => { if (m.textContent === text) { m.textContent = ''; m.className = 'msg'; } }, 1500);
+}
+function sacudir() {
+  const row = $(`.grow[data-r="${S.rows.length}"]`);
+  if (row) { row.classList.remove('shake'); void row.offsetWidth; row.classList.add('shake'); }
+  vibrate(50);
+}
+
+function resultado(fresh) {
+  let racha = store.get('pal.racha', { n: 0 }).n;
+  if (fresh && S.modo === 'diaria') racha = registrarRachaDiaria(S.win);
+  if (fresh && S.win) { confetti(); vibrate([30, 60, 30]); }
+  const titulo = S.win
+    ? ['¡A la primera!', '¡En dos!', '¡En tres!', 'En cuatro', 'En cinco', 'Por un pelo'][S.rows.length - 1]
+    : 'Era «' + cap(S.target.w) + '»';
+  openModal(`
+    <h3>${esc(titulo)}</h3>
+    ${S.win ? `<p style="text-align:center;">La palabra era <b>«${esc(cap(S.target.w))}»</b>.</p>` : ''}
+    ${S.modo === 'diaria'
+      ? `<p style="text-align:center;">Racha diaria: <b>${racha}</b> · Mejor: <b>${store.get('pal.mejorRacha', 0)}</b><br>Mañana hay palabra nueva.</p>`
+      : ''}
+    <div class="m-actions">
+      ${S.modo === 'libre' ? '<button class="btn btn-primary" id="m-otra">Otra palabra</button>' : ''}
+      ${S.modo === 'diaria' ? '<button class="btn btn-primary" id="m-libre">Jugar en modo libre</button>' : ''}
+      <button class="btn btn-ghost" id="m-cerrar">Cerrar</button>
+    </div>
+  `, closeModal);
+  const otra = $('#m-otra');
+  if (otra) otra.onclick = () => { closeModal(); empezar('libre'); };
+  const libre = $('#m-libre');
+  if (libre) libre.onclick = () => { closeModal(); empezar('libre'); };
+  $('#m-cerrar').onclick = closeModal;
+}
+
+/* Teclado físico */
+addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (/^[a-zñ]$/.test(k)) tecla(k);
+  else if (e.key === 'Backspace') { tecla('←'); e.preventDefault(); }
+  else if (e.key === 'Enter') tecla('↵');
+});
+
+empezar('diaria');
+</script>
+</body>
+</html>
