@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Ordena la frase: arma el refrán con las palabras revueltas." />
+<title>Ordena la frase</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E“”%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .zona { padding: 14px 18px 0; }
+  .armado {
+    min-height: 108px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start;
+  }
+  .armado .ph { color: var(--faint); font-size: 14px; font-weight: 500; padding: 6px 2px; }
+  .banco { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 2px 0; justify-content: center; }
+  .wchip {
+    border: 1px solid var(--tile-border); border-radius: 10px; cursor: pointer;
+    background: var(--tile-bg); color: var(--tile-ink); padding: 9px 13px;
+    box-shadow: 0 2px 0 var(--tile-border); font-weight: 600; font-size: 16px;
+    animation: popIn .18s ease;
+  }
+  .wchip:active { transform: scale(.95); }
+  .armado .wchip { background: var(--accent-soft); color: var(--accent); border-color: transparent; box-shadow: none; }
+  .armado.bien .wchip { background: var(--good); color: #fff; }
+  .prog { text-align: center; padding-top: 14px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* Banco propio de refranes y dichos, por número de palabras. */
+const REFRANES = {
+  facil: [
+    'Más vale tarde que nunca', 'Perro que ladra no muerde', 'Al mal tiempo buena cara',
+    'Más vale maña que fuerza', 'La práctica hace al maestro', 'Cada oveja con su pareja',
+    'El tiempo es oro', 'Querer es poder', 'La curiosidad mató al gato',
+    'Más vale prevenir que lamentar', 'El saber no ocupa lugar', 'Lo barato sale caro',
+    'Cada loco con su tema', 'Amor con amor se paga', 'De tal palo tal astilla',
+    'Zapatero a tus zapatos', 'Barriga llena corazón contento', 'A palabras necias oídos sordos',
+    'Con dinero baila el perro', 'Cuentas claras amistades largas', 'A falta de pan tortillas',
+    'Quien mucho duerme poco aprende', 'Al buen entendedor pocas palabras', 'La esperanza muere al último',
+  ],
+  normal: [
+    'Hoy por ti mañana por mí', 'Sobre gustos no hay nada escrito', 'En boca cerrada no entran moscas',
+    'A quien madruga Dios lo ayuda', 'El que mucho abarca poco aprieta', 'El hábito no hace al monje',
+    'El pez por su boca muere', 'Gato con guantes no caza ratones', 'A río revuelto ganancia de pescadores',
+    'Éramos muchos y parió la abuela', 'No hay mal que dure cien años', 'Las palabras se las lleva el viento',
+    'No por mucho madrugar amanece más temprano', 'Cría cuervos y te sacarán los ojos',
+    'En casa de herrero cuchillo de palo', 'El que ríe al último ríe mejor',
+    'Ojos que no ven corazón que no siente', 'Más vale pájaro en mano que ciento volando',
+    'No hay mal que por bien no venga', 'Agua que no has de beber déjala correr',
+    'Cuando el río suena es que agua lleva', 'Árbol que nace torcido jamás su rama endereza',
+    'El que quiera azul celeste que le cueste', 'Matrimonio y mortaja del cielo bajan',
+  ],
+  dificil: [
+    'Camarón que se duerme se lo lleva la corriente', 'Dime con quién andas y te diré quién eres',
+    'Del plato a la boca se cae la sopa', 'Más sabe el diablo por viejo que por diablo',
+    'Al que le quede el saco que se lo ponga', 'No dejes para mañana lo que puedas hacer hoy',
+    'Aunque la mona se vista de seda mona se queda', 'El que con lobos anda a aullar se enseña',
+    'No hay peor sordo que el que no quiere oír', 'Más vale malo por conocido que bueno por conocer',
+    'A caballo regalado no se le mira el colmillo', 'Tanto va el cántaro al agua hasta que se rompe',
+    'Nadie sabe lo que tiene hasta que lo ve perdido', 'Dime de qué presumes y te diré de qué careces',
+    'El que parte y reparte se queda con la mejor parte', 'El que nace para tamal del cielo le caen las hojas',
+    'No hay fecha que no se cumpla ni plazo que no se venza', 'Al nopal lo van a ver solo cuando tiene tunas',
+    'El muerto al pozo y el vivo al gozo', 'La suerte de la fea la bonita la desea',
+    'Aunque te chille el cochino no le aflojes el mecate', 'El que se fue a la villa perdió su silla',
+    'Más vale paso que dure y no trote que canse', 'Cada quien habla de cómo le fue en la feria',
+  ],
+};
+const RONDAS = 5;
+const PENAL = 5; // segundos por intento fallido
+
+const S = {
+  diff: store.get('frase.diff', 'normal'),
+  lista: [], ronda: 0, target: [], banco: [], puesto: [],
+  seg: 0, timerId: null, fallos: 0, jugando: false, bloqueo: false,
+};
+
+const REGLAS = `<p>Te damos un <b>refrán con las palabras revueltas</b>: tócalas en orden para armarlo. Si te equivocas, toca una palabra colocada para regresarla.</p>
+<p>Al colocar la última palabra se comprueba solo. Cada intento fallido suma <b>+${PENAL} segundos</b> al reloj.</p>
+<p>La partida son <b>${RONDAS} refranes</b>; tu marca es el tiempo total. La dificultad cambia el largo de los refranes.</p>`;
+
+function renderSetup() {
+  clearInterval(S.timerId);
+  const bests = ['facil', 'normal', 'dificil'].map((d) => {
+    const b = store.get('frase.best.' + d, 0);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Ordena la frase', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div></div>
+        ${diffSegHTML('seg-d', S.diff, ['facil', 'normal', 'dificil'])}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos (${RONDAS} refranes)</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('frase.diff', v); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  S.lista = shuffle(REFRANES[S.diff]).slice(0, RONDAS);
+  S.ronda = 0; S.seg = 0; S.fallos = 0; S.jugando = true;
+  clearInterval(S.timerId);
+  S.timerId = setInterval(() => {
+    S.seg++;
+    const el = $('#clk'); if (el) el.textContent = fmtTime(S.seg);
+  }, 1000);
+  nextRonda(true);
+}
+
+function nextRonda(first) {
+  S.target = S.lista[S.ronda].split(' ');
+  do { S.banco = shuffle(S.target.map((w, i) => ({ w, i }))); }
+  while (S.target.length > 1 && S.banco.every((c, k) => c.i === k));
+  S.puesto = [];
+  S.bloqueo = false;
+  if (first) renderPlay(); else paint();
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Ordena la frase', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clk">${fmtTime(S.seg)}</span>`)}
+    <div class="prog" id="prog"></div>
+    <div class="zona">
+      <div class="armado" id="armado"></div>
+      <div class="banco" id="banco"></div>
+      <div class="msg" id="msg" style="padding-top:14px;"></div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#armado').onclick = (e) => {
+    const c = e.target.closest('.wchip');
+    if (c && !S.bloqueo) quitar(Number(c.dataset.k));
+  };
+  $('#banco').onclick = (e) => {
+    const c = e.target.closest('.wchip');
+    if (c && !S.bloqueo) poner(Number(c.dataset.k));
+  };
+  $('#t-salir').onclick = () => { S.jugando = false; clearInterval(S.timerId); renderSetup(); };
+  paint();
+}
+
+function paint() {
+  $('#prog').textContent = `Refrán ${S.ronda + 1} de ${RONDAS}`;
+  const arm = $('#armado');
+  arm.classList.remove('bien');
+  arm.innerHTML = S.puesto.length
+    ? S.puesto.map((k) => `<button class="wchip" data-k="${k}">${esc(S.banco[k].w)}</button>`).join('')
+    : '<span class="ph">Toca las palabras en orden…</span>';
+  $('#banco').innerHTML = S.banco.map((c, k) =>
+    S.puesto.includes(k) ? '' : `<button class="wchip" data-k="${k}">${esc(c.w)}</button>`).join('');
+  $('#msg').textContent = ''; $('#msg').className = 'msg';
+}
+
+function poner(k) {
+  if (S.puesto.includes(k)) return;
+  S.puesto.push(k);
+  vibrate(6);
+  paint();
+  if (S.puesto.length === S.target.length) comprobar();
+}
+
+function quitar(k) {
+  const i = S.puesto.indexOf(k);
+  if (i >= 0) { S.puesto.splice(i, 1); paint(); }
+}
+
+function comprobar() {
+  const intento = S.puesto.map((k) => S.banco[k].w).join(' ');
+  if (intento === S.target.join(' ')) {
+    S.bloqueo = true;
+    vibrate([15, 40, 15]);
+    $('#armado').classList.add('bien');
+    const msg = $('#msg'); msg.textContent = '¡Eso es!'; msg.className = 'msg ok';
+    S.ronda++;
+    setTimeout(() => S.ronda >= RONDAS ? terminar() : nextRonda(false), 900);
+  } else {
+    S.seg += PENAL; S.fallos++;
+    vibrate([60, 40, 60]);
+    const msg = $('#msg'); msg.textContent = `Así no va · +${PENAL} s`; msg.className = 'msg err';
+    $('#armado').classList.add('shake');
+    setTimeout(() => { const el = $('#armado'); if (el) el.classList.remove('shake'); }, 420);
+  }
+}
+
+function terminar() {
+  S.jugando = false;
+  clearInterval(S.timerId);
+  const best = store.get('frase.best.' + S.diff, 0);
+  const isRecord = !best || S.seg < best;
+  if (isRecord) {
+    store.set('frase.best.' + S.diff, S.seg);
+    store.set('fra.hub', `Mejor: ${fmtTime(S.seg)}`);
+  }
+  confetti();
+  openModal(`
+    <h3>${isRecord ? '¡Récord!' : `${RONDAS} refranes armados`}</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(S.seg)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.fallos}</div><div class="l">fallos</div></div>
+      <div class="stat"><div class="n">${fmtTime(isRecord ? S.seg : best)}</div><div class="l">mejor</div></div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otra partida</button>
+      <button class="btn btn-ghost" id="m-out">Salir</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>

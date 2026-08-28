@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Palabras encadenadas por sílabas contra la app: responde con una palabra que empiece con la última sílaba." />
+<title>Sílabas encadenadas</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3ESÍ%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .escena { padding: 18px 20px 0; text-align: center; }
+  .dicho { font-family: var(--title-font); font-size: 34px; font-weight: 700; color: var(--bg-ink); line-height: 1.1; word-break: break-word; }
+  .dicho .fin { color: var(--accent); }
+  .quien { font-size: 12.5px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--bg-sub); margin-bottom: 8px; }
+  .pide { margin-top: 14px; font-size: 15px; color: var(--bg-sub); font-weight: 500; }
+  .pide b { color: var(--accent); font-size: 17px; }
+  .cadena { display: flex; justify-content: center; gap: 18px; padding-top: 16px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
+  .cadena b { color: var(--bg-ink); font-size: 15px; }
+  .entrada { padding: 18px 20px 0; display: flex; gap: 10px; }
+  .entrada .field { flex: 1; text-transform: lowercase; }
+  .entrada .btn { width: auto; padding: 16px 20px; flex-shrink: 0; }
+  .usadas { display: flex; flex-wrap: wrap; gap: 6px; padding: 14px 16px 8px; justify-content: center; max-height: 84px; overflow-y: auto; }
+  .usadas .h { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+  .usadas .h.mia { background: var(--accent-soft); color: var(--accent); }
+  .tools { margin: auto 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 10px; }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../dicc-es.js"></script>
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const CFG = {
+  facil:   { turno: 45, rank: 9000 },
+  normal:  { turno: 30, rank: 15000 },
+  dificil: { turno: 20, rank: 22000 },
+  experto: { turno: 15, rank: 30000 },
+};
+
+const lex = crearLexico('../../lexico-es.txt.gz');
+
+/* ── Silabeador aproximado del español ──────────────────────────────── */
+const INSEP = ['pr', 'br', 'fr', 'tr', 'dr', 'cr', 'gr', 'pl', 'bl', 'fl', 'cl', 'gl', 'll', 'rr', 'ch'];
+function silabear(pal) {
+  const w = (pal || '').toLowerCase().replace(/[^a-záéíóúüñ]/g, '');
+  if (!w) return [''];
+  const esV = (c) => 'aeiouáéíóúü'.includes(c);
+  const abre = (c) => 'aeoáéóíú'.includes(c); // fuertes + débiles acentuadas (rompen diptongo)
+  // Segmentos alternos consonante/vocal, partiendo hiatos.
+  const parts = [];
+  let run = '', runV = null;
+  const cerrar = () => {
+    if (!run) return;
+    if (!runV) { parts.push({ v: false, s: run }); run = ''; return; }
+    let g = run[0];
+    for (let k = 1; k < run.length; k++) {
+      if (abre(run[k - 1]) && abre(run[k])) { parts.push({ v: true, s: g }); parts.push({ v: false, s: '' }); g = run[k]; }
+      else g += run[k];
+    }
+    parts.push({ v: true, s: g });
+    run = '';
+  };
+  for (const ch of w) {
+    const v = esV(ch);
+    if (runV === null || v === runV) { run += ch; runV = v; }
+    else { cerrar(); run = ch; runV = v; }
+  }
+  cerrar();
+  // Ensamblar sílabas repartiendo los grupos consonánticos.
+  const sil = [];
+  let onset = '';
+  for (let k = 0; k < parts.length; k++) {
+    const p = parts[k];
+    if (!p.v) { onset += p.s; continue; }
+    let cluster = '', haySig = false;
+    if (k + 1 < parts.length && !parts[k + 1].v) {
+      cluster = parts[k + 1].s;
+      haySig = k + 2 < parts.length;
+    }
+    if (!haySig) { sil.push(onset + p.s + cluster); onset = ''; if (cluster || (k + 1 < parts.length && !parts[k + 1].v)) k++; continue; }
+    let coda = '', sigOnset = '';
+    const L = cluster.length;
+    if (L === 1) sigOnset = cluster;
+    else if (L === 2) {
+      if (INSEP.includes(cluster)) sigOnset = cluster;
+      else { coda = cluster[0]; sigOnset = cluster.slice(1); }
+    } else if (L === 3) {
+      if (INSEP.includes(cluster.slice(1))) { coda = cluster[0]; sigOnset = cluster.slice(1); }
+      else { coda = cluster.slice(0, 2); sigOnset = cluster.slice(2); }
+    } else if (L >= 4) {
+      if (INSEP.includes(cluster.slice(-2))) { coda = cluster.slice(0, -2); sigOnset = cluster.slice(-2); }
+      else { coda = cluster.slice(0, -1); sigOnset = cluster.slice(-1); }
+    }
+    sil.push(onset + p.s + coda);
+    onset = sigOnset;
+    k++;
+  }
+  if (onset) { if (sil.length) sil[sil.length - 1] += onset; else sil.push(onset); }
+  return sil.filter((s) => s);
+}
+const ultimaSilaba = (pal) => norm(silabear(pal).pop() || '');
+
+/* ── Estado ──────────────────────────────────────────────────────────── */
+const S = {
+  diff: store.get('silabas.diff', 'normal'),
+  cadena: 0, silaba: '', palabra: '', quien: '',
+  usadas: new Set(), lista: [], restan: 0, timerId: null,
+  jugando: false, turno: 'nadie',
+};
+
+let ORIG = null, PREFC = null;
+function prepararIndices() {
+  if (ORIG) return;
+  ORIG = new Map(); PREFC = new Map();
+  for (const e of Dicc.list) {
+    if (!ORIG.has(e.n)) ORIG.set(e.n, e.w);
+    for (let l = 1; l <= Math.min(5, e.n.length); l++) {
+      const p = e.n.slice(0, l);
+      PREFC.set(p, (PREFC.get(p) || 0) + 1);
+    }
+  }
+}
+const continuaciones = (sil) => sil.length <= 5 ? (PREFC.get(sil) || 0) : 1;
+
+const REGLAS = `<p>Como las encadenadas del recreo, pero <b>por sílabas</b>: la app dice una palabra y tú respondes con una que <b>empiece con su última sílaba</b> (RA-<b>TÓN</b> → <b>TON</b>-TERÍA). Luego la app sigue con la tuya, y así.</p>
+<p>Sin repetir palabras, y con <b>reloj por turno</b>. Tu marca es el largo de la cadena; si dejas a la app sin palabras, ganas la ronda.</p>
+<p>Las tildes no importan al comparar (la ñ sí). La dificultad cambia el tiempo y el vocabulario de la app.</p>`;
+
+function renderSetup() {
+  clearInterval(S.timerId);
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('silabas.best.' + d, 0);
+    return `<div class="b"><div class="bn">${b || '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Sílabas', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div><div class="row-hint" id="d-hint"></div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Cadenas más largas</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => { $('#d-hint').textContent = `${CFG[S.diff].turno} s por turno`; };
+  hint();
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('silabas.diff', v); hint(); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  lex.ready();
+  prepararIndices();
+  S.cadena = 0; S.usadas = new Set(); S.lista = [];
+  S.jugando = true; S.turno = 'app';
+  renderPlay();
+  // La app abre con una palabra cuya última sílaba tenga continuaciones.
+  setTimeout(() => {
+    for (let t = 0; t < 300; t++) {
+      const e = Dicc.random({ minLen: 4, maxLen: 10, minRank: 200, maxRank: CFG[S.diff].rank });
+      if (!e) continue;
+      const ult = ultimaSilaba(e.w);
+      if (ult.length >= 2 && continuaciones(ult) >= 3) { decirApp(e); return; }
+    }
+    decirApp(Dicc.random({ maxRank: 9000 }) || { w: 'casa', n: 'casa' });
+  }, 600);
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Sílabas', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clk"></span>`)}
+    <div class="escena">
+      <div class="quien" id="quien">Piensa la app…</div>
+      <div class="dicho" id="dicho">…</div>
+      <div class="pide" id="pide"></div>
+      <div class="cadena"><span>Cadena <b id="cad">0</b></span></div>
+    </div>
+    <div class="entrada">
+      <input class="field" id="inp" type="text" autocomplete="off" autocapitalize="none" enterkeyhint="send" placeholder="Tu palabra…" disabled />
+      <button class="btn btn-primary" id="b-ok" disabled>Va</button>
+    </div>
+    <div class="msg" id="msg" style="padding-top:12px;"></div>
+    <div class="usadas" id="usadas"></div>
+    <div class="tools">
+      <button class="tool" id="t-rindo">Me rindo</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#b-ok').onclick = probar;
+  $('#inp').onkeydown = (e) => { if (e.key === 'Enter') probar(); };
+  $('#t-rindo').onclick = () => terminar('Te rendiste', `La cadena quedó en ${S.cadena}.`);
+  $('#t-salir').onclick = () => { S.jugando = false; clearInterval(S.timerId); renderSetup(); };
+}
+
+function pintarPalabra(pal) {
+  const sils = silabear(pal);
+  const ult = sils.pop();
+  $('#dicho').innerHTML = `${esc(sils.join('·'))}${sils.length ? '·' : ''}<span class="fin">${esc(ult)}</span>`;
+}
+
+function decirApp(e) {
+  if (!S.jugando) return;
+  S.usadas.add(e.n);
+  S.lista.push({ w: e.w, mia: false });
+  S.palabra = e.w;
+  S.silaba = ultimaSilaba(e.w);
+  S.turno = 'yo';
+  $('#quien').textContent = 'La app dice';
+  pintarPalabra(e.w);
+  $('#pide').innerHTML = `Te toca: una palabra que empiece con <b>${esc(S.silaba.toUpperCase())}</b>`;
+  pintarUsadas();
+  const inp = $('#inp');
+  inp.disabled = false; $('#b-ok').disabled = false;
+  inp.value = ''; inp.focus();
+  empezarReloj();
+}
+
+function pintarUsadas() {
+  $('#usadas').innerHTML = S.lista.slice(-24).map((u) =>
+    `<span class="h ${u.mia ? 'mia' : ''}">${esc(u.w)}</span>`).join('');
+  $('#cad').textContent = S.cadena;
+}
+
+function empezarReloj() {
+  clearInterval(S.timerId);
+  S.restan = CFG[S.diff].turno;
+  const el = $('#clk');
+  if (el) { el.textContent = fmtTime(S.restan); el.style.color = ''; }
+  S.timerId = setInterval(() => {
+    S.restan--;
+    const c = $('#clk');
+    if (c) { c.textContent = fmtTime(Math.max(0, S.restan)); if (S.restan <= 5) c.style.color = 'var(--bad)'; }
+    if (S.restan <= 0) terminar('Se acabó el tiempo', `No respondiste a «${S.silaba.toUpperCase()}» a tiempo.`);
+  }, 1000);
+}
+
+function setMsg(t, cls) { const el = $('#msg'); if (el) { el.textContent = t; el.className = 'msg ' + (cls || ''); } }
+
+function probar() {
+  if (S.turno !== 'yo' || !S.jugando) return;
+  const crudo = $('#inp').value.trim();
+  const n = norm(crudo);
+  if (n.length < 2) return;
+  if (!n.startsWith(S.silaba)) { setMsg(`Tiene que empezar con «${S.silaba.toUpperCase()}»`, 'err'); return; }
+  if (S.usadas.has(n)) { setMsg('Esa ya salió', 'err'); return; }
+  const valida = Dicc.has(n) || (lex.loaded() && lex.has(n));
+  if (!valida) { setMsg('No la conozco', 'err'); vibrate([60, 40, 60]); return; }
+  clearInterval(S.timerId);
+  const mostrada = ORIG.get(n) || crudo.toLowerCase();
+  S.usadas.add(n);
+  S.lista.push({ w: mostrada, mia: true });
+  S.cadena++;
+  vibrate(12);
+  setMsg('¡Válida!', 'ok');
+  S.silaba = ultimaSilaba(mostrada);
+  S.palabra = mostrada;
+  S.turno = 'app';
+  $('#quien').textContent = 'Tu palabra';
+  pintarPalabra(mostrada);
+  $('#pide').innerHTML = 'Piensa la app…';
+  $('#inp').disabled = true; $('#b-ok').disabled = true;
+  pintarUsadas();
+  setTimeout(turnoApp, 800 + randInt(700));
+}
+
+function turnoApp() {
+  if (!S.jugando) return;
+  const sil = S.silaba;
+  const cands = [];
+  for (const e of Dicc.list) {
+    if (e.rank >= CFG[S.diff].rank) break;
+    if (e.n.length >= Math.max(3, sil.length + 1) && e.n.startsWith(sil) && !S.usadas.has(e.n)) cands.push(e);
+  }
+  if (!cands.length) {
+    clearInterval(S.timerId);
+    S.jugando = false;
+    const best = store.get('silabas.best.' + S.diff, 0);
+    if (S.cadena > best) { store.set('silabas.best.' + S.diff, S.cadena); store.set('sil.hub', `Cadena: ${S.cadena}`); }
+    confetti(); vibrate([30, 60, 30]);
+    openModal(`
+      <h3>¡Dejaste a la app sin palabras!</h3>
+      <p style="text-align:center;">Nada empieza con «<b>${esc(sil.toUpperCase())}</b>» en su vocabulario.</p>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${S.cadena}</div><div class="l">cadena</div></div>
+        <div class="stat"><div class="n">${Math.max(best, S.cadena)}</div><div class="l">mejor</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra ronda</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+    return;
+  }
+  // Prefiere palabras que dejen la cadena viva (su última sílaba tiene continuaciones).
+  let pick = null;
+  for (const e of shuffle(cands).slice(0, 60)) {
+    const ult = ultimaSilaba(e.w);
+    if (ult.length >= 2 && continuaciones(ult) >= 2) { pick = e; break; }
+  }
+  if (!pick) pick = cands[randInt(cands.length)];
+  decirApp(pick);
+}
+
+function terminar(titulo, porque) {
+  if (!S.jugando) return;
+  S.jugando = false;
+  clearInterval(S.timerId);
+  const best = store.get('silabas.best.' + S.diff, 0);
+  const isRecord = S.cadena > best;
+  if (isRecord && S.cadena > 0) {
+    store.set('silabas.best.' + S.diff, S.cadena);
+    store.set('sil.hub', `Cadena: ${S.cadena}`);
+    confetti();
+  }
+  openModal(`
+    <h3>${isRecord && S.cadena > 0 ? '¡Récord!' : titulo}</h3>
+    <p style="text-align:center;">${esc(porque)}</p>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${S.cadena}</div><div class="l">cadena</div></div>
+      <div class="stat"><div class="n">${Math.max(best, S.cadena)}</div><div class="l">mejor</div></div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otra ronda</button>
+      <button class="btn btn-ghost" id="m-out">Salir</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>
