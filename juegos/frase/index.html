@@ -3,37 +3,39 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#F7F3EA" />
+<meta name="theme-color" content="#FAF9F5" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Ordena la frase: arma el refrán con las palabras revueltas." />
 <title>Ordena la frase</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E“”%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3E“”%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .zona { padding: 14px 18px 0; }
   .armado {
     min-height: 108px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
-    padding: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start;
-  }
+    padding: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; border: 1.5px solid var(--ink); }
   .armado .ph { color: var(--faint); font-size: 14px; font-weight: 500; padding: 6px 2px; }
   .banco { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 2px 0; justify-content: center; }
   .wchip {
-    border: 1px solid var(--tile-border); border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--tile-border); border-radius: 10px 10px 12px 9px / 13px 8px 9px 11px; cursor: pointer;
     background: var(--tile-bg); color: var(--tile-ink); padding: 9px 13px;
     box-shadow: 0 2px 0 var(--tile-border); font-weight: 600; font-size: 16px;
-    animation: popIn .18s ease;
+    animation: popIn .18s steps(4, jump-end);
   }
   .wchip:active { transform: scale(.95); }
-  .armado .wchip { background: var(--accent-soft); color: var(--accent); border-color: transparent; box-shadow: none; }
+  .armado .wchip { background: var(--accent-soft); color: var(--ink); border-color: transparent; box-shadow: none; }
   .armado.bien .wchip { background: var(--good); color: #fff; }
   .prog { text-align: center; padding-top: 14px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
   .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
-  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+  .tool { border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    box-shadow: var(--shadow-sutil); }
+  .tool:active { transform: translate(1.5px, 2px); box-shadow: none; }
 </style>
 </head>
 <body>

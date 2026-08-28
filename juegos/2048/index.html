@@ -3,48 +3,51 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#F7F3EA" />
+<meta name="theme-color" content="#FAF9F5" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="2048: desliza, suma fichas y llega a la grande." />
 <title>2048</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='40' font-size='18' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E2048%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='40' font-size='18' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3E2048%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .scorerow { display: flex; justify-content: center; gap: 12px; padding: 10px 16px 0; }
-  .scorerow .b { flex: 0 1 130px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 8px; text-align: center; }
+  .scorerow .b { flex: 0 1 130px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 8px; text-align: center; border: 1.5px solid var(--ink); }
   .scorerow .bn { font-family: var(--title-font); font-size: 22px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
   .scorerow .bl { font-size: 10.5px; color: var(--sub); font-weight: 600; margin-top: 1px; }
   .boardwrap { display: flex; justify-content: center; padding: 14px 12px 4px; }
   .board {
-    display: grid; gap: 8px; background: var(--soft); padding: 8px; border-radius: 16px;
-    box-shadow: var(--shadow); touch-action: none; user-select: none; -webkit-user-select: none;
-  }
+    display: grid; gap: 8px; background: var(--soft); padding: 8px; border-radius: 19px 13px 15px 20px / 17px 19px 20px 12px;
+    box-shadow: var(--shadow); touch-action: none; user-select: none; -webkit-user-select: none; border: 1.5px solid var(--ink); }
   .t2 {
-    border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    border-radius: 8px 9px 11px 13px / 7px 8px 8px 9px; display: flex; align-items: center; justify-content: center;
     font-family: var(--title-font); font-weight: 700; color: var(--ink);
     background: color-mix(in srgb, var(--card) 55%, var(--soft));
+    border: 1.5px solid color-mix(in srgb, var(--ink) 22%, transparent);
   }
-  .t2.pop { animation: t2pop .16s ease; }
+  .t2.pop { animation: t2pop .16s steps(4, jump-end); }
   @keyframes t2pop { 0% { transform: scale(.6); } 100% { transform: scale(1); } }
-  .t2[data-v="2"]    { background: #FFFDF6; }
-  .t2[data-v="4"]    { background: #F7EED9; }
-  .t2[data-v="8"]    { background: #F2DFB8; }
-  .t2[data-v="16"]   { background: #EFCF95; }
-  .t2[data-v="32"]   { background: #E9B872; color: #4A3A22; }
-  .t2[data-v="64"]   { background: #DC9A50; color: #fff; }
-  .t2[data-v="128"]  { background: #CB7B3E; color: #fff; }
-  .t2[data-v="256"]  { background: #C25B36; color: #fff; }
-  .t2[data-v="512"]  { background: #7FA98C; color: #fff; }
-  .t2[data-v="1024"] { background: #3E9174; color: #fff; }
-  .t2[data-v="2048"] { background: #0E7A5C; color: #fff; box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent); }
-  .t2[data-v="4096"], .t2[data-v="8192"], .t2[data-v="16384"] { background: #221F19; color: #fff; }
+  .t2[data-v="2"]    { background: var(--card); border-color: var(--ink); }
+  .t2[data-v="4"]    { background: #F2EEE1; border-color: var(--ink); }
+  .t2[data-v="8"]    { background: #EBE2CB; border-color: var(--ink); }
+  .t2[data-v="16"]   { background: #E4D5AC; border-color: var(--ink); }
+  .t2[data-v="32"]   { background: #DCC48A; border-color: var(--ink); }
+  .t2[data-v="64"]   { background: var(--tinta-4); color: var(--card); border-color: var(--ink); }
+  .t2[data-v="128"]  { background: var(--tinta-1); color: var(--card); border-color: var(--ink); }
+  .t2[data-v="256"]  { background: var(--tinta-5); color: var(--card); border-color: var(--ink); }
+  .t2[data-v="512"]  { background: var(--tinta-6); color: var(--card); border-color: var(--ink); }
+  .t2[data-v="1024"] { background: var(--tinta-7); color: var(--card); border-color: var(--ink); }
+  .t2[data-v="2048"] { background: var(--tinta-3); color: var(--card); border-color: var(--ink); box-shadow: var(--shadow); }
+  .t2[data-v="4096"], .t2[data-v="8192"], .t2[data-v="16384"] { background: var(--ink); color: var(--card); border-color: var(--ink); }
   .tools { margin: 10px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
-  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+  .tool { border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    box-shadow: var(--shadow-sutil); }
+  .tool:active { transform: translate(1.5px, 2px); box-shadow: none; }
 </style>
 </head>
 <body>

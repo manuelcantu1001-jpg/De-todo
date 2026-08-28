@@ -120,8 +120,8 @@ function closeModal() {
 /* ── Confeti ─────────────────────────────────────────────────────────── */
 function confetti() {
   const cs = getComputedStyle(document.body);
-  const colors = [cs.getPropertyValue('--accent').trim(), cs.getPropertyValue('--second').trim(),
-    cs.getPropertyValue('--good').trim(), '#F3C64B', '#7A9CF5'];
+  const colors = ['--tinta-1', '--tinta-2', '--tinta-3', '--tinta-4', '--tinta-5', '--tinta-6']
+    .map((v) => cs.getPropertyValue(v).trim());
   const c = document.createElement('div');
   c.className = 'confetti';
   let html = '';
@@ -133,6 +133,26 @@ function confetti() {
   document.body.appendChild(c);
   setTimeout(() => c.remove(), 4600);
 }
+
+/* ── Trazo a mano: filtros que desplazan los contornos con ruido ─────
+   Tres variantes con distinta semilla; alternándolas se obtiene el
+   «hervido» de la animación cuadro por cuadro. */
+(function tintaAMano() {
+  const filtro = (id, semilla, escala) =>
+    `<filter id="${id}" x="-22%" y="-22%" width="144%" height="144%" color-interpolation-filters="sRGB">
+       <feTurbulence type="fractalNoise" baseFrequency="0.048" numOctaves="2" seed="${semilla}" result="ruido"/>
+       <feDisplacementMap in="SourceGraphic" in2="ruido" scale="${escala}" xChannelSelector="R" yChannelSelector="G"/>
+     </filter>`;
+  const cont = document.createElement('div');
+  cont.setAttribute('aria-hidden', 'true');
+  cont.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
+  cont.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg"><defs>
+    ${filtro('tinta', 3, 1.7)}${filtro('tinta2', 17, 1.9)}${filtro('tinta3', 41, 1.5)}
+    ${filtro('tinta-fina', 11, 0.9)}
+  </defs></svg>`;
+  const poner = () => document.body.appendChild(cont);
+  if (document.body) poner(); else addEventListener('DOMContentLoaded', poner);
+})();
 
 /* ── Iconos compartidos ──────────────────────────────────────────────── */
 const SVGI = {

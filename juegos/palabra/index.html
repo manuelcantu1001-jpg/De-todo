@@ -3,36 +3,36 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#F7F3EA" />
+<meta name="theme-color" content="#FAF9F5" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Adivina la palabra de cinco letras en seis intentos. Una diaria para todos, o al azar sin límite." />
 <title>La palabra del día</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .grid5 { display: flex; flex-direction: column; gap: 6px; align-items: center; padding: 14px 0 4px; }
   .grow { display: flex; gap: 6px; }
   .gt {
-    width: 56px; height: 56px; border-radius: 9px; border: 1.5px solid var(--tile-border);
+    width: 56px; height: 56px; border-radius: 11px 11px 8px 7px / 10px 12px 9px 11px; border: 1.5px solid var(--tile-border);
     background: var(--tile-bg); color: var(--tile-ink);
     display: flex; align-items: center; justify-content: center;
     font-family: var(--title-font); font-size: 28px; font-weight: 600; text-transform: uppercase;
   }
   .gt.filled { border-color: var(--faint); }
   .gt.ok   { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-  .gt.near { background: var(--warn); border-color: var(--warn); color: #FFFDF6; }
-  .gt.no   { background: var(--faint); border-color: var(--faint); color: #FFFDF6; }
-  .gt.reveal { animation: flipIn .4s ease; }
+  .gt.near { background: var(--warn); border-color: var(--warn); color: var(--card); }
+  .gt.no   { background: var(--faint); border-color: var(--faint); color: var(--card); }
+  .gt.reveal { animation: flipIn .4s steps(4, jump-end); }
   @keyframes flipIn { 0% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
-  .grow.shake { animation: shake .4s; }
-  .kbd button.near { background: var(--warn); color: #FFFDF6; opacity: 1; }
+  .grow.shake { animation: shake .4s steps(4, jump-end); }
+  .kbd button.near { background: var(--warn); color: var(--card); opacity: 1; }
   .kbd button.hit { background: var(--accent); color: var(--accent-ink); }
-  .kbd button.miss { background: var(--faint); color: #FFFDF6; opacity: .8; }
+  .kbd button.miss { background: var(--faint); color: var(--card); opacity: .8; }
   .statusrow { display: flex; justify-content: center; gap: 18px; padding: 4px 0 0; font-size: 13px; font-weight: 600; color: var(--sub); }
   .statusrow b { color: var(--ink); }
   .kwrap { margin-top: auto; }

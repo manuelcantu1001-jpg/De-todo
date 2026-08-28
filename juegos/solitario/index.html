@@ -3,26 +3,26 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#F7F3EA" />
+<meta name="theme-color" content="#FAF9F5" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Solitario Klondike: ordena las cuatro escaleras del as al rey." />
 <title>Solitario</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='44' font-size='30' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E♠%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='44' font-size='30' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3E♠%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .mesa { padding: 8px 8px 0; user-select: none; -webkit-user-select: none; }
   .fila-alta { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
   .hueco {
-    border-radius: 8px; border: 1.5px dashed var(--tile-border); background: color-mix(in srgb, var(--card) 40%, transparent);
+    border-radius: 6px 10px 11px 7px / 7px 7px 10px 8px; border: 1.5px dashed var(--tile-border); background: color-mix(in srgb, var(--card) 40%, transparent);
     display: flex; align-items: center; justify-content: center; color: var(--faint); font-size: 18px; position: relative;
   }
   .carta {
-    border-radius: 8px; background: var(--card); border: 1px solid var(--tile-border);
+    border-radius: 10px 10px 10px 8px / 10px 11px 8px 9px; background: var(--card); border: 1px solid var(--tile-border);
     box-shadow: 0 1px 2px rgba(60,50,30,.15); position: relative; cursor: pointer; overflow: hidden;
   }
   .carta.abajo {
@@ -41,10 +41,13 @@
   .statusrow { display: flex; justify-content: center; gap: 18px; padding: 8px 0 0; font-size: 12.5px; font-weight: 600; color: var(--sub); }
   .statusrow b { color: var(--ink); }
   .tools { display: flex; gap: 8px; justify-content: center; padding: 10px 0 calc(14px + env(safe-area-inset-bottom)); }
-  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13px; padding: 10px 16px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+  .tool {
+    border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600; font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); box-shadow: var(--shadow-sutil);
+  }
+  .tool:active { transform: translate(1.5px, 2px); box-shadow: none; }
   .tool.brillo { background: var(--accent); color: var(--accent-ink); }
   .tool:disabled { opacity: .4; cursor: default; }
-  .shakec { animation: shake .35s; }
+  .shakec { animation: shake .35s steps(4, jump-end); }
 </style>
 </head>
 <body>

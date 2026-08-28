@@ -34,21 +34,33 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
   lad, topo. (Carpeta ≠ id en varios: buscapalabras→bus, frase→fra, etc.;
   el resto de claves de cada juego usa el nombre de carpeta.)
 
-## DECISIÓN PENDIENTE: identidad visual y nombre
+## Identidad visual: «hecho a mano» (elegida por Manuel)
 
-La piel actual (papel cálido + verde botella + Fraunces/Onest) es **provisional** —
-a Manuel no le convence. Hay 4 direcciones propuestas, cada una con nombre candidato:
+Pedido literal: *«la letra y números los mismos de Claude por lo pronto, y todo lo
+demás como hecho a mano, con lápiz o tinta, y los movimientos tipo stopmotion»*.
 
-- A · **Quiosco** — editorial de pasatiempos (papel, tinta, rojo; Archivo Black + Archivo)
-- B · **Arcadia** — neón nocturno (oscuro, violeta/turquesa; Unbounded + Instrument Sans)
-- C · **Recreo** — pop de caramelo (claro, un color por juego; Bricolage Grotesque + Schibsted Grotesk)
-- D · **Casillas** — suizo modular (blanco/negro/azul; Familjen Grotesk + IBM Plex Mono)
+- **Tipografía de la marca Claude**: **Poppins** (títulos, números, botones) y
+  **Lora** (texto corrido, en cursiva para lo secundario). Las de Anthropic de
+  verdad (Styrene/Tiempos) son comerciales; estas son las equivalentes libres que
+  indica la guía de marca y están en Google Fonts.
+- **Paleta Anthropic**: tinta `#141413`, papel `#FAF9F5`, tarjeta `#FFFEFA`,
+  naranja `#D97757`, azul `#6A9BCC`, verde `#788C5D` + tintas derivadas
+  (`--tinta-1..8`) para las paletas de varios colores (inunda, bloques, 2048…).
+- **Hecho a mano**: contorno de tinta (`--trazo`) en vez de sombras suaves, sombra
+  sólida de repasado (`--shadow`), esquinas nunca iguales (`--mano-1/2/3`,
+  `--pastilla`), separadores de raya ondulada (SVG en data URI), grano de papel
+  sobre todo (`body::after`) y **filtro `#tinta`** (feTurbulence + feDisplacementMap,
+  inyectado desde `nucleo.js`) que tuerce todos los SVG: `#app svg`.
+  Excepción: `.sale`/`.vuela` sin filtro, porque recortaría lo que se sale volando.
+- **Stopmotion**: ninguna transición es suave; todas llevan `steps()`. Animaciones
+  `boil` (3 dibujos, ~7 fps) en marca, títulos e iconos del hub, `boil-borde` en
+  botones y `hervor` (alterna `#tinta`/`#tinta2`/`#tinta3`) disponible con `.hierve`.
+  Medido: 60 fps en el hub y en los juegos de canvas. Respeta
+  `prefers-reduced-motion`.
 
-Lienzo: `design/direcciones/` y artifact
-`https://claude.ai/code/artifact/9244f0e4-b529-428b-8245-95276584e3b7`.
-**Preguntar a Manuel cuál eligió.** Para aplicar: re-tokenizar `comun/estilo.css`,
-cambiar los `<link>` de fuentes de todas las páginas, nombre en manifest/hub/README
-e iconos (`icons/`, se generan con Chromium — ver historial).
+Sigue **pendiente el nombre** de la colección (hoy «Juegos» provisional en
+manifest/hub/README). Las 4 direcciones viejas (Quiosco/Arcadia/Recreo/Casillas)
+quedan archivadas en `design/direcciones/`.
 
 ## Notas técnicas útiles
 

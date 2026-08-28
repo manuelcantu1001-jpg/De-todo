@@ -3,30 +3,29 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#F7F3EA" />
+<meta name="theme-color" content="#FAF9F5" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Conecta cuatro fichas en línea antes que tu rival o que la app." />
 <title>Conecta 4</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E4%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3E4%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .boardwrap { display: flex; justify-content: center; padding: 14px 12px 0; }
   .c4 {
-    display: grid; gap: 6px; background: var(--card); padding: 10px; border-radius: 18px;
-    box-shadow: var(--shadow); touch-action: manipulation; user-select: none; -webkit-user-select: none;
-  }
+    display: grid; gap: 6px; background: var(--card); padding: 10px; border-radius: 16px 22px 18px 14px / 15px 17px 22px 23px;
+    box-shadow: var(--shadow); touch-action: manipulation; user-select: none; -webkit-user-select: none; border: 1.5px solid var(--ink); }
   .hole {
     border-radius: 999px; background: var(--soft); position: relative; cursor: pointer;
     box-shadow: inset 0 2px 4px rgba(60,50,30,.12);
   }
   .hole .disc {
     position: absolute; inset: 3px; border-radius: 999px;
-    animation: dropIn .3s cubic-bezier(.4,1.4,.6,1);
+    animation: dropIn .3s cubic-bezier(.4,1.4,.6,1) steps(4, jump-end);
   }
   @keyframes dropIn { 0% { transform: translateY(-240px); } 100% { transform: none; } }
   .hole .disc.a { background: var(--accent); box-shadow: inset 0 -3px 0 rgba(0,0,0,.18); }
@@ -36,11 +35,14 @@
   .turnrow .who { color: var(--accent); }
   .turnrow .who.o { color: var(--second); }
   .scorebar { display: flex; justify-content: center; gap: 14px; margin: 16px 16px 0; }
-  .scorebar .b { flex: 0 1 110px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 6px; text-align: center; }
+  .scorebar .b { flex: 0 1 110px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 6px; text-align: center; border: 1.5px solid var(--ink); }
   .scorebar .bn { font-family: var(--title-font); font-size: 22px; font-weight: 700; color: var(--ink); }
   .scorebar .bl { font-size: 10.5px; color: var(--sub); font-weight: 600; margin-top: 1px; }
   .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
-  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+  .tool { border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    box-shadow: var(--shadow-sutil); }
+  .tool:active { transform: translate(1.5px, 2px); box-shadow: none; }
 </style>
 </head>
 <body>

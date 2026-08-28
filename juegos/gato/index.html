@@ -3,16 +3,16 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#F7F3EA" />
+<meta name="theme-color" content="#FAF9F5" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Tres en raya para dos jugadores o contra la app." />
 <title>Gato</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3EX%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3EX%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .boardwrap { display: flex; justify-content: center; padding: 18px 16px 0; }
@@ -20,12 +20,11 @@
     display: grid; grid-template-columns: repeat(3, 104px); grid-auto-rows: 104px; gap: 10px;
   }
   .tc {
-    background: var(--card); border-radius: 18px; box-shadow: var(--shadow); cursor: pointer;
-    display: flex; align-items: center; justify-content: center; transition: transform .1s;
-  }
+    background: var(--card); border-radius: 14px 19px 21px 19px / 18px 24px 17px 18px; box-shadow: var(--shadow); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: transform .1s steps(3, jump-end); border: 1.5px solid var(--ink); }
   .tc:active { transform: scale(.96); }
   .tc svg { display: block; }
-  .tc .draw path, .tc .draw circle { stroke-dasharray: 120; stroke-dashoffset: 120; animation: drawIn .35s ease forwards; }
+  .tc .draw path, .tc .draw circle { stroke-dasharray: 120; stroke-dashoffset: 120; animation: drawIn .35s  forwards steps(4, jump-end); }
   @keyframes drawIn { to { stroke-dashoffset: 0; } }
   .tc.winline { background: var(--accent-soft); }
   .turnrow { text-align: center; padding: 16px 0 0; font-size: 15px; font-weight: 700; color: var(--bg-ink); }
@@ -34,11 +33,14 @@
   .scorebar {
     display: flex; justify-content: center; gap: 14px; margin: 18px 16px 0;
   }
-  .scorebar .b { flex: 0 1 110px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 6px; text-align: center; }
+  .scorebar .b { flex: 0 1 110px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 6px; text-align: center; border: 1.5px solid var(--ink); }
   .scorebar .bn { font-family: var(--title-font); font-size: 22px; font-weight: 700; color: var(--ink); }
   .scorebar .bl { font-size: 10.5px; color: var(--sub); font-weight: 600; margin-top: 1px; }
   .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 16px; }
-  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+  .tool { border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    box-shadow: var(--shadow-sutil); }
+  .tool:active { transform: translate(1.5px, 2px); box-shadow: none; }
 </style>
 </head>
 <body>

@@ -3,16 +3,16 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#F7F3EA" />
+<meta name="theme-color" content="#FAF9F5" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Dominó contra la app: colócalas en las puntas, roba si no llevas y quédate sin fichas." />
 <title>Dominó</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E🁣%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3E🁣%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .estado { text-align: center; padding: 10px 16px 0; font-size: 14px; font-weight: 700; color: var(--bg-ink); min-height: 20px; }
@@ -20,7 +20,7 @@
   .mesa { flex: 1; min-height: 0; display: flex; align-items: center; overflow-x: auto; padding: 14px 18px; -webkit-overflow-scrolling: touch; }
   .cadena { display: flex; gap: 4px; margin: 0 auto; align-items: center; }
   .ficha {
-    display: flex; background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 7px;
+    display: flex; background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 9px 9px 8px 8px / 7px 5px 7px 5px;
     box-shadow: 0 2px 0 var(--tile-border); flex-shrink: 0;
   }
   .ficha .mitad { width: 30px; height: 30px; display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px; }
@@ -29,15 +29,15 @@
   .ficha.vert { flex-direction: column; }
   .ficha.vert .sep { width: auto; height: 1px; margin: 0 4px; }
   .zona-punta {
-    flex-shrink: 0; width: 46px; height: 60px; border-radius: 10px; border: 2px dashed var(--accent);
-    background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 18px;
+    flex-shrink: 0; width: 46px; height: 60px; border-radius: 10px 10px 11px 12px / 9px 7px 9px 11px; border: 2px dashed var(--accent);
+    background: var(--accent-soft); color: var(--ink); font-weight: 800; font-size: 18px;
     display: none; align-items: center; justify-content: center; cursor: pointer;
   }
   .zona-punta.on { display: flex; }
   .mano-wrap { padding: 0 0 calc(12px + env(safe-area-inset-bottom)); }
   .mano-acciones { display: flex; gap: 10px; justify-content: center; padding: 8px 16px; }
   .mano { display: flex; gap: 7px; overflow-x: auto; padding: 10px 16px 6px; -webkit-overflow-scrolling: touch; }
-  .mano .slot { flex-shrink: 0; cursor: pointer; opacity: .45; transition: transform .12s, opacity .12s; }
+  .mano .slot { flex-shrink: 0; cursor: pointer; opacity: .45; transition: transform .12s steps(3, jump-end), opacity .12s steps(3, jump-end); }
   .mano .slot.puede { opacity: 1; }
   .mano .slot.elegida { transform: translateY(-8px); }
   .mano .slot.puede:active { transform: scale(.95); }

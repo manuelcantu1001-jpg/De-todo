@@ -45,9 +45,17 @@ manifest.webmanifest  PWA instalable · sw.js: cache para jugar sin conexión
 .github/workflows/    Deploy automático a GitHub Pages (rama gh-pages) en cada push
 ```
 
-**Para re-vestir la app** (cambiar identidad visual): tokens en `comun/estilo.css`
-(`:root`) y los `<link>` de Google Fonts de cada página. Hay 4 direcciones
-propuestas en `design/direcciones/`.
+## La piel: tipografía de Claude, todo lo demás a mano
+
+La letra y los números son los de la marca Claude — **Poppins** y **Lora** — sobre
+la paleta de tinta y papel de Anthropic. Lo demás se dibuja: contornos de tinta en
+vez de sombras suaves, esquinas trazadas a pulso (nunca dos iguales), separadores
+ondulados, grano de papel y un filtro SVG que tuerce cada icono. Y nada se desliza:
+todo el movimiento va **a saltos, como el stopmotion** (`steps()` + un «hervor» de
+tres dibujos por ciclo).
+
+**Para re-vestirla** basta con los tokens de `:root` en `comun/estilo.css` y los
+`<link>` de Google Fonts de cada página.
 
 ## Validación de palabras (Encadena)
 
@@ -70,8 +78,6 @@ python3 -m http.server 8000
 
 ## Pendiente
 
-- **Identidad visual y nombre definitivos**: 4 direcciones propuestas
-  (Quiosco / Arcadia / Recreo / Casillas) en el lienzo de diseño; se eligen y se
-  aplican re-tokenizando `comun/estilo.css`.
+- **El nombre de la colección**: hoy es «Juegos», provisional.
 - Modo online de Encadena (reservado en la interfaz).
 - Más juegos: la arquitectura del hub escala solo con añadir carpeta y tarjeta.

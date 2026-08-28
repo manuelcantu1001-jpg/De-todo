@@ -3,16 +3,16 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#F7F3EA" />
+<meta name="theme-color" content="#FAF9F5" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Palabras encadenadas por sílabas contra la app: responde con una palabra que empiece con la última sílaba." />
 <title>Sílabas encadenadas</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3ESÍ%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3ESÍ%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .escena { padding: 18px 20px 0; text-align: center; }
@@ -28,9 +28,12 @@
   .entrada .btn { width: auto; padding: 16px 20px; flex-shrink: 0; }
   .usadas { display: flex; flex-wrap: wrap; gap: 6px; padding: 14px 16px 8px; justify-content: center; max-height: 84px; overflow-y: auto; }
   .usadas .h { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--soft); color: var(--sub); }
-  .usadas .h.mia { background: var(--accent-soft); color: var(--accent); }
+  .usadas .h.mia { background: var(--accent-soft); color: var(--ink); }
   .tools { margin: auto 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 10px; }
-  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+  .tool { border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    box-shadow: var(--shadow-sutil); }
+  .tool:active { transform: translate(1.5px, 2px); box-shadow: none; }
 </style>
 </head>
 <body>
