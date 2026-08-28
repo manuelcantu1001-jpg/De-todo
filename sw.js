@@ -1,5 +1,5 @@
 /* Service worker de la colección: cache-first para jugar sin conexión. */
-const CACHE = 'juegos-v5';
+const CACHE = 'juegos-v6';
 const ASSETS = [
   './', 'index.html',
   'comun/estilo.css', 'comun/nucleo.js',
@@ -12,6 +12,12 @@ const ASSETS = [
   'juegos/palabra/', 'juegos/acomoda/', 'juegos/cifras/', 'juegos/nonograma/',
   'juegos/kakuro/', 'juegos/naval/', 'juegos/conecta4/', 'juegos/damas/',
   'juegos/solitario/', 'juegos/serpiente/', 'juegos/simon/', 'juegos/laberinto/',
+  'juegos/buscapalabras/', 'juegos/frase/', 'juegos/silabas/', 'juegos/definicion/',
+  'juegos/binario/', 'juegos/puentes/', 'juegos/hitori/', 'juegos/luces/', 'juegos/picas/',
+  'juegos/punteros/', 'juegos/inunda/',
+  'juegos/reversi/', 'juegos/domino/', 'juegos/deslizante/', 'juegos/comesolo/', 'juegos/hanoi/',
+  'juegos/blackjack/', 'juegos/poker3/', 'juegos/holdem/',
+  'juegos/bloques/', 'juegos/ladrillos/', 'juegos/topos/',
 ];
 
 self.addEventListener('install', (e) => {

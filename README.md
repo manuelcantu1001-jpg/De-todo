@@ -1,7 +1,7 @@
 # Juegos · Pasatiempos en español
 
 Colección propia de juegos de pasatiempos, al estilo de las apps de «mil juegos»
-pero hecha en casa: **22 juegos sin anuncios, sin conexión y con el mismo lenguaje
+pero hecha en casa: **44 juegos sin anuncios, sin conexión y con el mismo lenguaje
 de diseño** en todos.
 
 **Juega en** <https://manuelcantu1001-jpg.github.io/De-todo/> — y desde ahí,
@@ -11,16 +11,24 @@ de diseño** en todos.
 
 **Palabras**: Encadena (terminaciones, 1 vs 1 / vs. app / solo) · Sopa de letras ·
 Crucigrama (banco propio de ~390 pistas) · La palabra del día (5 letras, modo diario
-con racha) · Ahorcado · Anagramas · Acomoda-palabras.
+con racha) · Ahorcado · Anagramas · Acomoda-palabras · Buscapalabras (tipo Boggle,
+con el léxico completo) · Ordena la frase (banco propio de 72 refranes) · Sílabas
+encadenadas (con silabeador propio) · La definición (el crucigrama al revés).
 
 **Números y lógica**: Sudoku (solución única) · Cifras (objetivo siempre alcanzable) ·
 Nonograma (única y resoluble sin adivinar) · Kakuro · Buscaminas · Batalla naval
-(unicidad verificada) · 2048.
+(unicidad verificada) · 2048 · Binario/Takuzu (solución única) · Puentes
+(Hashiwokakero) · Hitori · Luces fuera (siempre resoluble) · Picas y fijas ·
+Punteros (tableros 100 % despejables) · Inunda (límite calibrado con resolutor).
 
 **Mesa y clásicos**: Memorama · Gato (minimax) · Conecta 4 (minimax α-β) ·
-Damas (capturas obligatorias, multisalto) · Solitario Klondike.
+Damas (capturas obligatorias, multisalto) · Solitario Klondike · Reversi (minimax
+α-β con final exacto) · Dominó · Deslizante (15-puzzle) · Come solo · Torres de
+Hanoi · Blackjack · Póker 3 cartas · Texas Hold'em (evaluador de 7 cartas y
+equity Monte Carlo).
 
-**Arcade**: Serpiente · Simón (con sonido) · Laberinto generado.
+**Arcade**: Serpiente · Simón (con sonido) · Laberinto generado · Bloques
+(tetrominós) · Ladrillos (rompe-ladrillos) · Topos (reflejos).
 
 Todos con dificultades, «¿Cómo se juega?» y **mejores marcas** que se presumen en la portada.
 
