@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Dominó contra la app: colócalas en las puntas, roba si no llevas y quédate sin fichas." />
+<title>Dominó</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E🁣%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .estado { text-align: center; padding: 10px 16px 0; font-size: 14px; font-weight: 700; color: var(--bg-ink); min-height: 20px; }
+  .appinfo { display: flex; justify-content: center; gap: 16px; padding-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--bg-sub); }
+  .mesa { flex: 1; min-height: 0; display: flex; align-items: center; overflow-x: auto; padding: 14px 18px; -webkit-overflow-scrolling: touch; }
+  .cadena { display: flex; gap: 4px; margin: 0 auto; align-items: center; }
+  .ficha {
+    display: flex; background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 7px;
+    box-shadow: 0 2px 0 var(--tile-border); flex-shrink: 0;
+  }
+  .ficha .mitad { width: 30px; height: 30px; display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px; }
+  .ficha .mitad i { border-radius: 999px; background: var(--ink); transform: scale(.62); }
+  .ficha .sep { width: 1px; background: var(--tile-border); margin: 4px 0; }
+  .ficha.vert { flex-direction: column; }
+  .ficha.vert .sep { width: auto; height: 1px; margin: 0 4px; }
+  .zona-punta {
+    flex-shrink: 0; width: 46px; height: 60px; border-radius: 10px; border: 2px dashed var(--accent);
+    background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 18px;
+    display: none; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .zona-punta.on { display: flex; }
+  .mano-wrap { padding: 0 0 calc(12px + env(safe-area-inset-bottom)); }
+  .mano-acciones { display: flex; gap: 10px; justify-content: center; padding: 8px 16px; }
+  .mano { display: flex; gap: 7px; overflow-x: auto; padding: 10px 16px 6px; -webkit-overflow-scrolling: touch; }
+  .mano .slot { flex-shrink: 0; cursor: pointer; opacity: .45; transition: transform .12s, opacity .12s; }
+  .mano .slot.puede { opacity: 1; }
+  .mano .slot.elegida { transform: translateY(-8px); }
+  .mano .slot.puede:active { transform: scale(.95); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const S = {
+  diff: store.get('domino.diff', 'normal'),
+  mano: [], manoApp: [], monton: [], cadena: [],
+  turno: 'yo', pases: 0, pend: -1, sinSalida: new Set(),
+  score: { yo: 0, app: 0, emp: 0 }, jugando: false, robadas: 0,
+};
+
+const REGLAS = `<p>El dominó de siempre, a <b>una mano contra la app</b>: 7 fichas cada quien y por turnos se colocan en <b>las puntas</b> de la cadena, casando los números.</p>
+<p>¿No llevas? <b>Roba del montón</b> hasta que salga una que sirva; si el montón se acabó, pasas. Gana quien se queda <b>sin fichas</b> — y si el juego se cierra, quien sume <b>menos puntos</b>.</p>
+<p>Si una ficha cabe en las dos puntas, tócala y elige punta. La dificultad cambia lo listo que juega el rival.</p>`;
+
+const pipsHTML = (n) => {
+  const POS = { 0: [], 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+  return Array.from({ length: 9 }, (_, i) => POS[n].includes(i) ? '<i></i>' : '<span></span>').join('');
+};
+const fichaHTML = (a, b, vert) =>
+  `<div class="ficha ${vert ? 'vert' : ''}"><div class="mitad">${pipsHTML(a)}</div><div class="sep"></div><div class="mitad">${pipsHTML(b)}</div></div>`;
+
+/* ── Partida ─────────────────────────────────────────────────────────── */
+function repartir() {
+  const todas = [];
+  for (let a = 0; a <= 6; a++) for (let b = a; b <= 6; b++) todas.push({ a, b });
+  const rev = shuffle(todas);
+  S.mano = rev.slice(0, 7);
+  S.manoApp = rev.slice(7, 14);
+  S.monton = rev.slice(14);
+  S.cadena = []; S.pases = 0; S.pend = -1; S.sinSalida = new Set();
+  S.turno = Math.random() < .5 ? 'yo' : 'app';
+  S.jugando = true; S.robadas = 0;
+}
+
+const puntas = () => S.cadena.length
+  ? [S.cadena[0].izq, S.cadena[S.cadena.length - 1].der]
+  : [-1, -1];
+const cabe = (f) => {
+  if (!S.cadena.length) return true;
+  const [L, R] = puntas();
+  return f.a === L || f.b === L || f.a === R || f.b === R;
+};
+
+function colocar(mano, k, lado) {
+  const f = mano.splice(k, 1)[0];
+  if (!S.cadena.length) { S.cadena.push({ izq: f.a, der: f.b }); return; }
+  const [L, R] = puntas();
+  if (lado === 'izq') S.cadena.unshift(f.b === L ? { izq: f.a, der: f.b } : { izq: f.b, der: f.a });
+  else S.cadena.push(f.a === R ? { izq: f.a, der: f.b } : { izq: f.b, der: f.a });
+  S.pases = 0;
+}
+
+/* ── IA ──────────────────────────────────────────────────────────────── */
+function appElige() {
+  const opciones = [];
+  const [L, R] = puntas();
+  S.manoApp.forEach((f, k) => {
+    if (!S.cadena.length) { opciones.push({ k, lado: 'der', deja: -1 }); return; }
+    if (f.a === L || f.b === L) opciones.push({ k, lado: 'izq', deja: f.a === L ? f.b : f.a });
+    if (f.a === R || f.b === R) opciones.push({ k, lado: 'der', deja: f.a === R ? f.b : f.a });
+  });
+  if (!opciones.length) return null;
+  if (S.diff === 'facil') return opciones[randInt(opciones.length)];
+  const cuenta = new Array(7).fill(0);
+  for (const f of S.manoApp) { cuenta[f.a]++; if (f.b !== f.a) cuenta[f.b]++; }
+  let mejor = null, mejorV = -Infinity;
+  for (const o of opciones) {
+    const f = S.manoApp[o.k];
+    let v = f.a + f.b;                                   // suéltate de puntos
+    if (f.a === f.b) v += 5;                             // las mulas, pronto
+    if (S.diff === 'dificil' || S.diff === 'experto') {
+      if (o.deja >= 0) v += cuenta[o.deja] * 2;          // deja puntas que tú sí llevas
+      if (S.diff === 'experto' && S.sinSalida.has(o.deja)) v += 14; // punta que al rival ya lo atoró
+    }
+    v += Math.random() * 2;
+    if (v > mejorV) { mejorV = v; mejor = o; }
+  }
+  return mejor;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Dominó', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="bests"><div class="b"><div class="bn">${store.get('domino.wins', 0)}</div><div class="bl">Manos ganadas</div></div></div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('domino.diff', v); });
+  $('#new').onclick = () => { S.score = { yo: 0, app: 0, emp: 0 }; nuevaMano(true); };
+  bindHowto(REGLAS);
+}
+
+function nuevaMano(first) {
+  repartir();
+  if (first) renderPlay(); else paint();
+  avisa();
+  if (S.turno === 'app') setTimeout(turnoApp, 900);
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Dominó', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
+    <div class="estado" id="estado"></div>
+    <div class="appinfo"><span>App: <b id="napp"></b> fichas</span><span>Montón: <b id="nmon"></b></span><span>Marcador <b id="marc"></b></span></div>
+    <div class="mesa" id="mesa">
+      <div class="cadena" id="lachain"></div>
+    </div>
+    <div class="mano-wrap">
+      <div class="msg" id="msg"></div>
+      <div class="mano" id="mano"></div>
+      <div class="mano-acciones">
+        <button class="btn btn-soft btn-sm" id="b-robar" style="display:none;">Robar del montón</button>
+        <button class="btn btn-ghost btn-sm" id="b-pasar" style="display:none;">Pasar</button>
+        <button class="btn btn-ghost btn-sm" id="b-salir">Salir</button>
+      </div>
+    </div>
+  </div>`;
+  $('#mano').onclick = (e) => {
+    const s = e.target.closest('.slot');
+    if (s) tapFicha(Number(s.dataset.k));
+  };
+  $('#lachain').onclick = (e) => {
+    const z = e.target.closest('.zona-punta');
+    if (z && S.pend >= 0) { colocarMia(S.pend, z.dataset.lado); }
+  };
+  $('#b-robar').onclick = robar;
+  $('#b-pasar').onclick = pasar;
+  $('#b-salir').onclick = renderSetup;
+  paint();
+}
+
+function paint() {
+  const [L, R] = puntas();
+  const doble = S.pend >= 0;
+  $('#lachain').innerHTML =
+    `<div class="zona-punta ${doble ? 'on' : ''}" data-lado="izq">◀</div>` +
+    S.cadena.map((t) => fichaHTML(t.izq, t.der, false)).join('') +
+    `<div class="zona-punta ${doble ? 'on' : ''}" data-lado="der">▶</div>`;
+  $('#mano').innerHTML = S.mano.map((f, k) =>
+    `<div class="slot ${S.turno === 'yo' && cabe(f) ? 'puede' : ''} ${S.pend === k ? 'elegida' : ''}" data-k="${k}">${fichaHTML(f.a, f.b, true)}</div>`).join('');
+  $('#napp').textContent = S.manoApp.length;
+  $('#nmon').textContent = S.monton.length;
+  $('#marc').textContent = `${S.score.yo} – ${S.score.app}`;
+  const puedo = S.mano.some(cabe);
+  $('#b-robar').style.display = S.turno === 'yo' && S.jugando && !puedo && S.monton.length ? '' : 'none';
+  $('#b-pasar').style.display = S.turno === 'yo' && S.jugando && !puedo && !S.monton.length ? '' : 'none';
+}
+
+function avisa(txt) {
+  const el = $('#estado');
+  if (el) el.textContent = txt || (S.turno === 'yo' ? 'Tu turno' : 'Piensa la app…');
+}
+
+function tapFicha(k) {
+  if (S.turno !== 'yo' || !S.jugando) return;
+  const f = S.mano[k];
+  if (!cabe(f)) return;
+  if (!S.cadena.length) return colocarMia(k, 'der');
+  const [L, R] = puntas();
+  const izq = f.a === L || f.b === L, der = f.a === R || f.b === R;
+  if (izq && der && L !== R) {
+    S.pend = S.pend === k ? -1 : k;
+    paint();
+    $('#msg').textContent = S.pend >= 0 ? 'Elige punta: ◀ o ▶' : '';
+    return;
+  }
+  colocarMia(k, izq ? 'izq' : 'der');
+}
+
+function colocarMia(k, lado) {
+  S.pend = -1;
+  $('#msg').textContent = '';
+  colocar(S.mano, k, lado);
+  vibrate(10);
+  if (!S.mano.length) return finMano('yo');
+  S.turno = 'app';
+  paint(); avisa();
+  ajustaScroll(lado);
+  setTimeout(turnoApp, 700 + randInt(600));
+}
+
+function ajustaScroll(lado) {
+  const m = $('#mesa');
+  if (m) m.scrollLeft = lado === 'izq' ? 0 : m.scrollWidth;
+}
+
+function robar() {
+  if (S.turno !== 'yo' || !S.monton.length) return;
+  S.mano.push(S.monton.pop());
+  S.robadas++;
+  const [L, R] = puntas();
+  S.sinSalida.add(L); S.sinSalida.add(R);
+  vibrate(8);
+  paint();
+}
+
+function pasar() {
+  if (S.turno !== 'yo') return;
+  const [L, R] = puntas();
+  S.sinSalida.add(L); S.sinSalida.add(R);
+  S.pases++;
+  if (S.pases >= 2) return cerrada();
+  S.turno = 'app';
+  paint(); avisa();
+  setTimeout(turnoApp, 800);
+}
+
+function turnoApp() {
+  if (!S.jugando || S.turno !== 'app') return;
+  let robo = 0;
+  let el = appElige();
+  while (!el && S.monton.length) { S.manoApp.push(S.monton.pop()); robo++; el = appElige(); }
+  if (!el) {
+    S.pases++;
+    avisa('La app pasa');
+    paint();
+    if (S.pases >= 2) return setTimeout(cerrada, 700);
+    S.turno = 'yo';
+    setTimeout(() => { paint(); avisa(); }, 800);
+    return;
+  }
+  colocar(S.manoApp, el.k, el.lado);
+  if (robo) avisa(`La app robó ${robo} y jugó`);
+  if (!S.manoApp.length) { paint(); return finMano('app'); }
+  S.turno = 'yo';
+  paint();
+  if (!robo) avisa();
+  ajustaScroll(el.lado);
+}
+
+const pipsDe = (mano) => mano.reduce((s, f) => s + f.a + f.b, 0);
+
+function finMano(quien) {
+  S.jugando = false;
+  const tuyos = pipsDe(S.mano), suyos = pipsDe(S.manoApp);
+  ganador(quien, `Se quedó sin fichas. Tú cargabas ${tuyos} puntos; la app, ${suyos}.`);
+}
+
+function cerrada() {
+  S.jugando = false;
+  const tuyos = pipsDe(S.mano), suyos = pipsDe(S.manoApp);
+  const quien = tuyos < suyos ? 'yo' : suyos < tuyos ? 'app' : 'emp';
+  ganador(quien, `Juego cerrado: tú sumas ${tuyos} puntos y la app ${suyos}.`);
+}
+
+function ganador(quien, porque) {
+  let titulo;
+  if (quien === 'yo') {
+    titulo = '¡Ganaste la mano!';
+    S.score.yo++;
+    const wins = store.get('domino.wins', 0) + 1;
+    store.set('domino.wins', wins);
+    store.set('dom.hub', 'Manos ganadas: ' + wins);
+    confetti(); vibrate([30, 60, 30]);
+  } else if (quien === 'app') { titulo = 'La app ganó la mano'; S.score.app++; }
+  else { titulo = 'Empate'; S.score.emp++; }
+  avisa(titulo);
+  setTimeout(() => {
+    openModal(`
+      <h3>${titulo}</h3>
+      <p style="text-align:center;">${esc(porque)}</p>
+      <p style="text-align:center;">Marcador: <b>${S.score.yo}</b> – <b>${S.score.emp}</b> – <b>${S.score.app}</b></p>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra mano</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); nuevaMano(false); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 1100);
+}
+
+renderSetup();
+</script>
+</body>
+</html>
