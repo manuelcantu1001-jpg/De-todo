@@ -1,28 +1,28 @@
 # Juegos · Pasatiempos en español
 
 Colección propia de juegos de pasatiempos, al estilo de las apps de «mil juegos»
-pero hecha en casa: **sin anuncios, sin conexión y con el mismo lenguaje de diseño**
-en todos los juegos.
+pero hecha en casa: **22 juegos sin anuncios, sin conexión y con el mismo lenguaje
+de diseño** en todos.
 
 **Juega en** <https://manuelcantu1001-jpg.github.io/De-todo/> — y desde ahí,
 «Añadir a pantalla de inicio» la instala como app en el teléfono.
 
 ## Los juegos
 
-| Juego | Tipo | Dificultades |
-|---|---|---|
-| **Encadena** | Palabras encadenadas por terminación (1 vs 1, vs. app, solo) | Letras 2–5, vidas, tiempo |
-| **Sopa de letras** | Encuentra las palabras escondidas arrastrando | 4 (tamaño, direcciones y rareza) |
-| **Crucigrama** | Resuelve pistas escritas a mano (~390 en el banco) | 4 (nº de palabras y nivel de pista) |
-| **Ahorcado** | Letra a letra con rachas | 4 (rareza y largo de palabra) |
-| **Anagramas** | Ordena las letras revueltas, 5 por partida | 4 (largo de palabra) |
-| **Sudoku** | Generador con solución única garantizada | 4 (nº de pistas) |
-| **Buscaminas** | Toque para abrir, toque largo para bandera | 4 (tablero y minas) |
-| **Memorama** | Parejas de iconos, menos movimientos = mejor | 4 (6 a 15 parejas) |
-| **Gato** | Tres en raya, 2 jugadores o vs. app (minimax) | 3 niveles de app |
-| **2048** | Desliza y suma | 3 tamaños de tablero |
+**Palabras**: Encadena (terminaciones, 1 vs 1 / vs. app / solo) · Sopa de letras ·
+Crucigrama (banco propio de ~390 pistas) · La palabra del día (5 letras, modo diario
+con racha) · Ahorcado · Anagramas · Acomoda-palabras.
 
-Todos guardan sus **mejores marcas** y las presumen en la portada.
+**Números y lógica**: Sudoku (solución única) · Cifras (objetivo siempre alcanzable) ·
+Nonograma (única y resoluble sin adivinar) · Kakuro · Buscaminas · Batalla naval
+(unicidad verificada) · 2048.
+
+**Mesa y clásicos**: Memorama · Gato (minimax) · Conecta 4 (minimax α-β) ·
+Damas (capturas obligatorias, multisalto) · Solitario Klondike.
+
+**Arcade**: Serpiente · Simón (con sonido) · Laberinto generado.
+
+Todos con dificultades, «¿Cómo se juega?» y **mejores marcas** que se presumen en la portada.
 
 ## Estructura
 

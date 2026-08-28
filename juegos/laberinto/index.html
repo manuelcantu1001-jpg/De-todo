@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Laberintos generados: encuentra la salida deslizando." />
+<title>Laberinto</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .lienzo { display: flex; justify-content: center; padding: 12px 12px 0; }
+  canvas { border-radius: 14px; box-shadow: var(--shadow); touch-action: none; background: var(--card); }
+  .aviso { text-align: center; font-size: 13px; color: var(--bg-sub); font-weight: 600; padding-top: 10px; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 12px; }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const CFG = { facil: 9, normal: 13, dificil: 17, experto: 23 };
+// paredes por celda: bit 0=N, 1=E, 2=S, 3=O
+const DIRS = [[0, -1, 0, 2], [1, 0, 1, 3], [0, 1, 2, 0], [-1, 0, 3, 1]];
+
+const S = {
+  diff: store.get('lab.diff', 'normal'),
+  n: 0, muros: [], px: 0, py: 0, rastro: [], done: false,
+};
+const clock = makeClock(() => $('#clock'));
+
+const REGLAS = `<p>Ve del punto verde a la <b>banderita</b>. <b>Desliza</b> (o usa las flechas): el punto avanza en esa dirección hasta topar con pared o llegar a un cruce donde decidir.</p>
+<p>Tu recorrido queda pintado para no dar vueltas en círculo.</p>
+<p>El reloj corre: tu mejor tiempo por tamaño queda guardado. Cada laberinto es nuevo.</p>`;
+
+/* ── Generación (backtracker recursivo) ──────────────────────────────── */
+function generar() {
+  const n = CFG[S.diff];
+  const muros = Array.from({ length: n * n }, () => 0b1111);
+  const visto = new Array(n * n).fill(false);
+  const pila = [0];
+  visto[0] = true;
+  while (pila.length) {
+    const cur = pila[pila.length - 1];
+    const cx = cur % n, cy = Math.floor(cur / n);
+    const opciones = [];
+    for (const [dx, dy, bit, obit] of DIRS) {
+      const nx = cx + dx, ny = cy + dy;
+      if (nx >= 0 && nx < n && ny >= 0 && ny < n && !visto[ny * n + nx]) {
+        opciones.push([nx, ny, bit, obit]);
+      }
+    }
+    if (!opciones.length) { pila.pop(); continue; }
+    const [nx, ny, bit, obit] = opciones[randInt(opciones.length)];
+    muros[cur] &= ~(1 << bit);
+    muros[ny * n + nx] &= ~(1 << obit);
+    visto[ny * n + nx] = true;
+    pila.push(ny * n + nx);
+  }
+  S.n = n;
+  S.muros = muros;
+  S.px = 0; S.py = 0;
+  S.rastro = [[0, 0]];
+  S.done = false;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  clock.stop();
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('lab.best.' + d, null);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Laberinto', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Tamaño</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => { $('#d-hint').textContent = `Laberinto de ${CFG[S.diff]}×${CFG[S.diff]}`; };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('lab.diff', v); hint(); });
+  hint();
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  generar();
+  renderPlay();
+  clock.start();
+}
+
+function renderPlay() {
+  const size = Math.min(384, Math.floor(innerWidth * .94));
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Laberinto', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="lienzo"><canvas id="cv" width="${size}" height="${size}"></canvas></div>
+    <div class="aviso">Desliza para moverte</div>
+    <div class="tools">
+      <button class="tool" id="t-nueva">Nuevo</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  const cv = $('#cv');
+  let start = null;
+  cv.addEventListener('pointerdown', (e) => { start = { x: e.clientX, y: e.clientY }; });
+  cv.addEventListener('pointerup', (e) => {
+    if (!start) return;
+    const dx = e.clientX - start.x, dy = e.clientY - start.y;
+    start = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
+    mover(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0));
+  });
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+  dibujar();
+}
+
+function abierto(x, y, dir) {
+  return !(S.muros[y * S.n + x] & (1 << dir));
+}
+function salidas(x, y) {
+  let c = 0;
+  for (let d = 0; d < 4; d++) if (abierto(x, y, d)) c++;
+  return c;
+}
+
+function mover(dir) {
+  if (S.done) return;
+  const paso = [[0, -1], [1, 0], [0, 1], [-1, 0]][dir];
+  if (!abierto(S.px, S.py, dir)) { vibrate(30); return; }
+  let x = S.px, y = S.py;
+  // se desliza hasta pared, cruce o meta
+  while (abierto(x, y, dir)) {
+    x += paso[0]; y += paso[1];
+    S.rastro.push([x, y]);
+    if (x === S.n - 1 && y === S.n - 1) break;
+    if (salidas(x, y) > 2) break;
+  }
+  S.px = x; S.py = y;
+  vibrate(8);
+  dibujar();
+  if (x === S.n - 1 && y === S.n - 1) win();
+}
+
+function dibujar() {
+  const cv = $('#cv');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const cs = getComputedStyle(document.body);
+  const n = S.n;
+  const m = 8;
+  const cell = (cv.width - m * 2) / n;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.fillStyle = cs.getPropertyValue('--card').trim();
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  // rastro
+  ctx.strokeStyle = cs.getPropertyValue('--accent-soft').trim();
+  ctx.lineWidth = cell * .34;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  S.rastro.forEach(([x, y], i) => {
+    const cx = m + (x + .5) * cell, cy = m + (y + .5) * cell;
+    if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+  });
+  ctx.stroke();
+  // muros
+  ctx.strokeStyle = cs.getPropertyValue('--ink').trim();
+  ctx.lineWidth = Math.max(1.6, cell * .09);
+  ctx.beginPath();
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const w = S.muros[y * n + x];
+    const x0 = m + x * cell, y0 = m + y * cell;
+    if (w & 1) { ctx.moveTo(x0, y0); ctx.lineTo(x0 + cell, y0); }
+    if (w & 2) { ctx.moveTo(x0 + cell, y0); ctx.lineTo(x0 + cell, y0 + cell); }
+    if (w & 4) { ctx.moveTo(x0, y0 + cell); ctx.lineTo(x0 + cell, y0 + cell); }
+    if (w & 8) { ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + cell); }
+  }
+  ctx.stroke();
+  // meta
+  const gx = m + (n - 1 + .5) * cell, gy = m + (n - 1 + .5) * cell;
+  ctx.fillStyle = cs.getPropertyValue('--second').trim();
+  ctx.beginPath();
+  ctx.moveTo(gx - cell * .18, gy + cell * .3);
+  ctx.lineTo(gx - cell * .18, gy - cell * .3);
+  ctx.lineTo(gx + cell * .26, gy - cell * .12);
+  ctx.lineTo(gx - cell * .18, gy + .06 * cell);
+  ctx.fill();
+  ctx.strokeStyle = cs.getPropertyValue('--second').trim();
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(gx - cell * .18, gy + cell * .3);
+  ctx.lineTo(gx - cell * .18, gy - cell * .3);
+  ctx.stroke();
+  // jugador
+  ctx.fillStyle = cs.getPropertyValue('--accent').trim();
+  ctx.beginPath();
+  ctx.arc(m + (S.px + .5) * cell, m + (S.py + .5) * cell, cell * .28, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function win() {
+  S.done = true;
+  clock.stop();
+  const secs = clock.seconds;
+  const k = 'lab.best.' + S.diff;
+  const best = store.get(k, null);
+  const isRecord = !best || secs < best;
+  if (isRecord) {
+    store.set(k, secs);
+    store.set('lab.hub', `Mejor ${fmtTime(secs)} · ${DIFF_LABEL[S.diff]}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡Salida encontrada!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.n}×${S.n}</div><div class="l">laberinto</div></div>
+    </div>
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Nuevo mejor tiempo!</span></p>'
+      : (best ? `<p style="text-align:center;">Tu mejor tiempo: <b>${fmtTime(best)}</b></p>` : '')}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otro laberinto</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar tamaño</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+addEventListener('keydown', (e) => {
+  const d = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 }[e.key];
+  if (d !== undefined && $('#cv')) { mover(d); e.preventDefault(); }
+});
+
+renderSetup();
+</script>
+</body>
+</html>

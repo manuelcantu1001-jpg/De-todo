@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="La serpiente clásica: come, crece y no te muerdas." />
+<title>Serpiente</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .lienzo { display: flex; justify-content: center; padding: 12px 12px 0; }
+  canvas { border-radius: 16px; box-shadow: var(--shadow); touch-action: none; }
+  .statusrow { display: flex; justify-content: center; gap: 20px; padding: 10px 0 0; font-size: 13.5px; font-weight: 600; color: var(--sub); }
+  .statusrow b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .aviso { text-align: center; font-size: 13px; color: var(--bg-sub); font-weight: 600; padding-top: 10px; min-height: 18px; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 12px; }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const N = 17;
+const CFG = { facil: 150, normal: 115, dificil: 88, experto: 65 };
+
+const S = {
+  diff: store.get('serp.diff', 'normal'),
+  snake: [], dir: [1, 0], cola: [], food: null,
+  score: 0, tick: null, over: false, pausa: false,
+};
+
+const REGLAS = `<p><b>Desliza</b> (o usa las flechas) para dirigir a la serpiente. Come la fruta para crecer: cada una vale un punto.</p>
+<p>Pierdes si chocas con la <b>pared</b> o contigo misma. No puedes girar 180° de golpe.</p>
+<p>La dificultad es la <b>velocidad</b>. Si sales de la app a media partida, se pausa sola; toca el tablero para seguir.</p>`;
+
+function renderSetup() {
+  detener();
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('serp.best.' + d, 0);
+    return `<div class="b"><div class="bn">${b || '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Serpiente', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Velocidad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores puntajes</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('serp.diff', v); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  const m = Math.floor(N / 2);
+  S.snake = [[m - 1, m], [m, m]];
+  S.dir = [1, 0];
+  S.cola = [];
+  S.score = 0;
+  S.over = false;
+  S.pausa = false;
+  ponerComida();
+  renderPlay();
+  arrancar();
+}
+
+function ponerComida() {
+  const ocupado = new Set(S.snake.map(([x, y]) => x + ',' + y));
+  let x, y;
+  do { x = randInt(N); y = randInt(N); } while (ocupado.has(x + ',' + y));
+  S.food = [x, y];
+}
+
+function renderPlay() {
+  const size = Math.min(380, Math.floor(innerWidth * .94));
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Serpiente', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
+    <div class="statusrow">
+      <span>Puntos <b id="pts">0</b></span>
+      <span>Mejor <b>${store.get('serp.best.' + S.diff, 0)}</b></span>
+    </div>
+    <div class="lienzo"><canvas id="cv" width="${size}" height="${size}"></canvas></div>
+    <div class="aviso" id="aviso">Desliza para dirigir</div>
+    <div class="tools">
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  const cv = $('#cv');
+  let start = null;
+  cv.addEventListener('pointerdown', (e) => {
+    start = { x: e.clientX, y: e.clientY };
+    if (S.pausa && !S.over) { S.pausa = false; $('#aviso').textContent = ''; arrancar(); }
+  });
+  cv.addEventListener('pointerup', (e) => {
+    if (!start) return;
+    const dx = e.clientX - start.x, dy = e.clientY - start.y;
+    start = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
+    girar(Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)]);
+  });
+  $('#t-salir').onclick = renderSetup;
+  dibujar();
+}
+
+function girar(d) {
+  const cur = S.cola.length ? S.cola[S.cola.length - 1] : S.dir;
+  if (d[0] === -cur[0] && d[1] === -cur[1]) return;   // sin 180°
+  if (d[0] === cur[0] && d[1] === cur[1]) return;
+  if (S.cola.length < 2) S.cola.push(d);
+}
+
+function arrancar() {
+  detener();
+  S.tick = setInterval(paso, CFG[S.diff]);
+}
+function detener() {
+  if (S.tick) { clearInterval(S.tick); S.tick = null; }
+}
+
+function paso() {
+  if (S.cola.length) S.dir = S.cola.shift();
+  const cabeza = S.snake[S.snake.length - 1];
+  const nx = cabeza[0] + S.dir[0], ny = cabeza[1] + S.dir[1];
+  if (nx < 0 || nx >= N || ny < 0 || ny >= N) return morir();
+  if (S.snake.some(([x, y], i) => i > 0 && x === nx && y === ny)) return morir();
+  S.snake.push([nx, ny]);
+  if (S.food && nx === S.food[0] && ny === S.food[1]) {
+    S.score++;
+    $('#pts').textContent = S.score;
+    vibrate(12);
+    ponerComida();
+  } else {
+    S.snake.shift();
+  }
+  dibujar();
+}
+
+function dibujar() {
+  const cv = $('#cv');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const cs = getComputedStyle(document.body);
+  const cell = cv.width / N;
+  ctx.fillStyle = cs.getPropertyValue('--card').trim();
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  // rejilla sutil
+  ctx.fillStyle = cs.getPropertyValue('--soft').trim();
+  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) {
+    if ((x + y) % 2 === 0) ctx.fillRect(x * cell, y * cell, cell, cell);
+  }
+  // comida
+  if (S.food) {
+    ctx.fillStyle = cs.getPropertyValue('--second').trim();
+    ctx.beginPath();
+    ctx.arc((S.food[0] + .5) * cell, (S.food[1] + .5) * cell, cell * .34, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // serpiente
+  const acc = cs.getPropertyValue('--accent').trim();
+  S.snake.forEach(([x, y], i) => {
+    const esCabeza = i === S.snake.length - 1;
+    ctx.fillStyle = acc;
+    ctx.globalAlpha = esCabeza ? 1 : .82;
+    const pad = cell * .08;
+    const r = cell * .3;
+    ctx.beginPath();
+    ctx.roundRect(x * cell + pad, y * cell + pad, cell - pad * 2, cell - pad * 2, r);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    if (esCabeza) {
+      ctx.fillStyle = '#FFFDF6';
+      const ox = S.dir[0], oy = S.dir[1];
+      ctx.beginPath();
+      ctx.arc((x + .5 + ox * .15 - oy * .18) * cell, (y + .5 + oy * .15 + ox * .18) * cell, cell * .07, 0, Math.PI * 2);
+      ctx.arc((x + .5 + ox * .15 + oy * .18) * cell, (y + .5 + oy * .15 - ox * .18) * cell, cell * .07, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+}
+
+function morir() {
+  detener();
+  S.over = true;
+  vibrate([80, 60, 80]);
+  const best = store.get('serp.best.' + S.diff, 0);
+  const isRecord = S.score > best;
+  if (isRecord) {
+    store.set('serp.best.' + S.diff, S.score);
+    store.set('serp.hub', `Mejor: ${S.score} pts · ${DIFF_LABEL[S.diff]}`);
+  }
+  setTimeout(() => {
+    openModal(`
+      <h3>${isRecord && S.score > 0 ? '¡Récord!' : 'Fin del paseo'}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${S.score}</div><div class="l">puntos</div></div>
+        <div class="stat"><div class="n">${Math.max(best, S.score)}</div><div class="l">mejor</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-diff">Cambiar velocidad</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+  }, 400);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && S.tick) {
+    detener();
+    S.pausa = true;
+    const a = $('#aviso');
+    if (a) a.textContent = 'Pausa — toca el tablero para seguir';
+  }
+});
+
+addEventListener('keydown', (e) => {
+  const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+  if (d && $('#cv')) {
+    if (S.pausa && !S.over) { S.pausa = false; $('#aviso').textContent = ''; arrancar(); }
+    girar(d);
+    e.preventDefault();
+  }
+});
+
+renderSetup();
+</script>
+</body>
+</html>

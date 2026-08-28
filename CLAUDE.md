@@ -6,19 +6,23 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
 
 ## Lo que ya existe y funciona
 
-- **Hub + 10 juegos**, todos vanilla JS sin build, con dificultades y mejores marcas:
-  Encadena, Sopa de letras, Crucigrama (banco propio de ~390 pistas en
-  `juegos/crucigrama/pistas-es.js`), Ahorcado, Anagramas, Sudoku (solución única),
-  Buscaminas, Memorama, Gato (minimax) y 2048. Ver `README.md` para la estructura.
+- **Hub + 22 juegos**, todos vanilla JS sin build, con dificultades, mejores marcas y
+  «¿Cómo se juega?»: Palabras (Encadena, Sopa, Crucigrama con banco propio de ~390
+  pistas, La palabra del día con modo diario, Ahorcado, Anagramas, Acomoda-palabras),
+  Números (Sudoku, Cifras, Nonograma, Kakuro, Buscaminas, Batalla naval, 2048),
+  Mesa (Memorama, Gato, Conecta 4, Damas, Solitario) y Arcade (Serpiente, Simón,
+  Laberinto). Ver `README.md`. Generadores con garantías (unicidad/solubilidad)
+  en sudoku, nonograma, naval y cifras.
 - **Sistema compartido** en `comun/`: `estilo.css` (TODA la identidad visual vive ahí,
   tokens en `:root`) y `nucleo.js` (utilidades + diccionario). Cada juego enlaza ambos.
-- **PWA instalable** (manifest «Juegos» provisional, `sw.js` cache `juegos-v3`).
+- **PWA instalable** (manifest «Juegos» provisional, `sw.js` cache `juegos-v5`).
   Al añadir/cambiar assets: bump de versión del cache.
 - **Publicación automática**: push a esta rama → workflow construye `_site` → rama
   `gh-pages` → **https://manuelcantu1001-jpg.github.io/De-todo/**
   (la fuente de Pages ya está activada a mano; el token no puede crearla por API).
 - Marcas del hub: cada juego escribe `store.set('<id>.hub', 'texto')` al batir récord;
-  ids: enc, sopa, cru, ahorcado, ana, sud, mina, memo, gato, m2048.
+  ids: enc, sopa, cru, pal, ahorcado, ana, aco, sud, cif, nono, kak, mina, naval,
+  m2048, memo, gato, c4, damas, sol, serp, simon, lab.
 
 ## DECISIÓN PENDIENTE: identidad visual y nombre
 

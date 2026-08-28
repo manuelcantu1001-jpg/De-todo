@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#F7F3EA" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Simón dice: memoriza la secuencia de luces y sonidos y repítela." />
+<title>Simón</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230E7A5C'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FFFDF6'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Georgia,serif' font-weight='700' fill='%23221F19' text-anchor='middle'%3E◍%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .simonwrap { display: flex; justify-content: center; padding: 22px 16px 0; }
+  .simon { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; width: min(84vw, 330px); }
+  .pad {
+    aspect-ratio: 1; border: none; border-radius: 26px; cursor: pointer; opacity: .55;
+    transition: opacity .12s, transform .1s; box-shadow: var(--shadow), inset 0 -6px 0 rgba(0,0,0,.15);
+  }
+  .pad:active { transform: scale(.96); }
+  .pad.on { opacity: 1; transform: scale(1.03); box-shadow: 0 0 34px -4px currentColor, inset 0 -6px 0 rgba(0,0,0,.15); }
+  .pad.p0 { background: var(--accent); color: var(--accent); }
+  .pad.p1 { background: var(--second); color: var(--second); }
+  .pad.p2 { background: var(--warn); color: var(--warn); }
+  .pad.p3 { background: #2A6DB5; color: #2A6DB5; }
+  .centro { text-align: center; padding: 20px 0 0; }
+  .centro .ronda { font-family: var(--title-font); font-size: 44px; font-weight: 700; color: var(--bg-ink); line-height: 1; }
+  .centro .estado { font-size: 13.5px; font-weight: 600; color: var(--bg-sub); margin-top: 6px; min-height: 18px; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: none; cursor: pointer; font-weight: 700; font-size: 13.5px; padding: 11px 18px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const CFG = {
+  facil:   { vel: 700, inicio: 1 },
+  normal:  { vel: 520, inicio: 1 },
+  experto: { vel: 380, inicio: 3 },
+};
+const FREQS = [329.63, 261.63, 220.0, 164.81];
+
+const S = {
+  diff: store.get('simon.diff', 'normal'),
+  seq: [], idx: 0, fase: 'espera',   // espera | muestra | repite
+  ronda: 0,
+};
+
+const REGLAS = `<p>Los cuatro botones se encienden en una <b>secuencia</b> que crece de uno en uno. Obsérvala (y escúchala: cada color tiene su nota) y <b>repítela en el mismo orden</b>.</p>
+<p>Un error y se acabó: tu marca es la ronda más larga que lograste repetir.</p>
+<p>La dificultad cambia la <b>velocidad</b> de la secuencia (y en Experto arranca ya con tres pasos).</p>`;
+
+/* ── Sonido ──────────────────────────────────────────────────────────── */
+let actx = null;
+function beep(i, dur) {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = 'sine';
+    o.frequency.value = FREQS[i];
+    g.gain.setValueAtTime(0.0001, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.22, actx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur / 1000);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur / 1000 + 0.05);
+  } catch (e) {}
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  const bests = ['facil', 'normal', 'experto'].map((d) => {
+    const b = store.get('simon.best.' + d, 0);
+    return `<div class="b"><div class="bn">${b || '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Simón', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Velocidad</div></div>
+        ${diffSegHTML('seg-d', S.diff, ['facil', 'normal', 'experto'])}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Rondas más largas</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('simon.diff', v); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  S.seq = [];
+  for (let i = 0; i < CFG[S.diff].inicio; i++) S.seq.push(randInt(4));
+  S.ronda = 0;
+  renderPlay();
+  setTimeout(mostrar, 700);
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Simón', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
+    <div class="centro">
+      <div class="ronda" id="ronda">—</div>
+      <div class="estado" id="estado">Mira la secuencia…</div>
+    </div>
+    <div class="simonwrap">
+      <div class="simon" id="simon">
+        ${[0, 1, 2, 3].map((i) => `<button class="pad p${i}" data-i="${i}" aria-label="Botón ${i + 1}"></button>`).join('')}
+      </div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#simon').onclick = (e) => {
+    const p = e.target.closest('.pad');
+    if (p) tocar(Number(p.dataset.i));
+  };
+  $('#t-salir').onclick = renderSetup;
+}
+
+function prender(i, dur) {
+  const el = $(`.pad[data-i="${i}"]`);
+  if (!el) return;
+  el.classList.add('on');
+  beep(i, dur);
+  setTimeout(() => el.classList.remove('on'), dur);
+}
+
+async function mostrar() {
+  S.fase = 'muestra';
+  const vel = CFG[S.diff].vel;
+  $('#ronda').textContent = S.seq.length;
+  $('#estado').textContent = 'Mira la secuencia…';
+  await delay(400);
+  for (const i of S.seq) {
+    if (!$('#simon')) return;
+    prender(i, vel * .62);
+    await delay(vel);
+  }
+  S.fase = 'repite';
+  S.idx = 0;
+  const est = $('#estado');
+  if (est) est.textContent = 'Tu turno';
+}
+
+function tocar(i) {
+  if (S.fase !== 'repite') return;
+  prender(i, 240);
+  if (i === S.seq[S.idx]) {
+    S.idx++;
+    vibrate(8);
+    if (S.idx === S.seq.length) {
+      S.ronda = S.seq.length;
+      S.fase = 'espera';
+      $('#estado').textContent = '¡Bien!';
+      S.seq.push(randInt(4));
+      setTimeout(mostrar, 850);
+    }
+  } else {
+    fallo();
+  }
+}
+
+function fallo() {
+  S.fase = 'espera';
+  vibrate([80, 60, 80]);
+  try { beep(3, 500); } catch (e) {}
+  const best = store.get('simon.best.' + S.diff, 0);
+  const isRecord = S.ronda > best;
+  if (isRecord) {
+    store.set('simon.best.' + S.diff, S.ronda);
+    store.set('simon.hub', `Mejor ronda: ${S.ronda}`);
+  }
+  setTimeout(() => {
+    openModal(`
+      <h3>${isRecord && S.ronda > 0 ? '¡Récord!' : 'Se cortó la racha'}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${S.ronda}</div><div class="l">rondas</div></div>
+        <div class="stat"><div class="n">${Math.max(best, S.ronda)}</div><div class="l">mejor</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-diff">Cambiar velocidad</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+  }, 500);
+}
+
+renderSetup();
+</script>
+</body>
+</html>
