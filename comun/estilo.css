@@ -122,19 +122,27 @@
 
   /* Tinta parda: nunca negro puro, que es lo que rompe la calma del papel */
   --ink: #33302B; --bg-ink: #33302B;
-  --sub: #7A7268; --bg-sub: #7A7268;
+  --sub: #726A60; --bg-sub: #726A60;
   --faint: #B6AEA1;
 
   /* Acentos */
   --accent: #C0603A; --accent-ink: #FFFDFA; --accent-soft: #F4E3D8;
+  /* El terracota de marca da 3,85:1 sobre el crema: vale para piezas y
+     botones grandes, no para texto pequeño. --accent-texto es el mismo
+     matiz 7 % más oscuro (#AE5735): 4,55:1 sobre crema, 4,91 con texto crema. */
+  --accent-texto: #AE5735;
   --second: #7C8FA3; --second-soft: #E6EBEF;
   --good: #7C9A6E; --good-soft: #E9EFE2;
   --bad: #A8503A; --bad-soft: #F5E3DB;
   --warn: #A6853F; --warn-soft: #F2EAD7;
 
   /* Tintas para las paletas de varios colores (fichas, piezas, luces).
-     Ocho tonos distintos, todos bajados de saturación para que convivan
-     con el papel: si una paleta necesita N colores, usa N tintas. */
+     Ocho tonos, cada uno en su familia, elegidos por búsqueda numérica:
+     ΔE76 ≥ 25 entre cualquier par; en ΔE2000 el mínimo es 15 (rosa/lavanda,
+     terracota/pardo rosado), que solo coinciden cuando un juego usa las ocho
+     (Inunda en Experto). Subir más la separación exigía colores chillones
+     que rompen el papel; cada juego elige y ordena las tintas que necesita.
+     Si una paleta necesita N colores, usa N tintas: no inventes hex. */
   --tinta-1: #C0603A; --tinta-2: #45699D; --tinta-3: #7C9A6E; --tinta-4: #A6853F;
   --tinta-5: #C7809D; --tinta-6: #A08BC1; --tinta-7: #209EAA; --tinta-8: #8A5D5B;
 
@@ -172,7 +180,7 @@ body {
 }
 button { font-family: var(--font); touch-action: manipulation; -webkit-user-select: none; user-select: none; }
 input { font-family: var(--font); }
-a { color: var(--accent); }
+a { color: var(--accent-texto); }
 
 #app {
   max-width: 480px; margin: 0 auto; height: 100dvh; position: relative;
@@ -202,8 +210,8 @@ a { color: var(--accent); }
 }
 .btn:active { opacity: .82; }
 .btn:disabled { cursor: default; opacity: 1; background: transparent; color: var(--faint); border-color: var(--linea); }
-.btn-primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-.btn-primary:active { background: #A9522F; opacity: 1; }
+.btn-primary { background: var(--accent-texto); color: var(--accent-ink); border-color: transparent; }
+.btn-primary:active { background: color-mix(in srgb, var(--accent-texto) 88%, var(--ink)); opacity: 1; }
 .btn-soft { background: var(--accent-soft); color: var(--ink); border-color: transparent; }
 .btn-ghost { background: transparent; color: var(--ink); }
 .btn-danger-ghost { background: transparent; color: var(--bad); border-color: var(--bad); }
@@ -268,7 +276,7 @@ a { color: var(--accent); }
   border-radius: var(--pastilla); border: none; background: var(--panel); color: var(--sub); text-transform: uppercase;
 }
 .howto {
-  display: block; margin: 0 auto; background: none; border: none; color: var(--accent);
+  display: block; margin: 0 auto; background: none; border: none; color: var(--accent-texto);
   font-weight: 500; font-size: 13.5px; cursor: pointer; padding: 6px 10px;
   text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 5px;
 }
@@ -320,7 +328,7 @@ a { color: var(--accent); }
 .gcard .gi.alt { color: var(--second); }
 .gcard .gn { font-size: 15.5px; font-weight: 500; letter-spacing: var(--title-track); line-height: 1.15; }
 .gcard .gs { font-family: var(--display); font-style: italic; font-size: 12px; color: var(--sub); margin-top: -5px; }
-.gcard .gb { font-family: var(--mono); font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--accent); margin-top: auto; }
+.gcard .gb { font-family: var(--mono); font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--accent-texto); margin-top: auto; }
 
 /* ── Fichas de letras ──────────────────────────────────────────────── */
 .tiles { display: flex; gap: 7px; justify-content: center; align-items: center; flex-wrap: wrap; }
@@ -358,7 +366,7 @@ a { color: var(--accent); }
 
 /* ── Pantalla de fin (compartida) ──────────────────────────────────── */
 .end { padding: max(40px, env(safe-area-inset-top)) 24px 28px; text-align: center; }
-.end .kicker { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+.end .kicker { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent-texto); margin-bottom: 10px; }
 .end h2 {
   margin: 0; font-family: var(--display); font-size: 38px; font-weight: 400;
   color: var(--bg-ink); line-height: 1.06; letter-spacing: -0.02em;
@@ -397,7 +405,7 @@ a { color: var(--accent); }
 #modal p b { color: var(--ink); font-weight: 500; }
 #modal .m-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
 #modal .m-word { font-family: var(--display); font-size: 26px; font-weight: 400; color: var(--ink); text-align: center; margin: 6px 0 10px; }
-#modal .m-word .hi { color: var(--accent); }
+#modal .m-word .hi { color: var(--accent-texto); }
 
 /* ── Confeti ───────────────────────────────────────────────────────── */
 .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 80; overflow: hidden; }
