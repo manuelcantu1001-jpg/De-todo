@@ -3,22 +3,22 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FAF9F5" />
+<meta name="theme-color" content="#FBF6ED" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Batalla naval de revista: deduce dónde está la flota con los conteos de filas y columnas." />
 <title>Batalla naval</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3E⛵%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E⛵%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .boardwrap { display: flex; justify-content: center; padding: 8px 10px 4px; }
   .board { display: grid; gap: 3px; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
   .bc {
-    background: var(--card); border: 1px solid var(--tile-border); border-radius: 5px 7px 5px 7px / 6px 7px 7px 7px;
+    background: var(--card); border: 1px solid var(--tile-border); border-radius: 12px;
     cursor: pointer; position: relative;
   }
   .bc.agua { background: var(--second-soft); border-color: #A9C2D8; }
@@ -27,7 +27,7 @@
     color: var(--second); font-weight: 700; font-size: 15px; line-height: 1;
   }
   /* Dato de salida: contorno de tinta más grueso y una marca de esquina */
-  .bc.fija { cursor: default; border: var(--trazo) solid var(--ink); }
+  .bc.fija { cursor: default; border: var(--trazo) solid var(--linea-fuerte); }
   .bc.fija::before {
     content: ''; position: absolute; left: 1.5px; top: 1.5px; width: 3.5px; height: 3.5px;
     border-radius: 50%; background: var(--faint); z-index: 2;
@@ -49,7 +49,7 @@
   .seg.v.ct { top: 9%; border-top-left-radius: 50%; border-top-right-radius: 50%; }
   .seg.v.cb { bottom: 9%; border-bottom-left-radius: 50%; border-bottom-right-radius: 50%; }
   .seg.sub { inset: 19%; border-radius: 50%; }
-  .seg.mid { inset: 15%; border-radius: 3px 4px 3px 4px / 4px 3px 4px 3px; }
+  .seg.mid { inset: 15%; border-radius: 12px; }
 
   .cnt {
     display: flex; align-items: center; justify-content: center; font-weight: 700;
@@ -80,9 +80,9 @@
 
   .tools { margin: 10px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 8px; justify-content: center; }
   .tool {
-    border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600; font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); box-shadow: var(--shadow-sutil);
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600; font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); box-shadow: var(--shadow-sutil);
   }
-  .tool:active { transform: translate(1.5px, 2px); box-shadow: none; }
+  .tool:active { opacity: .6; }
   .tool:disabled { opacity: .4; cursor: default; }
 </style>
 </head>

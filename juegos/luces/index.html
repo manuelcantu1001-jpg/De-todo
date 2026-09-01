@@ -3,23 +3,23 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FAF9F5" />
+<meta name="theme-color" content="#FBF6ED" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Apaga todas las luces: cada toque invierte la casilla y sus vecinas." />
 <title>Luces fuera</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3E✸%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E✸%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .lwrap { display: flex; justify-content: center; padding: 18px 16px 0; }
   .lgrid { display: grid; gap: 8px; width: min(88vw, 360px); }
   .lc {
-    aspect-ratio: 1; border: none; border-radius: 13px 19px 16px 18px / 12px 12px 17px 18px; cursor: pointer; padding: 0;
-    background: var(--soft); box-shadow: inset 0 2px 4px rgba(60,50,30,.12); transition: all .14s steps(3, jump-end);
+    aspect-ratio: 1; border: none; border-radius: 12px; cursor: pointer; padding: 0;
+    background: var(--soft); box-shadow: inset 0 2px 4px rgba(60,50,30,.12); transition: all .14s var(--ease);
   }
   .lc.on {
     background: var(--warn); box-shadow: 0 0 22px -2px var(--warn), var(--shadow);
@@ -30,10 +30,10 @@
   .marcador .sobre.mal { color: var(--bad); }
   .pie { text-align: center; font-size: 12px; color: var(--faint); font-weight: 600; padding-top: 12px; }
   .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
-  .tool { border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
     font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
     box-shadow: var(--shadow-sutil); }
-  .tool:active { transform: translate(1.5px, 2px); box-shadow: none; }
+  .tool:active { opacity: .6; }
 </style>
 </head>
 <body>

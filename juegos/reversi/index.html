@@ -3,45 +3,45 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FAF9F5" />
+<meta name="theme-color" content="#FBF6ED" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Reversi contra la app: voltea fichas y domina el tablero." />
 <title>Reversi</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3E◐%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E◐%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .rwrap { display: flex; justify-content: center; padding: 14px 12px 0; }
   .rboard {
     display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px;
-    width: min(94vw, 420px); background: var(--accent); padding: 6px; border-radius: 12px 15px 11px 15px / 17px 14px 16px 16px;
-    box-shadow: var(--shadow); border: 1.5px solid var(--ink); }
+    width: min(94vw, 420px); background: var(--accent); padding: 6px; border-radius: 12px;
+    box-shadow: var(--shadow); border: 1px solid var(--linea-fuerte); }
   .rc {
-    aspect-ratio: 1; border: none; border-radius: 5px 5px 8px 7px / 6px 5px 7px 7px; cursor: pointer; padding: 0;
+    aspect-ratio: 1; border: none; border-radius: 12px; cursor: pointer; padding: 0;
     background: color-mix(in srgb, var(--accent) 82%, white); position: relative;
   }
   .rc .disc {
-    position: absolute; inset: 12%; border-radius: 999px; transition: transform .18s steps(3, jump-end), background .18s steps(3, jump-end);
+    position: absolute; inset: 12%; border-radius: 999px; transition: transform .18s var(--ease), background .18s var(--ease);
     box-shadow: 0 1px 3px rgba(0,0,0,.35);
   }
   .rc .disc.p1 { background: var(--ink); }
   .rc .disc.p2 { background: var(--card); }
-  .rc .disc.nuevo { animation: popIn .25s steps(4, jump-end); }
+  .rc .disc.nuevo { animation: popIn .25s var(--ease); }
   .rc .dot { position: absolute; inset: 38%; border-radius: 999px; background: rgba(255,255,255,.5); }
   .turnrow { text-align: center; padding: 14px 0 0; font-size: 15px; font-weight: 700; color: var(--bg-ink); min-height: 22px; }
   .scorebar { display: flex; justify-content: center; gap: 14px; margin: 14px 16px 0; }
-  .scorebar .b { flex: 0 1 120px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 6px; text-align: center; border: 1.5px solid var(--ink); }
+  .scorebar .b { flex: 0 1 120px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 6px; text-align: center; border: 1px solid var(--linea-fuerte); }
   .scorebar .bn { font-family: var(--title-font); font-size: 22px; font-weight: 700; color: var(--ink); }
   .scorebar .bl { font-size: 10.5px; color: var(--sub); font-weight: 600; margin-top: 1px; }
   .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
-  .tool { border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
     font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
     box-shadow: var(--shadow-sutil); }
-  .tool:active { transform: translate(1.5px, 2px); box-shadow: none; }
+  .tool:active { opacity: .6; }
 </style>
 </head>
 <body>

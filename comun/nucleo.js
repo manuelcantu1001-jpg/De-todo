@@ -104,26 +104,6 @@ function confetti() {
   setTimeout(() => c.remove(), 4600);
 }
 
-/* ── Trazo a mano: filtros que desplazan los contornos con ruido ─────
-   Tres variantes con distinta semilla; alternándolas se obtiene el
-   «hervido» de la animación cuadro por cuadro. */
-(function tintaAMano() {
-  const filtro = (id, semilla, escala) =>
-    `<filter id="${id}" x="-22%" y="-22%" width="144%" height="144%" color-interpolation-filters="sRGB">
-       <feTurbulence type="fractalNoise" baseFrequency="0.048" numOctaves="2" seed="${semilla}" result="ruido"/>
-       <feDisplacementMap in="SourceGraphic" in2="ruido" scale="${escala}" xChannelSelector="R" yChannelSelector="G"/>
-     </filter>`;
-  const cont = document.createElement('div');
-  cont.setAttribute('aria-hidden', 'true');
-  cont.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
-  cont.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg"><defs>
-    ${filtro('tinta', 3, 1.7)}${filtro('tinta2', 17, 1.9)}${filtro('tinta3', 41, 1.5)}
-    ${filtro('tinta-fina', 11, 0.9)}
-  </defs></svg>`;
-  const poner = () => document.body.appendChild(cont);
-  if (document.body) poner(); else addEventListener('DOMContentLoaded', poner);
-})();
-
 /* ── Iconos compartidos ──────────────────────────────────────────────── */
 const SVGI = {
   back: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>',

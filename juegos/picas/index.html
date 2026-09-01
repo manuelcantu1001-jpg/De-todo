@@ -3,16 +3,16 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FAF9F5" />
+<meta name="theme-color" content="#FBF6ED" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Picas y fijas: deduce el número secreto con las pistas de cada intento." />
 <title>Picas y fijas</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3E123%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E123%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .intento { display: flex; justify-content: center; gap: 8px; padding: 16px 0 0; }
@@ -21,8 +21,8 @@
   .hist { flex: 1; overflow-y: auto; min-height: 0; padding: 14px 20px 6px; display: flex; flex-direction: column; gap: 8px; }
   .hrow {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    background: var(--card); border-radius: 15px 13px 10px 15px / 10px 13px 14px 16px; box-shadow: var(--shadow); padding: 10px 14px;
-    animation: popIn .18s steps(4, jump-end); border: 1.5px solid var(--ink); }
+    background: var(--card); border-radius: 12px; box-shadow: var(--shadow); padding: 10px 14px;
+    animation: popIn .18s var(--ease); border: 1px solid var(--linea-fuerte); }
   .hrow .num { font-family: var(--title-font); font-size: 21px; font-weight: 700; letter-spacing: 4px; color: var(--ink); }
   .hrow .res { display: flex; gap: 8px; font-size: 12px; font-weight: 700; }
   .hrow .res .fija { color: var(--good); }
@@ -31,7 +31,7 @@
   .quedan.poco { color: var(--bad); }
   .kpad { padding: 8px 14px calc(12px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
   .kpad button {
-    height: 50px; border: none; border-radius: 12px 13px 10px 13px / 8px 8px 12px 8px; background: var(--card); box-shadow: var(--shadow);
+    height: 50px; border: none; border-radius: 12px; background: var(--card); box-shadow: var(--shadow);
     font-weight: 700; font-size: 18px; color: var(--ink); cursor: pointer;
   }
   .kpad button:active { transform: scale(.94); }
@@ -40,7 +40,7 @@
   .kpad button:disabled { opacity: .35; }
   .racha { display: flex; gap: 5px; justify-content: center; padding-top: 6px; }
   .racha i { font-family: var(--title-font); font-size: 11px; font-weight: 700; color: var(--sub);
-    border: 1.5px solid var(--ink); border-radius: 8px 6px 9px 7px / 7px 9px 6px 8px; padding: 1px 6px; font-style: normal; }
+    border: 1px solid var(--linea-fuerte); border-radius: 12px; padding: 1px 6px; font-style: normal; }
   .racha i.perdida { color: var(--bad); border-color: var(--bad); }
 </style>
 </head>

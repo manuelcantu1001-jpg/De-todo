@@ -3,27 +3,27 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FAF9F5" />
+<meta name="theme-color" content="#FBF6ED" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Simón dice: memoriza la secuencia de luces y sonidos y repítela." />
 <title>Simón</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3E◍%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E◍%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   /* Los pads viven en la mitad de abajo: son el mando, no un adorno. */
   .simonwrap { display: flex; justify-content: center; margin-top: auto; padding: 16px 16px 0; }
   .simon { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; width: min(84vw, 330px); }
   .pad {
-    aspect-ratio: 1; border: none; border-radius: 25px 26px 34px 25px / 23px 24px 30px 21px; cursor: pointer; opacity: .55;
-    transition: opacity .12s steps(3, jump-end), transform .1s steps(3, jump-end); box-shadow: var(--shadow), inset 0 -6px 0 rgba(0,0,0,.15);
+    aspect-ratio: 1; border: none; border-radius: 12px; cursor: pointer; opacity: .55;
+    transition: opacity .12s var(--ease), transform .1s var(--ease); box-shadow: var(--shadow);
   }
   .pad:active { transform: scale(.96); }
-  .pad.on { opacity: 1; transform: scale(1.03); box-shadow: 0 0 34px -4px currentColor, inset 0 -6px 0 rgba(0,0,0,.15); }
+  .pad.on { opacity: 1; transform: scale(1.03); box-shadow: 0 0 34px -4px currentColor; }
   .pad.p0 { background: var(--accent); color: var(--accent); }
   .pad.p1 { background: var(--second); color: var(--second); }
   .pad.p2 { background: var(--warn); color: var(--warn); }
@@ -34,17 +34,17 @@
   /* Reloj de respuesta: se vacía a saltos, como todo lo demás. */
   .reloj {
     width: min(84vw, 330px); height: 11px; margin: 10px auto 0; background: var(--soft);
-    border: var(--trazo) solid var(--ink); border-radius: var(--pastilla); overflow: hidden;
-    opacity: 0; transition: opacity .12s steps(2, jump-end);
+    border: var(--trazo) solid var(--linea-fuerte); border-radius: var(--pastilla); overflow: hidden;
+    opacity: 0; transition: opacity .12s var(--ease);
   }
   .reloj.viva { opacity: 1; }
   .reloj i { display: block; height: 100%; width: 100%; background: var(--ink); }
   .reloj.poco i { background: var(--bad); }
   .tools { margin: 14px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
-  .tool { border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
     font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
     box-shadow: var(--shadow-sutil); }
-  .tool:active { transform: translate(1.5px, 2px); box-shadow: none; }
+  .tool:active { opacity: .6; }
 </style>
 </head>
 <body>
@@ -196,7 +196,7 @@ function armarReloj() {
     r.classList.add('viva'); r.classList.remove('poco');
     i.style.transition = 'none'; i.style.width = '100%';
     void i.offsetWidth;                       // fuerza el reinicio
-    i.style.transition = `width ${LIMITE}ms steps(16, jump-none)`;
+    i.style.transition = `width ${LIMITE}ms var(--ease)`;
     i.style.width = '0%';
     setTimeout(() => { if (S.fase === 'repite' && $('#reloj') === r) r.classList.add('poco'); }, LIMITE * 0.6);
   }

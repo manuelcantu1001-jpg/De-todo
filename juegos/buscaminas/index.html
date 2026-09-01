@@ -3,26 +3,26 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FAF9F5" />
+<meta name="theme-color" content="#FBF6ED" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Buscaminas clásico: despeja el tablero sin pisar ninguna." />
 <title>Buscaminas</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3EB%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EB%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .boardwrap { display: flex; justify-content: center; padding: 8px 10px 4px; }
   .board {
-    display: grid; gap: 2px; background: var(--border); padding: 3px; border-radius: 9px 10px 8px 8px / 12px 11px 8px 9px;
-    box-shadow: var(--shadow); touch-action: manipulation; user-select: none; -webkit-user-select: none; border: 1.5px solid var(--ink); }
+    display: grid; gap: 2px; background: var(--border); padding: 3px; border-radius: 12px;
+    box-shadow: var(--shadow); touch-action: manipulation; user-select: none; -webkit-user-select: none; border: 1px solid var(--linea-fuerte); }
   .mc {
-    display: flex; align-items: center; justify-content: center; border-radius: 4px 3px 3px 4px / 3px 5px 4px 4px;
+    display: flex; align-items: center; justify-content: center; border-radius: 12px;
     font-weight: 700; cursor: pointer; position: relative;
-    background: var(--card); box-shadow: inset 0 -2px 0 rgba(60,50,30,.08);
+    background: var(--card); box-shadow:;
   }
   .mc.open { background: var(--soft); box-shadow: none; cursor: default; }
   .mc.boom { background: var(--bad); }
@@ -35,9 +35,9 @@
   .statusrow b { color: var(--ink); }
   .tools { margin: 10px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
   .tool {
-    border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600; font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); box-shadow: var(--shadow-sutil); display: flex; align-items: center; gap: 7px;
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600; font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); box-shadow: var(--shadow-sutil); display: flex; align-items: center; gap: 7px;
   }
-  .tool:active { transform: translate(1.5px, 2px); box-shadow: none; }
+  .tool:active { opacity: .6; }
   .tool.on { background: var(--second); color: #fff; }
 </style>
 </head>

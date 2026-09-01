@@ -1,48 +1,66 @@
 /* comun/estilo.css — tokens y átomos compartidos de la colección.
-   Identidad: tipografía de Claude (Poppins + Lora) y TODO lo demás
-   dibujado a mano, con tinta sobre papel. El movimiento es stopmotion:
-   nada se desliza suave, todo avanza a saltos (steps).
+   Identidad: papel, no pantalla. Crema cálido en vez de blanco, tinta parda en
+   vez de negro, filetes finísimos en vez de contornos gruesos, esquinas amplias
+   y limpias, y nada de sombras: las superficies se separan por relleno.
+   Titulares en serif (con cursiva para lo secundario), interfaz en sans y
+   etiquetas técnicas en monoespaciada. El movimiento es suave y corto.
    Para re-vestir la app basta cambiar los tokens de :root. */
 
 /* ── Tokens ────────────────────────────────────────────────────────── */
 :root {
-  --font: 'Lora', Georgia, serif;
-  --title-font: 'Poppins', Arial, sans-serif;
-  --title-track: -0.02em;
+  --display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --title-font: var(--font);       /* la interfaz y los números van en sans */
+  --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  --title-track: -0.015em;
 
-  /* Papel y tinta */
-  --bg: #FAF9F5; --card: #FFFEFA; --soft: #E8E6DC;
-  --ink: #141413; --bg-ink: #141413; --sub: #6B6A62; --bg-sub: #6B6A62; --faint: #B0AEA5;
+  /* Papel */
+  --bg: #FBF6ED;                   /* crema de la página */
+  --card: #FFFCF7;                 /* tarjeta, un punto más clara que el papel */
+  --panel: #F2EADE;                /* panel de relleno: agrupa sin dibujar caja */
+  --soft: #EFE7DA;
 
-  /* Acentos de la marca */
-  --accent: #D97757; --accent-ink: #FFFEFA; --accent-soft: #F7E5DC;
-  --second: #6A9BCC; --second-soft: #E3EDF6;
-  --good: #788C5D; --good-soft: #E7EBDE;
-  --bad: #A9432B; --bad-soft: #F5E2DB;
-  --warn: #A8813F; --warn-soft: #F1E8D6;
+  /* Tinta parda: nunca negro puro, que es lo que rompe la calma del papel */
+  --ink: #33302B; --bg-ink: #33302B;
+  --sub: #7A7268; --bg-sub: #7A7268;
+  --faint: #B6AEA1;
 
-  /* Tintas para las paletas de varios colores (fichas, piezas, luces) */
-  --tinta-1: #D97757; --tinta-2: #6A9BCC; --tinta-3: #788C5D; --tinta-4: #A8813F;
-  --tinta-5: #A9432B; --tinta-6: #7D6A9C; --tinta-7: #4E8C86; --tinta-8: #B4747E;
+  /* Acentos */
+  --accent: #C0603A; --accent-ink: #FFFCF7; --accent-soft: #F4E3D8;
+  --second: #7C8FA3; --second-soft: #E6EBEF;
+  --good: #7C9A6E; --good-soft: #E9EFE2;
+  --bad: #A8503A; --bad-soft: #F5E3DB;
+  --warn: #A6853F; --warn-soft: #F2EAD7;
 
-  --border: var(--ink); --line: var(--ink);
-  --radius: 16px; --seg-bg: #EFEDE3;
-  --tile-bg: #FFFEFA; --tile-ink: #141413; --tile-border: #141413;
-  --toggle-off: #CFCCC0;
+  /* Tintas para las paletas de varios colores (fichas, piezas, luces).
+     Ocho tonos distintos, todos bajados de saturación para que convivan
+     con el papel: si una paleta necesita N colores, usa N tintas. */
+  --tinta-1: #C0603A; --tinta-2: #7C8FA3; --tinta-3: #7C9A6E; --tinta-4: #A6853F;
+  --tinta-5: #A8503A; --tinta-6: #8A7796; --tinta-7: #5B9088; --tinta-8: #B37D84;
 
-  /* Trazo: el «grosor de la pluma» y el repasado a mano */
-  --trazo: 2px;
-  --shadow: 2px 2.5px 0 rgba(20, 20, 19, .92);
-  --shadow-sutil: 1.5px 2px 0 rgba(20, 20, 19, .82);
+  /* Filete: el borde es casi un susurro. --linea-fuerte solo para piezas
+     de juego, que sí necesitan recortarse del fondo. */
+  --linea: rgba(51, 48, 43, .13);
+  --linea-fuerte: rgba(51, 48, 43, .26);
+  --border: var(--linea); --line: var(--linea);
+  --trazo: 1px;
+  --shadow: none; --shadow-sutil: none;
 
-  /* Esquinas dibujadas: nunca dos iguales */
-  --mano-1: 14px 20px 15px 22px / 21px 14px 22px 15px;
-  --mano-2: 22px 14px 21px 16px / 15px 22px 14px 21px;
-  --mano-3: 16px 22px 14px 20px / 22px 15px 21px 14px;
-  --pastilla: 26px 31px 24px 29px / 29px 24px 28px 25px;
+  /* Esquinas: amplias, limpias e iguales. Los tres nombres vienen de la
+     identidad anterior (esquinas dibujadas a pulso, nunca dos iguales) y se
+     conservan para no tocar los 42 juegos; hoy valen lo mismo a propósito. */
+  --radius: 16px;
+  --mano-1: 18px; --mano-2: 18px; --mano-3: 18px;
+  --pastilla: 999px;
 
-  /* Stopmotion: 3 dibujos por ciclo, ~7 fps */
-  --fps: .42s;
+  --seg-bg: #F2EADE;
+  --tile-bg: #FFFCF7; --tile-ink: #33302B; --tile-border: rgba(51, 48, 43, .22);
+  --toggle-off: #DED5C7;
+
+  /* Movimiento: corto y suave. Nada de saltos. */
+  --dur: .26s;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  --fps: .42s;                     /* lo usan animaciones viejas de los juegos */
 }
 
 /* ── Base ──────────────────────────────────────────────────────────── */
@@ -52,16 +70,7 @@ body {
   background: var(--bg); color: var(--bg-ink); font-family: var(--font);
   min-height: 100dvh; -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
 }
-/* Grano del papel, encima de todo.
-   Sin mix-blend-mode a propósito: mezclar una capa del tamaño de la pantalla
-   obliga al navegador a rehacer la mezcla en CADA cuadro que dibuja lo de
-   abajo, y eso se sentía como tirones en los juegos de canvas. Sobre papel
-   claro el multiply y la transparencia se ven igual, y esto no cuesta nada. */
-body::after {
-  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 200;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='170' height='170'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='170' height='170' filter='url(%23g)' opacity='.052'/%3E%3C/svg%3E");
-}
-button { font-family: var(--title-font); touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+button { font-family: var(--font); touch-action: manipulation; -webkit-user-select: none; user-select: none; }
 input { font-family: var(--font); }
 a { color: var(--accent); }
 
@@ -69,291 +78,231 @@ a { color: var(--accent); }
   max-width: 480px; margin: 0 auto; height: 100dvh; position: relative;
   display: flex; flex-direction: column; overflow: hidden;
 }
-.screen { flex: 1; display: flex; flex-direction: column; min-height: 0; animation: fadeIn .28s steps(5, jump-end); }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+.screen { flex: 1; display: flex; flex-direction: column; min-height: 0; animation: fadeIn var(--dur) var(--ease); }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .scroll { flex: 1; overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch; }
 
-/* ── Stopmotion: el temblor del dibujo ─────────────────────────────── */
-@keyframes boil {
-  0%   { transform: rotate(-.32deg) translate(.3px, -.2px); }
-  33%  { transform: rotate(.28deg) translate(-.3px, .25px); }
-  66%  { transform: rotate(.05deg) translate(.15px, .3px); }
+/* Titulares en serif; la cursiva es para lo secundario, como en la portada. */
+.serif { font-family: var(--display); }
+.dato {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--sub);
 }
-@keyframes boil-borde {
-  0%   { border-radius: var(--mano-1); }
-  33%  { border-radius: var(--mano-2); }
-  66%  { border-radius: var(--mano-3); }
-}
-/* El hervor va SOLO en la marca de la portada. Antes lo llevaban también los
-   42 iconos del hub, los botones y el título de cada juego: eso es repintar
-   sin parar mientras juegas, y de ahí venían los tirones. El dibujo a mano
-   ya no depende del temblor — vive en el trazo, las esquinas y el grano. */
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
 /* ── Botones ───────────────────────────────────────────────────────── */
 .btn {
-  border: var(--trazo) solid var(--ink); cursor: pointer; font-weight: 600; font-size: 16.5px;
+  border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-weight: 500; font-size: 16.5px;
   border-radius: var(--pastilla); padding: 15px 22px; width: 100%;
-  letter-spacing: -0.2px; background: var(--card); color: var(--ink);
-  box-shadow: var(--shadow); transition: none;
+  letter-spacing: -0.01em; background: var(--card); color: var(--ink);
+  transition: background var(--dur) var(--ease), opacity var(--dur) var(--ease);
 }
-/* Esquinas trazadas a pulso: ninguna igual a la de al lado, pero quietas.
-   Animarlas obligaba a repintar cada botón para siempre. */
-.btn:nth-of-type(2) { border-radius: var(--mano-2); }
-.btn:nth-of-type(3n) { border-radius: var(--mano-3); }
-.btn:active { transform: translate(2px, 2.5px); box-shadow: 0 0 0 rgba(0,0,0,0); }
-/* Deshabilitado: como un boceto sin repasar */
-.btn:disabled {
-  cursor: default; transform: none; opacity: 1;
-  background: transparent; color: var(--faint);
-  border-style: dashed; border-color: var(--faint); box-shadow: none;
-}
-.btn-primary { background: var(--accent); color: var(--accent-ink); }
-.btn-soft { background: var(--accent-soft); color: var(--ink); }
+.btn:active { opacity: .82; }
+.btn:disabled { cursor: default; opacity: 1; background: transparent; color: var(--faint); border-color: var(--linea); }
+.btn-primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.btn-primary:active { background: #A9522F; opacity: 1; }
+.btn-soft { background: var(--accent-soft); color: var(--ink); border-color: transparent; }
 .btn-ghost { background: transparent; color: var(--ink); }
 .btn-danger-ghost { background: transparent; color: var(--bad); border-color: var(--bad); }
 .btn-sm { padding: 9px 16px; font-size: 14px; width: auto; }
 
 /* ── Superficies y filas ───────────────────────────────────────────── */
-.card {
-  background: var(--card); border: var(--trazo) solid var(--ink);
-  border-radius: var(--mano-1); box-shadow: var(--shadow);
-}
+.card { background: var(--card); border: var(--trazo) solid var(--linea); border-radius: var(--mano-1); }
+.panel { background: var(--panel); border-radius: var(--mano-1); }
 .row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 13px 0 14px; border-bottom: none; position: relative;
+  padding: 13px 0 14px; position: relative;
 }
-/* Separador: raya trazada a pulso */
-.row::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='3' preserveAspectRatio='none'%3E%3Cpath d='M0 1.6 Q15 .5 30 1.7 T60 1.5 T90 1.9 T120 1.4' fill='none' stroke='%23141413' stroke-width='1.1' stroke-linecap='round' opacity='.5'/%3E%3C/svg%3E") repeat-x center / 120px 3px;
-}
+.row::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--linea); }
 .row:last-child::after { display: none; }
-.row-title { font-family: var(--title-font); font-size: 15px; font-weight: 600; color: var(--ink); }
+.row-title { font-size: 15px; font-weight: 500; color: var(--ink); }
 .row-hint { font-size: 12.5px; color: var(--sub); margin-top: 2px; }
 
 /* ── Controles ─────────────────────────────────────────────────────── */
-.seg {
-  display: flex; gap: 5px; background: transparent; padding: 3px; border-radius: var(--mano-2);
-  border: var(--trazo) solid var(--ink);
-}
+.seg { display: flex; gap: 3px; background: var(--seg-bg); padding: 3px; border-radius: var(--pastilla); border: none; }
 .seg button {
-  flex: 1; border: none; cursor: pointer; padding: 9px 4px; border-radius: 12px 9px 13px 10px / 10px 13px 9px 12px;
-  font-family: var(--title-font); font-weight: 600; font-size: 13px; background: transparent; color: var(--sub);
-  transition: none;
+  flex: 1; border: none; cursor: pointer; padding: 9px 4px; border-radius: var(--pastilla);
+  font-weight: 500; font-size: 13px; background: transparent; color: var(--sub);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
 }
-.seg button.sel { background: var(--ink); color: var(--card); }
+.seg button.sel { background: var(--card); color: var(--ink); font-weight: 600; }
 .seg button:disabled { opacity: .45; cursor: default; }
-.seg button .pronto { display: block; font-size: 9px; font-weight: 600; opacity: .8; }
+.seg button .pronto { display: block; font-family: var(--mono); font-size: 9px; letter-spacing: .06em; opacity: .8; }
 
 .stepper { display: flex; align-items: center; gap: 10px; }
 .stepper button {
-  width: 38px; height: 38px; border-radius: var(--mano-3); border: var(--trazo) solid var(--ink);
-  background: var(--card); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; font-weight: 600;
-  box-shadow: var(--shadow-sutil);
+  width: 38px; height: 38px; border-radius: var(--pastilla); border: var(--trazo) solid var(--linea-fuerte);
+  background: var(--card); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; font-weight: 500;
+  transition: opacity var(--dur) var(--ease);
 }
-.stepper button:active { transform: translate(1.5px, 2px); box-shadow: none; }
-.stepper button:disabled { color: var(--faint); cursor: default; }
-.stepper .val { min-width: 48px; text-align: center; font-family: var(--title-font); font-weight: 700; font-size: 18px; color: var(--ink); }
+.stepper button:active { opacity: .6; }
+.stepper button:disabled { color: var(--faint); border-color: var(--linea); cursor: default; }
+.stepper .val { min-width: 48px; text-align: center; font-weight: 600; font-size: 18px; color: var(--ink); font-variant-numeric: tabular-nums; }
 
 .toggle {
-  width: 52px; height: 30px; border-radius: var(--pastilla); border: var(--trazo) solid var(--ink); cursor: pointer; padding: 2px;
-  background: var(--soft); display: flex; justify-content: flex-start;
+  width: 52px; height: 30px; border-radius: var(--pastilla); border: none; cursor: pointer; padding: 3px;
+  background: var(--toggle-off); display: flex; justify-content: flex-start;
+  transition: background var(--dur) var(--ease);
 }
 .toggle.on { background: var(--accent); justify-content: flex-end; }
-.toggle .knob { width: 22px; height: 22px; border-radius: 60% 55% 58% 62% / 58% 62% 55% 60%; background: var(--card); border: 1.5px solid var(--ink); }
+.toggle .knob { width: 24px; height: 24px; border-radius: 999px; background: var(--card); border: none; }
 
 .field {
-  width: 100%; padding: 14px 16px; font-size: 16.5px; font-weight: 500;
-  border-radius: var(--mano-2); border: var(--trazo) solid var(--ink);
+  width: 100%; padding: 14px 16px; font-size: 16.5px; font-weight: 400;
+  border-radius: 14px; border: var(--trazo) solid var(--linea-fuerte);
   background: var(--card); color: var(--ink); outline: none;
+  transition: border-color var(--dur) var(--ease);
 }
-.field:focus { box-shadow: var(--shadow-sutil); }
+.field:focus { border-color: var(--accent); }
 .field::placeholder { color: var(--faint); }
 
 .label-sm {
-  font-family: var(--title-font); font-size: 11.5px; font-weight: 600; letter-spacing: .9px; text-transform: uppercase;
-  color: var(--bg-sub); margin-bottom: 8px; padding-left: 4px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--sub); margin-bottom: 8px; padding-left: 2px;
 }
 .chip {
-  display: inline-block; font-family: var(--title-font); font-size: 11px; font-weight: 600; padding: 3px 11px;
-  border-radius: var(--pastilla); border: 1.5px solid var(--ink); background: var(--card); color: var(--ink); letter-spacing: .3px;
+  display: inline-block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; padding: 4px 11px;
+  border-radius: var(--pastilla); border: none; background: var(--panel); color: var(--sub); text-transform: uppercase;
 }
 .howto {
-  display: block; margin: 0 auto; background: none; border: none; color: var(--ink);
-  font-family: var(--title-font); font-weight: 600; font-size: 13px; cursor: pointer; padding: 6px 10px;
-  text-decoration: underline; text-decoration-style: wavy; text-decoration-thickness: 1.2px; text-underline-offset: 4px;
-  text-decoration-color: var(--accent);
+  display: block; margin: 0 auto; background: none; border: none; color: var(--accent);
+  font-weight: 500; font-size: 13.5px; cursor: pointer; padding: 6px 10px;
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 5px;
 }
 
 /* ── Barra superior de juego ───────────────────────────────────────── */
-.topbar {
-  display: flex; align-items: center; gap: 11px;
-  padding: max(14px, env(safe-area-inset-top)) 16px 10px;
-}
+.topbar { display: flex; align-items: center; gap: 11px; padding: max(14px, env(safe-area-inset-top)) 16px 10px; }
 .backbtn {
-  width: 36px; height: 36px; border-radius: 62% 58% 60% 55% / 55% 62% 58% 60%; flex-shrink: 0;
-  border: var(--trazo) solid var(--ink); background: var(--card); color: var(--ink);
+  width: 36px; height: 36px; border-radius: 999px; flex-shrink: 0;
+  border: var(--trazo) solid var(--linea-fuerte); background: var(--card); color: var(--ink);
   display: flex; align-items: center; justify-content: center; cursor: pointer; text-decoration: none;
-  box-shadow: var(--shadow-sutil);
+  transition: opacity var(--dur) var(--ease);
 }
-.backbtn:active { transform: translate(1.5px, 2px); box-shadow: none; }
+.backbtn:active { opacity: .6; }
 .topbar h1 {
-  margin: 0; font-family: var(--title-font); font-size: 21px; font-weight: 600;
+  margin: 0; font-family: var(--display); font-size: 23px; font-weight: 500;
   letter-spacing: var(--title-track); color: var(--bg-ink);
 }
 .topbar .meta { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.topbar .clock { font-family: var(--title-font); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 16px; color: var(--bg-ink); }
+.topbar .clock { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 15px; color: var(--bg-ink); }
 
 /* ── Marca (hub) ───────────────────────────────────────────────────── */
-.brand { text-align: center; margin: 22px 0 14px; }
+.brand { text-align: center; margin: 26px 0 16px; }
 .brand h1 {
-  margin: 0; font-family: var(--title-font); font-size: 42px; font-weight: 700;
-  color: var(--bg-ink); letter-spacing: var(--title-track); line-height: 1;
-  /* OJO: iba en steps(1, jump-none), que es inválido (jump-none necesita 2 o
-     más pasos), así que el navegador tiraba la declaración entera y el hervor
-     nunca se vio. Con 3 pasos son los tres dibujos por ciclo que se buscaban. */
-  animation: boil var(--fps) steps(3, jump-none) infinite;
+  margin: 0; font-family: var(--display); font-size: 46px; font-weight: 400;
+  color: var(--bg-ink); letter-spacing: -0.02em; line-height: 1;
 }
-.brand .tag { font-size: 13.5px; color: var(--bg-sub); margin-top: 6px; font-style: italic; }
+.brand .tag { font-family: var(--display); font-style: italic; font-size: 14.5px; color: var(--bg-sub); margin-top: 8px; }
 
 /* ── Tarjetas del hub ──────────────────────────────────────────────── */
 .hub { padding: max(24px, env(safe-area-inset-top)) 18px calc(28px + env(safe-area-inset-bottom)); }
 .sect {
-  font-family: var(--title-font); font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
-  color: var(--bg-ink); margin: 24px 4px 12px; display: flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--sub); margin: 28px 2px 12px; display: flex; align-items: center; gap: 12px;
 }
-.sect::after {
-  content: ''; flex: 1; height: 3px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='3' preserveAspectRatio='none'%3E%3Cpath d='M0 1.6 Q15 .4 30 1.8 T60 1.4 T90 2 T120 1.3' fill='none' stroke='%23141413' stroke-width='1.2' stroke-linecap='round' opacity='.55'/%3E%3C/svg%3E") repeat-x center / 120px 3px;
-}
+.sect::after { content: ''; flex: 1; height: 1px; background: var(--linea); }
 .gcards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .gcard {
-  background: var(--card); border: var(--trazo) solid var(--ink); border-radius: var(--mano-1);
-  box-shadow: var(--shadow); padding: 13px 13px 12px; display: flex; flex-direction: column; gap: 8px;
+  background: var(--card); border: var(--trazo) solid var(--linea); border-radius: var(--mano-1);
+  padding: 14px 14px 13px; display: flex; flex-direction: column; gap: 9px;
   text-decoration: none; color: var(--ink);
+  transition: background var(--dur) var(--ease);
 }
-.gcard:nth-child(3n) { border-radius: var(--mano-2); }
-.gcard:nth-child(3n+2) { border-radius: var(--mano-3); }
-.gcard:active { transform: translate(2px, 2.5px); box-shadow: none; }
+.gcard:active { background: var(--panel); }
 .gcard .gi {
-  width: 42px; height: 42px; border-radius: 58% 62% 55% 60% / 60% 55% 62% 58%;
+  width: 40px; height: 40px; border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--accent-soft); color: var(--ink); border: 1.5px solid var(--ink);
+  background: var(--accent-soft); color: var(--accent); border: none;
 }
-/* Cada icono con su propia forma, en vez de 42 animaciones a la vez */
-.gcard:nth-child(even) .gi { border-radius: 60% 55% 62% 58% / 58% 60% 55% 62%; }
-.gcard:nth-child(3n) .gi { border-radius: 55% 60% 58% 62% / 62% 58% 60% 55%; }
-.gcard .gi.alt { background: var(--second-soft); }
-/* Los iconos son chiquitos: trazo más fino para que no se emborronen */
-.gcard .gi svg, .backbtn svg, .tool svg { filter: url(#tinta-fina); }
-/* Todo dibujo vectorial sale trazado a pulso… */
-#app svg { filter: url(#tinta); }
-/* …salvo lo que se sale volando de su casilla (el filtro lo recortaría) */
-#app .sale svg, #app .vuela svg { filter: none; }
-.gcard .gn { font-family: var(--title-font); font-size: 15.5px; font-weight: 600; letter-spacing: var(--title-track); line-height: 1.15; }
-.gcard .gs { font-size: 11.5px; color: var(--sub); margin-top: -4px; font-style: italic; }
-.gcard .gb { font-family: var(--title-font); font-size: 10.5px; color: var(--accent); font-weight: 600; margin-top: auto; }
+.gcard .gi.alt { background: var(--second-soft); color: var(--second); }
+.gcard .gn { font-size: 15.5px; font-weight: 500; letter-spacing: var(--title-track); line-height: 1.15; }
+.gcard .gs { font-family: var(--display); font-style: italic; font-size: 12px; color: var(--sub); margin-top: -5px; }
+.gcard .gb { font-family: var(--mono); font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--accent); margin-top: auto; }
 
 /* ── Fichas de letras ──────────────────────────────────────────────── */
 .tiles { display: flex; gap: 7px; justify-content: center; align-items: center; flex-wrap: wrap; }
 .tiles .tile {
-  min-width: 44px; height: 52px; padding: 0 6px; border-radius: var(--mano-3);
+  min-width: 44px; height: 52px; padding: 0 6px; border-radius: 12px;
   background: var(--tile-bg); color: var(--tile-ink);
-  border: var(--trazo) solid var(--ink); box-shadow: var(--shadow-sutil);
+  border: var(--trazo) solid var(--tile-border);
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--title-font); font-size: 26px; font-weight: 600;
+  font-size: 25px; font-weight: 500;
 }
-.tiles .tile:nth-child(even) { border-radius: var(--mano-2); }
-.tiles .dash { font-family: var(--title-font); font-size: 26px; color: var(--faint); padding: 0 2px; }
+.tiles .dash { font-size: 25px; color: var(--faint); padding: 0 2px; }
 
 /* ── Teclado en pantalla ───────────────────────────────────────────── */
 .kbd { padding: 8px 6px calc(10px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 6px; }
 .kbd .krow { display: flex; gap: 5px; justify-content: center; }
 .kbd button {
-  flex: 1 1 0; min-width: 0; max-width: 42px; height: 46px; border: 1.5px solid var(--ink);
-  border-radius: 10px 7px 11px 8px / 8px 11px 7px 10px;
-  background: var(--card); box-shadow: var(--shadow-sutil); font-family: var(--title-font);
-  font-weight: 600; font-size: 16px; color: var(--ink); cursor: pointer; padding: 0;
+  flex: 1 1 0; min-width: 0; max-width: 42px; height: 46px; border: none;
+  border-radius: 9px; background: var(--panel);
+  font-weight: 500; font-size: 16px; color: var(--ink); cursor: pointer; padding: 0;
+  transition: background var(--dur) var(--ease), opacity var(--dur) var(--ease);
 }
-.kbd button:active { transform: translate(1.5px, 2px); box-shadow: none; }
+.kbd button:active { opacity: .6; }
 .kbd button.wide { max-width: 64px; font-size: 12.5px; }
-.kbd button.used { opacity: .32; box-shadow: none; background: var(--soft); }
+.kbd button.used { opacity: .38; }
 .kbd button.hit { background: var(--accent); color: var(--accent-ink); opacity: 1; }
-.kbd button.miss { background: var(--soft); color: var(--sub); opacity: .5; }
+.kbd button.miss { background: var(--soft); color: var(--faint); opacity: .6; }
 
 /* ── Mensajes y estados ────────────────────────────────────────────── */
-.msg { font-size: 13.5px; font-weight: 600; text-align: center; min-height: 18px; font-style: italic; }
+.msg { font-family: var(--display); font-style: italic; font-size: 14px; text-align: center; min-height: 18px; color: var(--sub); }
 .msg.ok { color: var(--good); } .msg.err { color: var(--bad); } .msg.check { color: var(--sub); }
-.shake { animation: shake .36s steps(2, jump-none); }
-@keyframes shake { 0%,100% { transform: none; } 25% { transform: translateX(-6px) rotate(-.6deg); } 50% { transform: translateX(6px) rotate(.6deg); } 75% { transform: translateX(-3px); } }
-@keyframes popIn { from { opacity: 0; transform: translateY(8px) scale(.96) rotate(-.8deg); } to { opacity: 1; transform: none; } }
+.shake { animation: shake .34s var(--ease); }
+@keyframes shake { 0%,100% { transform: none; } 25% { transform: translateX(-6px); } 50% { transform: translateX(6px); } 75% { transform: translateX(-3px); } }
+@keyframes popIn { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
 @keyframes pulse { 50% { opacity: .5; } }
 
 /* ── Pantalla de fin (compartida) ──────────────────────────────────── */
 .end { padding: max(40px, env(safe-area-inset-top)) 24px 28px; text-align: center; }
-.end .kicker { font-family: var(--title-font); font-size: 12px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+.end .kicker { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
 .end h2 {
-  margin: 0; font-family: var(--title-font); font-size: 34px; font-weight: 700;
-  color: var(--bg-ink); line-height: 1.08; letter-spacing: var(--title-track);
+  margin: 0; font-family: var(--display); font-size: 38px; font-weight: 400;
+  color: var(--bg-ink); line-height: 1.06; letter-spacing: -0.02em;
 }
-.end .why { font-size: 15px; color: var(--bg-sub); margin-top: 10px; font-style: italic; }
-.stats { display: flex; gap: 10px; margin: 22px 0; }
-.stats .stat {
-  flex: 1; background: var(--card); border: var(--trazo) solid var(--ink); border-radius: var(--mano-2);
-  padding: 16px 8px; box-shadow: var(--shadow);
-}
-.stats .stat:nth-child(2) { border-radius: var(--mano-3); }
-.stats .stat:nth-child(3) { border-radius: var(--mano-1); }
-.stats .n { font-family: var(--title-font); font-size: 26px; font-weight: 700; color: var(--ink); }
-.stats .l { font-size: 12px; color: var(--sub); margin-top: 2px; font-style: italic; }
-.end .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.end .why { font-family: var(--display); font-style: italic; font-size: 15.5px; color: var(--bg-sub); margin-top: 12px; }
+.stats { display: flex; gap: 10px; margin: 24px 0; }
+.stats .stat { flex: 1; background: var(--panel); border: none; border-radius: var(--mano-2); padding: 18px 8px; }
+.stats .n { font-size: 30px; font-weight: 400; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.stats .l { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); margin-top: 5px; }
+.end .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
 .end .again-hint { font-size: 12.5px; color: var(--bg-sub); margin-top: -2px; }
-.record { display: inline-block; margin-top: 14px; font-family: var(--title-font); font-size: 14px; font-weight: 600; color: var(--good); }
+.record { display: inline-block; margin-top: 14px; font-family: var(--mono); font-size: 12px; letter-spacing: .06em; color: var(--good); }
 
 /* ── Ajustes de partida (setup genérico) ───────────────────────────── */
 .g-setup { padding: 8px 20px 24px; display: flex; flex-direction: column; gap: 14px; }
 .g-setup .card { padding: 4px 18px; }
 .bests { display: flex; gap: 10px; }
-.bests .b {
-  flex: 1; background: var(--card); border: var(--trazo) solid var(--ink); border-radius: var(--mano-3);
-  box-shadow: var(--shadow); padding: 11px 6px; text-align: center;
-}
-.bests .b:nth-child(even) { border-radius: var(--mano-1); }
-.bests .bn { font-family: var(--title-font); font-size: 19px; font-weight: 700; color: var(--ink); }
-.bests .bl { font-size: 10.5px; color: var(--sub); margin-top: 1px; font-style: italic; }
+.bests .b { flex: 1; background: var(--panel); border: none; border-radius: var(--mano-3); padding: 13px 6px; text-align: center; }
+.bests .bn { font-size: 21px; font-weight: 400; color: var(--ink); font-variant-numeric: tabular-nums; }
+.bests .bl { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); margin-top: 4px; }
 
 /* ── Modal ─────────────────────────────────────────────────────────── */
 #modal { position: fixed; inset: 0; z-index: 50; display: none; }
 #modal.open { display: block; }
-#modal .veil { position: absolute; inset: 0; background: rgba(20, 20, 19, .55); animation: fadeIn .18s steps(3, jump-end); }
+#modal .veil { position: absolute; inset: 0; background: rgba(51, 48, 43, .38); animation: fadeIn .2s var(--ease); }
 #modal .sheet {
   position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
   width: 100%; max-width: 480px; background: var(--card);
-  border: var(--trazo) solid var(--ink); border-bottom: none;
-  border-radius: 22px 26px 0 0 / 24px 22px 0 0;
-  padding: 22px 22px calc(24px + env(safe-area-inset-bottom));
-  animation: sheetUp .3s steps(5, jump-end);
+  border: none; border-radius: 26px 26px 0 0;
+  padding: 24px 22px calc(24px + env(safe-area-inset-bottom));
+  animation: sheetUp .32s var(--ease);
 }
-@keyframes sheetUp { from { transform: translate(-50%, 44px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
-#modal h3 {
-  margin: 0 0 8px; font-family: var(--title-font); font-size: 22px; font-weight: 700; color: var(--ink);
-  letter-spacing: var(--title-track);
-}
-#modal p { margin: 0 0 12px; font-size: 15px; line-height: 1.55; color: var(--sub); }
-#modal p b { color: var(--ink); }
-#modal .m-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
-#modal .m-word { font-family: var(--title-font); font-size: 23px; font-weight: 700; color: var(--ink); text-align: center; margin: 6px 0 10px; }
+@keyframes sheetUp { from { transform: translate(-50%, 40px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+#modal h3 { margin: 0 0 10px; font-family: var(--display); font-size: 26px; font-weight: 400; color: var(--ink); letter-spacing: -0.02em; }
+#modal p { margin: 0 0 12px; font-size: 15px; line-height: 1.6; color: var(--sub); }
+#modal p b { color: var(--ink); font-weight: 500; }
+#modal .m-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+#modal .m-word { font-family: var(--display); font-size: 26px; font-weight: 400; color: var(--ink); text-align: center; margin: 6px 0 10px; }
 #modal .m-word .hi { color: var(--accent); }
 
-/* ── Confeti: recortes de papel cayendo a saltos ───────────────────── */
+/* ── Confeti ───────────────────────────────────────────────────────── */
 .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 80; overflow: hidden; }
 .confetti i {
-  position: absolute; top: -14px; width: 9px; height: 12px; border: 1.2px solid var(--ink);
-  border-radius: 40% 55% 45% 60%; animation: fall linear forwards;
-  animation-timing-function: steps(14, jump-none);
+  position: absolute; top: -14px; width: 8px; height: 11px; border: none;
+  border-radius: 2px; animation: fall linear forwards;
 }
-@keyframes fall { to { transform: translateY(105vh) rotate(680deg); opacity: .95; } }
+@keyframes fall { to { transform: translateY(105vh) rotate(560deg); opacity: .9; } }

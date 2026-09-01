@@ -3,16 +3,16 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FAF9F5" />
+<meta name="theme-color" content="#FBF6ED" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Dominó contra la app: colócalas en las puntas, roba si no llevas y quédate sin fichas." />
 <title>Dominó</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3E🁣%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E🁣%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .estado { text-align: center; padding: 9px 16px 0; font-size: 14px; font-weight: 700; color: var(--bg-ink); min-height: 20px; }
@@ -26,8 +26,8 @@
   .cadena { display: flex; flex-wrap: wrap; gap: 3px; margin: auto; align-items: center; justify-content: center; align-content: center; }
   .ficha {
     --mh: 30px;
-    display: flex; background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 9px 9px 8px 8px / 7px 5px 7px 5px;
-    box-shadow: 0 2px 0 var(--tile-border); flex-shrink: 0;
+    display: flex; background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 12px;
+    box-shadow: none; flex-shrink: 0;
   }
   .ficha .mitad { width: var(--mh); height: var(--mh); display: grid; grid-template-columns: repeat(3, 1fr); padding: calc(var(--mh) * .13); }
   .ficha .mitad i { border-radius: 999px; background: var(--ink); transform: scale(.62); }
@@ -35,9 +35,9 @@
   .ficha.vert { flex-direction: column; }
   .ficha.vert .sep { width: auto; height: 1px; margin: 0 4px; }
   .cadena .ficha { --mh: 24px; }
-  .mano .ficha { --mh: 58px; box-shadow: 0 3px 0 var(--tile-border); }
+  .mano .ficha { --mh: 58px; box-shadow: none; }
   .zona-punta {
-    flex-shrink: 0; width: 30px; height: 50px; border-radius: 10px 10px 11px 12px / 9px 7px 9px 11px; border: 2px dashed var(--accent);
+    flex-shrink: 0; width: 30px; height: 50px; border-radius: 12px; border: 2px dashed var(--accent);
     background: var(--accent-soft); color: var(--ink); font-weight: 800; font-size: 16px;
     display: none; align-items: center; justify-content: center; cursor: pointer;
   }
@@ -47,7 +47,7 @@
   /* La mano se acomoda en dos renglones de fichas grandes en vez de siete
      apretadas al fondo: el espacio que sobraba en la mesa se va aquí. */
   .mano { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 288px; margin: 0 auto; padding: 10px 0 4px; }
-  .mano .slot { flex-shrink: 0; cursor: pointer; opacity: .38; transition: transform .12s steps(3, jump-end), opacity .12s steps(3, jump-end); }
+  .mano .slot { flex-shrink: 0; cursor: pointer; opacity: .38; transition: transform .12s var(--ease), opacity .12s var(--ease); }
   .mano .slot.puede { opacity: 1; }
   .mano .slot.elegida { transform: translateY(-9px); }
   .mano .slot.puede .ficha { border-width: 1.5px; }

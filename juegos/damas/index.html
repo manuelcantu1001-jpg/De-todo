@@ -3,22 +3,22 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FAF9F5" />
+<meta name="theme-color" content="#FBF6ED" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Damas clásicas con capturas obligatorias, contra la app o a dos." />
 <title>Damas</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23D97757'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF9F5'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%23141413' text-anchor='middle'%3E◉%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E◉%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .boardwrap { display: flex; justify-content: center; padding: 12px 12px 0; }
   .tab {
-    display: grid; border-radius: 12px 15px 14px 11px / 15px 13px 17px 11px; overflow: hidden; box-shadow: var(--shadow);
-    touch-action: manipulation; user-select: none; -webkit-user-select: none; border: 1.5px solid var(--ink); }
+    display: grid; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow);
+    touch-action: manipulation; user-select: none; -webkit-user-select: none; border: 1px solid var(--linea-fuerte); }
   .sq { display: flex; align-items: center; justify-content: center; position: relative; }
   .sq.clara { background: var(--tile-bg); }
   .sq.oscura { background: color-mix(in srgb, var(--ink) 24%, var(--tile-bg)); cursor: pointer; }
@@ -29,7 +29,7 @@
   .sq.oscura.selsq { outline: 3px solid var(--accent); outline-offset: -3px; }
   .pieza {
     width: 76%; height: 76%; border-radius: 999px; position: relative;
-    box-shadow: 0 2px 3px rgba(0,0,0,.3), inset 0 -4px 0 rgba(0,0,0,.22), inset 0 2px 0 rgba(255,255,255,.28);
+    box-shadow: 0 2px 3px rgba(0,0,0,.3);
   }
   .pieza.pa { background: var(--accent); }
   .pieza.pb { background: var(--second); }
@@ -38,14 +38,14 @@
   .turnrow .who { color: var(--accent); }
   .turnrow .who.o { color: var(--second); }
   .scorebar { display: flex; justify-content: center; gap: 14px; margin: 14px 16px 0; }
-  .scorebar .b { flex: 0 1 110px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 6px; text-align: center; border: 1.5px solid var(--ink); }
+  .scorebar .b { flex: 0 1 110px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 6px; text-align: center; border: 1px solid var(--linea-fuerte); }
   .scorebar .bn { font-family: var(--title-font); font-size: 22px; font-weight: 700; color: var(--ink); }
   .scorebar .bl { font-size: 10.5px; color: var(--sub); font-weight: 600; margin-top: 1px; }
   .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
-  .tool { border: var(--trazo) solid var(--ink); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
     font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
     box-shadow: var(--shadow-sutil); }
-  .tool:active { transform: translate(1.5px, 2px); box-shadow: none; }
+  .tool:active { opacity: .6; }
 </style>
 </head>
 <body>
