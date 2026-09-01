@@ -16,7 +16,8 @@ const JUEGOS = require('path').join(__dirname, '..', 'juegos');
   // desde su caché y Chromium sin pantalla apaga las animaciones.
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 },
     serviceWorkers: 'block', reducedMotion: 'no-preference' });
-  const dirs = fs.readdirSync(JUEGOS).sort();
+  // SOLO=carpeta1,carpeta2 limita la prueba a esas carpetas (para probar un juego nuevo)
+  const dirs = fs.readdirSync(JUEGOS).sort().filter((d) => !process.env.SOLO || process.env.SOLO.split(',').includes(d));
   const fallas = [];
 
   for (const d of dirs) {
