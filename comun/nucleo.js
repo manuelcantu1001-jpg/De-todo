@@ -89,9 +89,7 @@ function closeModal() {
 
 /* ── Confeti ─────────────────────────────────────────────────────────── */
 function confetti() {
-  const cs = getComputedStyle(document.body);
-  const colors = ['--tinta-1', '--tinta-2', '--tinta-3', '--tinta-4', '--tinta-5', '--tinta-6']
-    .map((v) => cs.getPropertyValue(v).trim());
+  const colors = ['--tinta-1', '--tinta-2', '--tinta-3', '--tinta-4', '--tinta-5', '--tinta-6'].map(color);
   const c = document.createElement('div');
   c.className = 'confetti';
   let html = '';

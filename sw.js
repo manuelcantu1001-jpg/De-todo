@@ -1,8 +1,20 @@
 /* Service worker de la colección: cache-first para jugar sin conexión. */
-const CACHE = 'juegos-v9';
+const CACHE = 'juegos-v10';
 const ASSETS = [
   './', 'index.html',
   'comun/estilo.css', 'comun/nucleo.js',
+  'comun/fuentes/dmsans-400-latin-ext.woff2',
+  'comun/fuentes/dmsans-400-latin.woff2',
+  'comun/fuentes/dmsans-500-latin-ext.woff2',
+  'comun/fuentes/dmsans-500-latin.woff2',
+  'comun/fuentes/dmsans-600-latin-ext.woff2',
+  'comun/fuentes/dmsans-600-latin.woff2',
+  'comun/fuentes/fraunces-400-latin-ext.woff2',
+  'comun/fuentes/fraunces-400-latin.woff2',
+  'comun/fuentes/fraunces-400i-latin-ext.woff2',
+  'comun/fuentes/fraunces-400i-latin.woff2',
+  'comun/fuentes/fraunces-500-latin-ext.woff2',
+  'comun/fuentes/fraunces-500-latin.woff2',
   'banco-es.js', 'vocab-es.js', 'lexico-es.txt.gz',
   'manifest.webmanifest',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-512-maskable.png',

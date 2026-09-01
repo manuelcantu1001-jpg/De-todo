@@ -23,7 +23,7 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
   inunda (límite = resolutor voraz + margen).
 - **Sistema compartido** en `comun/`: `estilo.css` (TODA la identidad visual vive ahí,
   tokens en `:root`) y `nucleo.js` (utilidades + diccionario). Cada juego enlaza ambos.
-- **PWA instalable** (manifest «Juegos» provisional, `sw.js` cache `juegos-v9`).
+- **PWA instalable** (manifest «Juegos» provisional, `sw.js` cache `juegos-v10`).
   Al añadir/cambiar assets: bump de versión del cache.
 - **Publicación automática**: push a esta rama → workflow construye `_site` → rama
   `gh-pages` → **https://manuelcantu1001-jpg.github.io/De-todo/**
@@ -38,30 +38,46 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
 - La portada tiene **buscador** y **«seguir jugando»** (últimos abiertos, en
   `hub.recientes`).
 
-## Identidad visual: «hecho a mano» (elegida por Manuel)
+## Identidad visual: «papel, no pantalla» (elegida por Manuel, sept. 2026)
 
-Pedido literal: *«la letra y números los mismos de Claude por lo pronto, y todo lo
-demás como hecho a mano, con lápiz o tinta, y los movimientos tipo stopmotion»*.
+Manuel pasó capturas de la web de Function Health y pidió «acoplar todo el diseño
+del juego a este tipo de arte». Él mismo lo leyó como «vibra de Kindle», y ese es el
+norte: **una superficie de lectura, calmada**. Reemplaza la piel «hecha a mano»
+anterior (contornos gruesos, esquinas chuecas, filtro SVG, stopmotion), que queda
+en el historial de git (commit «Identidad nueva: letra de Claude…»).
 
-- **Tipografía de la marca Claude**: **Poppins** (títulos, números, botones) y
-  **Lora** (texto corrido, en cursiva para lo secundario). Las de Anthropic de
-  verdad (Styrene/Tiempos) son comerciales; estas son las equivalentes libres que
-  indica la guía de marca y están en Google Fonts.
-- **Paleta Anthropic**: tinta `#141413`, papel `#FAF9F5`, tarjeta `#FFFEFA`,
-  naranja `#D97757`, azul `#6A9BCC`, verde `#788C5D` + tintas derivadas
-  (`--tinta-1..8`) para las paletas de varios colores (inunda, bloques, 2048…).
-- **Hecho a mano**: contorno de tinta (`--trazo`) en vez de sombras suaves, sombra
-  sólida de repasado (`--shadow`), esquinas nunca iguales (`--mano-1/2/3`,
-  `--pastilla`), separadores de raya ondulada (SVG en data URI), grano de papel
-  sobre todo (`body::after`) y **filtro `#tinta`** (feTurbulence + feDisplacementMap,
-  inyectado desde `nucleo.js`) que tuerce todos los SVG: `#app svg`.
-  Excepción: `.sale`/`.vuela` sin filtro, porque recortaría lo que se sale volando.
-- **Stopmotion**: ninguna transición es suave; todas llevan `steps()`. El `boil`
-  (3 dibujos por ciclo, ~7 fps) va **solo en la marca de la portada**: ponerlo en
-  los 42 iconos del hub, en todos los botones y en el título de cada juego era
-  repintar sin parar mientras juegas. El dibujo a mano no depende del temblor —
-  vive en el trazo, las esquinas irregulares, el grano y el filtro de tinta.
-  Respeta `prefers-reduced-motion`.
+- **Papel**: fondo crema `#FAF4E8` (`--bg`), tarjeta clara `#FFFDFA` (`--card`) para
+  piezas que deben saltar, **bloque beige `#F1E7D7` (`--panel`)** para agrupar sin
+  dibujar caja (las tarjetas del hub van así, como los «01/02/03» de la referencia).
+  Tinta parda `#33302B`, **nunca negro puro**: eso rompe la calma. Secundario
+  `#7A7268`, tenue `#B6AEA1`.
+- **Acentos**: terracota `#C0603A` (acciones, marcas), azul polvo `#7C8FA3`, salvia
+  `#7C9A6E` (positivo; tablero del Reversi), rojo `#A8503A`, ocre `#A6853F`.
+- **Tintas `--tinta-1..8`** para paletas de varios colores. Están **calculadas por
+  búsqueda numérica en Lab con ΔE ≥ 25 entre cualquier par** y cada una conserva su
+  familia (2 azul, 5 rosa, 6 lavanda, 7 verde azulado, 8 pardo rosado). Si un juego
+  necesita N colores, usa N tintas: no inventes hex. Regla de la auditoría anterior
+  que volvió a morder: tinta-5 salió casi igual a tinta-1 (ΔE 15) y Inunda las
+  mezclaba en el mismo tablero.
+- **Filete, no contorno**: `--linea` (tinta al 13 %) para cajas, `--linea-fuerte`
+  (26 %) para piezas y para las líneas que **significan** (bloques 3×3 del Sudoku,
+  a 2px). `--trazo` es 1px. **Sin sombras** (`--shadow: none`): las superficies se
+  separan por relleno. Esquinas amplias e iguales: `--mano-1/2/3` valen 18px (se
+  conservan los nombres para no tocar los 42 juegos) y `--pastilla` 999px.
+- **Letra**: **Fraunces** (`--display`, serif) para títulos y para la cursiva de lo
+  secundario; **DM Sans** (`--font`, y `--title-font` es un alias) para interfaz y
+  números; **monoespaciada del sistema** (`--mono`, clase `.dato`) para etiquetas
+  técnicas en mayúsculas con letter-spacing («NORMAL», «SIN MARCAS AÚN», relojes).
+  Las dos familias están **alojadas en el repo** (`comun/fuentes/`, 12 cortes
+  latin + latin-ext, 376 KB): sin conexión se ven igual y no dependen de Google.
+- **Movimiento** suave y corto: `--ease: cubic-bezier(.2,.7,.2,1)`, `--dur: .26s`.
+  Nada de `steps()`. Respeta `prefers-reduced-motion`.
+- **Disposición**: el tablero suele ser cuadrado y ya ocupa el 96 % del ancho, así
+  que en pantallas altas sobra alto. Lo que crece son los mandos (el teclado del
+  Sudoku hasta 215 px) y el resto se reparte con `justify-content: space-evenly`
+  **solo en la pantalla de juego** (`.scroll:not(.g-setup)` o clase propia): la
+  primera vez la regla alcanzó a la pantalla de inicio y mandó el «Jugar» al fondo.
+  Se mide contando píxeles (última fila distinta del fondo), no a ojo.
 
 Sigue **pendiente el nombre** de la colección (hoy «Juegos» provisional en
 manifest/hub/README). Las 4 direcciones viejas (Quiosco/Arcadia/Recreo/Casillas)
@@ -125,6 +141,15 @@ en la política de red del entorno; el script lo detecta y avisa en vez de colga
   y tira la declaración `animation` entera. Estuvo semanas en el estilo: el
   «hervor» de la identidad nunca se ejecutó. Si una animación no se ve, valida la
   sintaxis con `getComputedStyle(el).animationName` antes de buscar otra causa.
+- **Una clase con nombre genérico pisa el estilo compartido.** La Batalla naval
+  llamaba `.seg` a los tramos de barco y esa regla (`position: absolute; background:
+  ink`) alcanzaba al selector de dificultad `.seg` de `nucleo.js`. Antes de crear una
+  clase en un juego, `grep` en `comun/estilo.css`.
+- **Los barridos masivos rompen lo que significa.** Igualar todos los bordes a 1px
+  borró los bloques del Sudoku; una sustitución anterior metió `steps()` DENTRO de un
+  `cubic-bezier()` en el Memorama (CSS inválido: la carta giraba sin transición).
+  Tras un barrido, mirar la lámina de los 42 (scripts en el scratchpad de la sesión:
+  captura de inicio y de juego en una cuadrícula) y buscar `cubic-bezier([^)]*steps`.
 - **Coste gráfico en el teléfono**: nada de `mix-blend-mode` a pantalla completa
   (obliga a rehacer la mezcla en cada cuadro que dibuja el canvas de abajo: era la
   causa de los tirones), nada de `getComputedStyle` dentro de un bucle de dibujo

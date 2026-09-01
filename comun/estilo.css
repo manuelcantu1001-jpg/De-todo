@@ -135,8 +135,8 @@
   /* Tintas para las paletas de varios colores (fichas, piezas, luces).
      Ocho tonos distintos, todos bajados de saturación para que convivan
      con el papel: si una paleta necesita N colores, usa N tintas. */
-  --tinta-1: #C0603A; --tinta-2: #7C8FA3; --tinta-3: #7C9A6E; --tinta-4: #A6853F;
-  --tinta-5: #A8503A; --tinta-6: #8A7796; --tinta-7: #5B9088; --tinta-8: #B37D84;
+  --tinta-1: #C0603A; --tinta-2: #45699D; --tinta-3: #7C9A6E; --tinta-4: #A6853F;
+  --tinta-5: #C7809D; --tinta-6: #A08BC1; --tinta-7: #209EAA; --tinta-8: #8A5D5B;
 
   /* Filete: el borde es casi un susurro. --linea-fuerte solo para piezas
      de juego, que sí necesitan recortarse del fondo. */

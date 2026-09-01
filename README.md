@@ -45,7 +45,8 @@ Todos con dificultades, «¿Cómo se juega?» y **mejores marcas** que se presum
 ```
 index.html            Portada (hub) con las tarjetas de los juegos
 comun/estilo.css      La identidad visual completa: tokens + átomos compartidos
-comun/nucleo.js       Utilidades compartidas (norm, store, modal, confeti, diccionario…)
+comun/nucleo.js       Utilidades compartidas (norm, store, modal, confeti, léxico…)
+comun/fuentes/        Fraunces y DM Sans alojadas en el repo (funcionan sin conexión)
 juegos/<juego>/       Cada juego en su carpeta, HTML+CSS+JS vanilla sin build
 banco-es.js           Banco curado: 7.800 palabras y 14 listas temáticas
 vocab-es.js           Vocabulario amplio (17.100 formas) para los juegos de cadena
@@ -56,17 +57,17 @@ manifest.webmanifest  PWA instalable · sw.js: cache para jugar sin conexión
 .github/workflows/    Deploy automático a GitHub Pages (rama gh-pages) en cada push
 ```
 
-## La piel: tipografía de Claude, todo lo demás a mano
+## La piel: papel, no pantalla
 
-La letra y los números son los de la marca Claude — **Poppins** y **Lora** — sobre
-la paleta de tinta y papel de Anthropic. Lo demás se dibuja: contornos de tinta en
-vez de sombras suaves, esquinas trazadas a pulso (nunca dos iguales), separadores
-ondulados, grano de papel y un filtro SVG que tuerce cada icono. Y nada se desliza:
-todo el movimiento va **a saltos, como el stopmotion** (`steps()` + un «hervor» de
-tres dibujos por ciclo).
+Crema en vez de blanco, tinta parda en vez de negro, y casi nada de contraste duro:
+la colección se ve como una página, no como una pantalla. Los titulares van en
+**Fraunces** (serif, con cursiva para lo secundario), la interfaz y los números en
+**DM Sans**, y las etiquetas técnicas —dificultad, reloj, marcas— en monoespaciada
+en mayúsculas. Las tarjetas son bloques beige sin borde ni sombra; las piezas de
+juego llevan un filete finísimo. El movimiento es suave y corto.
 
-**Para re-vestirla** basta con los tokens de `:root` en `comun/estilo.css` y los
-`<link>` de Google Fonts de cada página.
+Las tipografías viven en el repo, así que la app instalada se ve igual sin conexión.
+**Para re-vestirla** basta con los tokens de `:root` en `comun/estilo.css`.
 
 ## Las palabras
 
