@@ -3,24 +3,26 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Blackjack: llega de $200 a $500 sin quebrar la banca." />
 <title>Blackjack</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E21%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E21%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .lado { padding: 10px 18px 0; }
-  .quien { font-size: 12px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--bg-sub); display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
-  .quien b { color: var(--bg-ink); font-size: 13px; font-family: var(--title-font); }
+  /* Etiquetas técnicas en mono (como .dato); el valor de la mano en sans a peso
+     medio. Antes el <b> heredaba «bolder» sobre 700 y salía en 900. */
+  .quien { font-family: var(--mono); font-size: 10.5px; font-weight: 400; letter-spacing: .12em; text-transform: uppercase; color: var(--bg-sub); display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .quien b { color: var(--bg-ink); font-size: 14px; font-weight: 500; font-family: var(--font); letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
   .cartas { display: flex; gap: 8px; padding-top: 8px; flex-wrap: wrap; min-height: 86px; }
   .carta {
     width: 58px; height: 82px; border-radius: 12px; background: var(--tile-bg);
     border: 1px solid var(--tile-border); box-shadow: none;
     display: flex; flex-direction: column; justify-content: space-between; padding: 6px 7px;
-    font-weight: 800; color: var(--ink); animation: popIn .22s var(--ease);
+    font-weight: 600; color: var(--ink); animation: popIn .22s var(--ease);
   }
   .carta .r { font-size: 20px; line-height: 1; }
   .carta .s { font-size: 22px; line-height: 1; align-self: flex-end; }
@@ -36,16 +38,21 @@
   .manos.dos .carta .r { font-size: 15px; }
   .manos.dos .carta .s { font-size: 15px; }
   .manos.dos .cartas { gap: 5px; min-height: 64px; }
-  .mano .pago { font-family: var(--title-font); font-size: 12px; font-weight: 700; }
-  .mano .pago.gana { color: var(--good); }
+  .mano .pago { font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+  /* --good sobre el crema da 2,86:1 a 12 px: se oscurece con tinta (≈ 5,3:1). */
+  .mano .pago.gana { color: color-mix(in srgb, var(--good) 55%, var(--ink)); }
   .mano .pago.pierde { color: var(--bad); }
 
-  .fichas { display: flex; justify-content: center; gap: 16px; padding: 12px 0 0; font-size: 13px; font-weight: 700; color: var(--bg-sub); }
-  .fichas b { color: var(--bg-ink); font-size: 15px; font-family: var(--title-font); }
+  /* Importes en mono, como fichas contadas; etiquetas en mayúsculas espaciadas. */
+  .fichas { display: flex; justify-content: center; align-items: baseline; gap: 16px; padding: 12px 0 0; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--bg-sub); }
+  .fichas b { color: var(--bg-ink); font-size: 15px; font-weight: 500; letter-spacing: 0; font-variant-numeric: tabular-nums; }
   .acciones { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; padding-top: 12px; }
   .acciones .fila { display: flex; gap: 10px; }
   .acciones .fila .btn { flex: 1; padding: 14px 10px; font-size: 15.5px; }
-  .msg-mesa { text-align: center; padding-top: 10px; font-size: 15px; font-weight: 700; color: var(--bg-ink); min-height: 22px; }
+  /* El mensaje de mesa en serif cursiva (la voz de .msg) y con margin-top auto:
+     reparte el espacio libre con los mandos, así la casa queda arriba y tu mano,
+     las fichas y los botones juntos abajo, al alcance del pulgar. */
+  .msg-mesa { text-align: center; padding-top: 10px; font-family: var(--display); font-style: italic; font-size: 16px; font-weight: 400; color: var(--bg-ink); min-height: 24px; margin-top: auto; }
 
   /* Barra de progreso de la sesión: de $200 a la meta. */
   .meta-barra { border: var(--trazo) solid var(--linea-fuerte); border-radius: var(--pastilla); height: 22px; padding: 3px; background: var(--card); }

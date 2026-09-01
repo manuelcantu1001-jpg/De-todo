@@ -3,20 +3,27 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="La serpiente clásica: come, crece y no te muerdas." />
 <title>Serpiente</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .lienzo { display: flex; justify-content: center; padding: 12px 12px 0; }
-  canvas { border-radius: 12px; box-shadow: var(--shadow); touch-action: none; }
-  .statusrow { display: flex; justify-content: center; gap: 20px; padding: 10px 0 0; font-size: 13.5px; font-weight: 600; color: var(--sub); }
-  .statusrow b { color: var(--ink); font-variant-numeric: tabular-nums; }
-  .aviso { text-align: center; font-size: 13px; color: var(--bg-sub); font-weight: 600; padding-top: 8px; min-height: 17px; }
+  /* El borde del tablero es la pared que te mata: 2 px, no un susurro (el
+     tablero contra el crema mide ΔE 4 y sin filete no se distinguía). */
+  canvas { border-radius: 12px; border: 2px solid var(--linea-fuerte); touch-action: none; }
+  /* Marcador: etiqueta técnica en monoespaciada y número en sans a peso 500. */
+  .statusrow { display: flex; justify-content: center; gap: 26px; padding: 8px 0 0; }
+  .statusrow span {
+    display: flex; align-items: baseline; gap: 7px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--sub);
+  }
+  .statusrow b { font-family: var(--font); font-size: 17px; font-weight: 500; letter-spacing: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .aviso { text-align: center; font-family: var(--display); font-style: italic; font-size: 13.5px; color: var(--bg-sub); padding-top: 8px; min-height: 17px; }
 
   /* Mando de pulgar: cruz de 4 flechas en la zona baja, donde llega la mano. */
   .mando {
@@ -25,22 +32,19 @@
   }
   .flecha {
     border: var(--trazo) solid var(--linea-fuerte); background: var(--card); color: var(--ink);
-    box-shadow: var(--shadow); cursor: pointer; padding: 0; display: grid; place-items: center;
-    touch-action: none; -webkit-user-select: none; user-select: none;
+    cursor: pointer; padding: 0; display: grid; place-items: center;
+    touch-action: none; -webkit-user-select: none; user-select: none; border-radius: var(--mano-1);
   }
-  .flecha:nth-of-type(odd) { border-radius: var(--mano-1); }
-  .flecha:nth-of-type(even) { border-radius: var(--mano-3); }
-  .flecha:active, .flecha.pulsada { transform: translate(2px, 2.5px); box-shadow: none; background: var(--accent-soft); }
+  .flecha:active, .flecha.pulsada { background: var(--accent-soft); opacity: .82; }
   .flecha svg { width: 26px; height: 26px; }
   .f-arr { grid-area: 1 / 2; } .f-izq { grid-area: 2 / 1; }
   .f-der { grid-area: 2 / 3; } .f-aba { grid-area: 3 / 2; }
-  .mando .centro { grid-area: 2 / 2; display: grid; place-items: center; font-family: var(--title-font);
+  .mando .centro { grid-area: 2 / 2; display: grid; place-items: center; font-family: var(--font);
     font-size: 11px; font-style: italic; color: var(--faint); text-align: center; line-height: 1.15; }
   @media (max-height: 760px) { .mando { grid-template-rows: repeat(3, 50px); } }
   .tools { margin: 8px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 6px; }
-  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
-    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
-    box-shadow: var(--shadow-sutil); }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
   .tool:active { opacity: .6; }
 </style>
 </head>
@@ -123,7 +127,8 @@ const FLECHA = (rot) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentCol
   stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${rot}deg)"><path d="M12 19V6M6 12l6-6 6 6"/></svg>`;
 
 function renderPlay() {
-  const size = Math.min(378, Math.floor(innerWidth * .94));
+  // También acotado por alto: en un teléfono de 667 px el mando no cabía debajo.
+  const size = Math.min(378, Math.floor(innerWidth * .94), innerHeight - 350);
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Serpiente', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
@@ -248,25 +253,24 @@ function dibujar() {
   const ctx = cv.getContext('2d');
   const cell = cv.width / N;
   ctx.drawImage(fondoDelTablero(cv.width, cell), 0, 0);
-  // comida
+  // comida: tinta-2, que sí llega a 4,4:1 sobre la casilla oscura (--second se quedaba en 2,6)
   if (S.food) {
-    ctx.fillStyle = color('--second');
+    ctx.fillStyle = color('--tinta-2');
     ctx.beginPath();
     ctx.arc((S.food[0] + .5) * cell, (S.food[1] + .5) * cell, cell * .34, 0, Math.PI * 2);
     ctx.fill();
   }
-  // serpiente
-  const acc = color('--accent');
+  // serpiente: cuerpo terracota pleno (al 82 % bajaba a 2,6:1) y cabeza de
+  // tinta, que se distingue del cuerpo por color (ΔE 35) y no solo por los ojos
+  const acc = color('--accent'), tinta = color('--ink');
   S.snake.forEach(([x, y], i) => {
     const esCabeza = i === S.snake.length - 1;
-    ctx.fillStyle = acc;
-    ctx.globalAlpha = esCabeza ? 1 : .82;
+    ctx.fillStyle = esCabeza ? tinta : acc;
     const pad = cell * .08;
     const r = cell * .3;
     ctx.beginPath();
     ctx.roundRect(x * cell + pad, y * cell + pad, cell - pad * 2, cell - pad * 2, r);
     ctx.fill();
-    ctx.globalAlpha = 1;
     if (esCabeza) {
       ctx.fillStyle = color('--card');
       const ox = S.dir[0], oy = S.dir[1];

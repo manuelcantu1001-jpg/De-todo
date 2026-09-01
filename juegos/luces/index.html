@@ -3,33 +3,36 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Apaga todas las luces: cada toque invierte la casilla y sus vecinas." />
 <title>Luces fuera</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E✸%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E✸%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
+  /* La zona de juego reparte el alto que sobra entre marcador, tablero y pie:
+     sin media pantalla vacía antes de los mandos. */
+  .zona { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
   .lwrap { display: flex; justify-content: center; padding: 18px 16px 0; }
   .lgrid { display: grid; gap: 8px; width: min(88vw, 360px); }
+  /* Apagada: tarjeta clara con filete; encendida: ocre lleno. Sin sombra interior
+     ni resplandor (la piel no lleva sombras) y el par pasa de 3:1 (3,4). */
   .lc {
-    aspect-ratio: 1; border: none; border-radius: 12px; cursor: pointer; padding: 0;
-    background: var(--soft); box-shadow: inset 0 2px 4px rgba(60,50,30,.12); transition: all .14s var(--ease);
+    aspect-ratio: 1; border: var(--trazo) solid var(--linea-fuerte); border-radius: 12px; cursor: pointer; padding: 0;
+    background: var(--card); transition: background .14s var(--ease), border-color .14s var(--ease);
   }
-  .lc.on {
-    background: var(--warn); box-shadow: 0 0 22px -2px var(--warn), var(--shadow);
-  }
-  .marcador { display: flex; justify-content: center; gap: 18px; padding-top: 16px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
-  .marcador b { color: var(--bg-ink); font-size: 15px; }
-  .marcador .sobre { color: var(--good); }
-  .marcador .sobre.mal { color: var(--bad); }
-  .pie { text-align: center; font-size: 12px; color: var(--faint); font-weight: 600; padding-top: 12px; }
-  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
-  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
-    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
-    box-shadow: var(--shadow-sutil); }
+  .lc.on { background: var(--warn); border-color: transparent; }
+  /* Marcador al estilo de la piel: etiqueta técnica en monoespaciada y el número
+     en sans a peso medio, no todo en negrita. */
+  .marcador { display: flex; justify-content: center; gap: 22px; padding-top: 14px; }
+  .marcador span { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--sub); display: flex; align-items: baseline; gap: 7px; }
+  .marcador b { font-family: var(--font); font-size: 17px; font-weight: 500; color: var(--ink); letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+  .pie { text-align: center; padding: 12px 16px 0; font-family: var(--display); font-style: italic; font-size: 14px; color: var(--sub); }
+  .tools { margin: 0 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
   .tool:active { opacity: .6; }
 </style>
 </head>
@@ -165,17 +168,19 @@ function renderPlay() {
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Luces fuera', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
-    <div class="marcador">
-      <span>Toques <b id="mv">0</b></span>
-      <span>Óptimo <b id="op">${S.opt}</b></span>
-      <span>Prendidas <b id="on">0</b></span>
-    </div>
-    <div class="lwrap">
-      <div class="lgrid" id="lgrid" style="grid-template-columns: repeat(${S.n}, 1fr);">
-        ${S.luz.map((_, i) => `<button class="lc" data-i="${i}"></button>`).join('')}
+    <div class="zona">
+      <div class="marcador">
+        <span>Toques <b id="mv">0</b></span>
+        <span>Óptimo <b id="op">${S.opt}</b></span>
+        <span>Prendidas <b id="on">0</b></span>
       </div>
+      <div class="lwrap">
+        <div class="lgrid" id="lgrid" style="grid-template-columns: repeat(${S.n}, 1fr);">
+          ${S.luz.map((_, i) => `<button class="lc" data-i="${i}"></button>`).join('')}
+        </div>
+      </div>
+      <div class="pie" id="pie">Se puede apagar en ${S.opt} toques</div>
     </div>
-    <div class="pie" id="pie">Se puede apagar en ${S.opt} toques</div>
     <div class="tools">
       <button class="tool" id="t-otra">Revolver otra vez</button>
       <button class="tool" id="t-salir">Salir</button>

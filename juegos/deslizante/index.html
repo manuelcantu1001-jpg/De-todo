@@ -3,33 +3,38 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Rompecabezas deslizante: ordena los números empujando filas y columnas enteras." />
 <title>Deslizante</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E15%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E15%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
-  .dwrap { display: flex; justify-content: center; padding: 18px 16px 0; }
+  /* margin-top auto reparte el espacio libre entre el tablero y los mandos, que
+     ya lo tienen: el tablero queda centrado en vez de dejar media pantalla muerta. */
+  .dwrap { display: flex; justify-content: center; padding: 18px 16px 0; margin-top: auto; }
   .dgrid { display: grid; gap: 7px; width: min(90vw, 380px); }
   .dt {
     aspect-ratio: 1; border-radius: 12px; cursor: pointer; padding: 0;
     background: var(--tile-bg); color: var(--tile-ink); border: 1px solid var(--tile-border);
     box-shadow: none;
-    font-family: var(--title-font); font-weight: 700; font-size: clamp(18px, 6vw, 30px);
+    font-family: var(--title-font); font-weight: 500; font-size: clamp(18px, 6vw, 30px);
   }
-  /* Las que ya están en su sitio: verde de verdad. */
-  .dt.bien { background: var(--good-soft); color: var(--good); box-shadow: none; }
+  /* Las que ya están en su sitio: verde de verdad. El verde del token sobre su
+     fondo suave daba 2,67:1, así que el número va en verde oscurecido con tinta
+     (≈ 4,9:1) y la ficha lleva filete verde para que se note de un vistazo. */
+  .dt.bien { background: var(--good-soft); color: color-mix(in srgb, var(--good) 55%, var(--ink)); border-color: var(--good); }
   .dt.hueco { visibility: hidden; }
   /* Alineada con el hueco: se puede empujar de un toque. */
   .dt.empujable { border-style: dashed; border-width: 2px; }
   .dt:active { opacity: .6; }
   .dt.mov { animation: entra .17s var(--ease); }
   @keyframes entra { from { transform: scale(.86) rotate(-2.5deg); } to { transform: none; } }
-  .marcador { display: flex; justify-content: center; gap: 18px; padding-top: 14px; font-size: 13px; font-weight: 700; color: var(--bg-sub); }
-  .marcador b { color: var(--bg-ink); font-size: 15px; font-family: var(--title-font); font-variant-numeric: tabular-nums; }
+  /* Etiquetas técnicas en mono (como .dato) y números en sans a peso medio. */
+  .marcador { display: flex; justify-content: center; align-items: baseline; gap: 18px; padding-top: 14px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--bg-sub); }
+  .marcador b { color: var(--bg-ink); font-size: 16px; font-weight: 500; font-family: var(--font); letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
   .pista { text-align: center; font-size: 12.5px; color: var(--bg-sub); font-style: italic; padding-top: 10px; }
   .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
   .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;

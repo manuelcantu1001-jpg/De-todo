@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="description" content="Encadena — el juego de las terminaciones. Palabras encadenadas por su final (o su inicio), para dos, contra la app o en solitario." />
 <title>Encadena · El juego de las terminaciones</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EE%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EE%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
@@ -17,7 +17,7 @@
   .setup { padding: max(28px, env(safe-area-inset-top)) 22px 28px; position: relative; }
   .setup-home { position: absolute; left: 14px; top: max(14px, env(safe-area-inset-top)); }
   .brand .howto {
-    background: none; border: none; color: var(--accent); font-weight: 600; font-size: 13.5px;
+    background: none; border: none; color: var(--accent); font-weight: 500; font-size: 13.5px;
     cursor: pointer; margin-top: 8px; padding: 4px 8px;
   }
   .start-hint { font-size: 13px; color: var(--bg-sub); margin-top: 8px; padding-left: 4px; min-height: 18px; }
@@ -30,8 +30,9 @@
     border-radius: 999px; border: none; cursor: pointer; font-size: 16px; font-weight: 600;
     background: color-mix(in srgb, var(--bg-ink) 8%, transparent); color: var(--bg-ink);
   }
+  /* Etiqueta técnica: monoespaciada y en mayúsculas, como .dato del estilo compartido */
   .play-head .kicker {
-    font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    font-family: var(--mono); font-size: 11px; font-weight: 400; letter-spacing: .12em; text-transform: uppercase;
     color: var(--bg-sub); margin-bottom: 10px;
   }
   .ending-tiles { display: flex; gap: 7px; justify-content: center; align-items: center; }
@@ -41,7 +42,7 @@
     border: 1px solid var(--tile-border);
     box-shadow: none;
     display: flex; align-items: center; justify-content: center;
-    font-family: var(--title-font); font-size: 32px; font-weight: 600;
+    font-family: var(--title-font); font-size: 32px; font-weight: 500;
   }
   .ending-tiles .dash { font-family: var(--title-font); font-size: 30px; color: var(--faint); padding: 0 2px; }
 
@@ -49,10 +50,10 @@
     display: flex; align-items: center; justify-content: space-between; margin: 0 16px 10px;
     padding: 10px 16px; border-radius: 999px; background: color-mix(in srgb, var(--bg-ink) 7%, transparent);
   }
-  .turnbar .who { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--bg-ink); }
+  .turnbar .who { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500; color: var(--bg-ink); }
   .turnbar .dot { width: 9px; height: 9px; border-radius: 999px; background: var(--accent); }
   .turnbar .right { display: flex; align-items: center; gap: 12px; }
-  .turnbar .clock { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 16px; color: var(--bg-ink); }
+  .turnbar .clock { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; font-size: 15px; color: var(--bg-ink); }
   .turnbar .clock.low { color: var(--bad); animation: pulse 1s infinite var(--ease); }
   .hearts { display: flex; gap: 4px; }
   .hearts svg { display: block; }
@@ -66,8 +67,10 @@
   .bubble-row.right { justify-content: flex-end; }
   .bubble {
     max-width: 80%; background: var(--card); border-radius: var(--radius); padding: 11px 16px;
-    box-shadow: var(--shadow); animation: popIn .25s var(--ease); border: 1px solid var(--linea-fuerte); }
-  .bubble .by { font-size: 10.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 1px; }
+    box-shadow: var(--shadow); animation: popIn .25s var(--ease); border: 1px solid var(--linea); }
+  /* Quién lo dijo: etiqueta en mono y en --sub (4,7:1 sobre la tarjeta); el color
+     del jugador ya lo dan el filete lateral y la terminación resaltada. */
+  .bubble .by { font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 1px; color: var(--sub); }
   .bubble .word { font-size: 19px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
   .bubble .note { font-size: 11px; color: var(--sub); margin-top: 2px; }
   .bubble.think { color: var(--sub); font-style: italic; font-size: 15px; }
@@ -83,20 +86,20 @@
   .dock .send:disabled { opacity: .45; cursor: default; }
   .dock .giveup {
     width: 100%; margin-top: 8px; background: none; border: none; color: var(--bad);
-    font-weight: 600; font-size: 14.5px; cursor: pointer; padding: 6px;
+    font-weight: 500; font-size: 14.5px; cursor: pointer; padding: 6px;
   }
   .dock .waiting { text-align: center; color: var(--bg-sub); font-size: 15px; padding: 14px 0; }
 
   .scoreboard {
     display: inline-flex; align-items: center; gap: 16px; margin-top: 20px;
-    background: var(--card); border-radius: 999px; padding: 12px 24px; box-shadow: var(--shadow); border: 1px solid var(--linea-fuerte); }
-  .scoreboard .num { font-family: var(--title-font); font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1; }
+    background: var(--card); border-radius: 999px; padding: 12px 24px; box-shadow: var(--shadow); border: 1px solid var(--linea); }
+  .scoreboard .num { font-family: var(--title-font); font-size: 26px; font-weight: 400; color: var(--ink); line-height: 1; font-variant-numeric: tabular-nums; }
   .scoreboard .num.win { color: var(--accent); }
-  .scoreboard .lbl { font-size: 11px; font-weight: 600; color: var(--sub); margin-top: 2px; }
-  .scoreboard .sep { color: var(--faint); font-weight: 700; }
+  .scoreboard .lbl { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); margin-top: 4px; }
+  .scoreboard .sep { color: var(--faint); font-weight: 400; }
   .recap {
     background: var(--card); border-radius: calc(var(--radius) + 2px); padding: 6px 18px;
-    box-shadow: var(--shadow); text-align: left; max-height: 200px; overflow-y: auto; border: 1px solid var(--linea-fuerte); }
+    box-shadow: var(--shadow); text-align: left; max-height: 200px; overflow-y: auto; border: 1px solid var(--linea); }
   .recap .r { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
   .recap .r:last-child { border-bottom: none; }
   .recap .w { font-size: 15.5px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
@@ -738,7 +741,7 @@ function chainItemHTML(c, i) {
     : `${esc(w.slice(0, -k))}<span style="color:${col}">${esc(w.slice(-k))}</span>`;
   return `<div class="bubble-row ${mine ? 'left' : 'right'}">
     <div class="bubble" style="border-${mine ? 'left' : 'right'}: 3px solid ${col}">
-      <div class="by" style="color:${col}">${c.seed ? 'Inicio · ' : ''}${PLAYER_LABEL[c.by]}</div>
+      <div class="by">${c.seed ? 'Inicio · ' : ''}${PLAYER_LABEL[c.by]}</div>
       <div class="word">${hi}</div>
       ${c.note ? `<div class="note">${esc(c.note)}</div>` : ''}
     </div>

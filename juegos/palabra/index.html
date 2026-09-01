@@ -3,35 +3,42 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Adivina la palabra de cinco letras en seis intentos. Una diaria para todos, o al azar sin límite." />
 <title>La palabra del día</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
-  .grid5 { display: flex; flex-direction: column; gap: 6px; align-items: center; padding: 14px 0 4px; }
+  /* Tres estados de ficha. El «casi» es el ocre de la paleta oscurecido con un
+     cuarto de tinta: el ocre puro dejaba la letra clara a 3,4:1, y en las teclas
+     de 16px no llega. El «no está» va en --sub (4,7:1); con --faint la letra
+     se leía a 2,2:1. */
+  :root { --near: color-mix(in srgb, var(--warn) 75%, var(--ink)); --no: var(--sub); }
+  /* La ficha se encoge en pantallas cortas para que el teclado no se salga
+     (a 375×667 con fichas de 56px acababa 31px por debajo del borde). */
+  .grid5 { --gt: clamp(40px, calc((100dvh - 400px) / 6), 56px); display: flex; flex-direction: column; gap: 6px; align-items: center; padding: 14px 0 4px; }
   .grow { display: flex; gap: 6px; }
   .gt {
-    width: 56px; height: 56px; border-radius: 12px; border: 1.5px solid var(--tile-border);
+    width: var(--gt); height: var(--gt); border-radius: 12px; border: 1.5px solid var(--tile-border);
     background: var(--tile-bg); color: var(--tile-ink);
     display: flex; align-items: center; justify-content: center;
-    font-family: var(--title-font); font-size: 28px; font-weight: 600; text-transform: uppercase;
+    font-family: var(--title-font); font-size: calc(var(--gt) * .5); font-weight: 600; text-transform: uppercase;
   }
   .gt.filled { border-color: var(--faint); }
   .gt.ok   { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-  .gt.near { background: var(--warn); border-color: var(--warn); color: var(--card); }
-  .gt.no   { background: var(--faint); border-color: var(--faint); color: var(--card); }
+  .gt.near { background: var(--near); border-color: var(--near); color: var(--card); }
+  .gt.no   { background: var(--no); border-color: var(--no); color: var(--card); }
   .gt.reveal { animation: flipIn .4s var(--ease); }
   @keyframes flipIn { 0% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
   .grow.shake { animation: shake .4s var(--ease); }
-  .kbd button.near { background: var(--warn); color: var(--card); opacity: 1; }
+  .kbd button.near { background: var(--near); color: var(--card); opacity: 1; }
   .kbd button.hit { background: var(--accent); color: var(--accent-ink); }
-  .kbd button.miss { background: var(--faint); color: var(--card); opacity: .8; }
-  .statusrow { display: flex; justify-content: center; gap: 18px; padding: 4px 0 0; font-size: 13px; font-weight: 600; color: var(--sub); }
-  .statusrow b { color: var(--ink); }
+  .kbd button.miss { background: var(--no); color: var(--card); opacity: 1; }
+  .statusrow { display: flex; justify-content: center; gap: 18px; padding: 4px 0 0; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); }
+  .statusrow b { color: var(--ink); font-weight: 500; }
   .kwrap { margin-top: auto; }
 </style>
 </head>
@@ -83,7 +90,7 @@ const S = {
 };
 
 const REGLAS = `<p>Adivina la palabra de <b>5 letras</b> en 6 intentos. Cada intento debe ser una palabra real.</p>
-<p>Tras cada intento, las fichas te dan pistas: <b>verde</b> = letra en su lugar; <b>ámbar</b> = está en la palabra pero en otra posición; <b>gris</b> = no está.</p>
+<p>Tras cada intento, las fichas te dan pistas: <b>terracota</b> = letra en su lugar; <b>ocre</b> = está en la palabra pero en otra posición; <b>gris</b> = no está.</p>
 <p>En <b>Diaria</b> hay una sola palabra al día (la misma para todos) y cada día ganado alarga tu racha. En <b>Libre</b> juegas al azar sin límite. Las tildes no cuentan.</p>`;
 
 /* ── Estado diario persistente ───────────────────────────────────────── */
@@ -158,7 +165,11 @@ function render() {
   bindSeg('seg-m', (v) => empezar(v));
   $('#kbd').onclick = (e) => {
     const b = e.target.closest('button');
-    if (b) tecla(b.dataset.ch);
+    if (!b) return;
+    // Sin foco en la tecla: si queda enfocada, un Enter físico la vuelve a pulsar
+    // además de enviar, y la última letra se cuela en el intento siguiente.
+    b.blur();
+    tecla(b.dataset.ch);
   };
   bindHowto(REGLAS);
   pintar();

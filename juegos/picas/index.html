@@ -3,41 +3,52 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Picas y fijas: deduce el número secreto con las pistas de cada intento." />
 <title>Picas y fijas</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E123%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E123%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
+  /* .intento lleva también la clase .tiles: las casillas de cifras se dibujan con
+     la ficha compartida de estilo.css (.tiles .tile); sin ella eran texto suelto. */
   .intento { display: flex; justify-content: center; gap: 8px; padding: 16px 0 0; }
   .intento .tile { min-width: 46px; height: 54px; font-size: 26px; }
   .intento .tile.hueco { color: var(--faint); }
   .hist { flex: 1; overflow-y: auto; min-height: 0; padding: 14px 20px 6px; display: flex; flex-direction: column; gap: 8px; }
   .hrow {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    background: var(--card); border-radius: 12px; box-shadow: var(--shadow); padding: 10px 14px;
-    animation: popIn .18s var(--ease); border: 1px solid var(--linea-fuerte); }
-  .hrow .num { font-family: var(--title-font); font-size: 21px; font-weight: 700; letter-spacing: 4px; color: var(--ink); }
-  .hrow .res { display: flex; gap: 8px; font-size: 12px; font-weight: 700; }
-  .hrow .res .fija { color: var(--good); }
-  .hrow .res .pica { color: var(--warn); }
-  .quedan { text-align: center; font-size: 12px; font-weight: 700; color: var(--bg-sub); padding-top: 8px; }
+    background: var(--card); border-radius: 12px; padding: 10px 14px;
+    animation: popIn .18s var(--ease); border: var(--trazo) solid var(--linea-fuerte); }
+  .hrow .num { font-family: var(--title-font); font-size: 21px; font-weight: 500; letter-spacing: 4px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  /* Etiquetas técnicas en mono. --good y --warn a 12 px se quedaban en 3,1 y 3,4:1
+     sobre la tarjeta; oscurecidos con tinta pasan de 4,5:1 sin salir de la paleta. */
+  .hrow .res { display: flex; gap: 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
+  .hrow .res .fija { color: color-mix(in srgb, var(--good) 62%, var(--ink)); }
+  .hrow .res .pica { color: color-mix(in srgb, var(--warn) 62%, var(--ink)); }
+  .quedan { text-align: center; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--sub); padding-top: 10px; }
   .quedan.poco { color: var(--bad); }
+  .tools { margin: 0 16px 2px; display: flex; gap: 10px; justify-content: center; padding-top: 6px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 500;
+    font-size: 13px; padding: 9px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
+  .tool:active { opacity: .6; }
   .kpad { padding: 8px 14px calc(12px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  /* Teclas en beige de bloque, como el teclado compartido: en tarjeta clara sin
+     sombra se fundían con el crema (ΔE 4,5). */
   .kpad button {
-    height: 50px; border: none; border-radius: 12px; background: var(--card); box-shadow: var(--shadow);
-    font-weight: 700; font-size: 18px; color: var(--ink); cursor: pointer;
+    height: 50px; border: none; border-radius: 12px; background: var(--panel);
+    font-weight: 500; font-size: 18px; color: var(--ink); cursor: pointer;
+    transition: opacity var(--dur) var(--ease);
   }
-  .kpad button:active { transform: scale(.94); }
+  .kpad button:active { opacity: .6; }
   .kpad button.accion { background: var(--accent); color: var(--accent-ink); font-size: 14px; }
   .kpad button.borrar { background: var(--soft); color: var(--sub); font-size: 14px; }
   .kpad button:disabled { opacity: .35; }
-  .racha { display: flex; gap: 5px; justify-content: center; padding-top: 6px; }
-  .racha i { font-family: var(--title-font); font-size: 11px; font-weight: 700; color: var(--sub);
-    border: 1px solid var(--linea-fuerte); border-radius: 12px; padding: 1px 6px; font-style: normal; }
+  .racha { display: flex; gap: 5px; justify-content: center; padding-top: 8px; flex-wrap: wrap; }
+  .racha i { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; color: var(--sub);
+    border: var(--trazo) solid var(--linea-fuerte); border-radius: var(--pastilla); padding: 2px 8px; font-style: normal; }
   .racha i.perdida { color: var(--bad); border-color: var(--bad); }
 </style>
 </head>
@@ -137,16 +148,18 @@ function renderPlay() {
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Picas y fijas', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="rest"></span>`)}
-    <div class="intento" id="intento"></div>
+    <div class="intento tiles" id="intento"></div>
     <div class="quedan" id="quedan"></div>
     <div class="msg" id="msg" style="padding-top:6px;"></div>
     <div class="hist" id="hist"></div>
+    <div class="tools"><button class="tool" id="t-salir">Salir</button></div>
     <div class="kpad" id="kpad">
       ${[1, 2, 3, 4, 5, 0, 6, 7, 8, 9].map((n) => `<button data-n="${n}">${n}</button>`).join('')}
       <button class="borrar" id="k-borrar">Borrar</button>
       <button class="accion" id="k-ok">Probar</button>
     </div>
   </div>`;
+  $('#t-salir').onclick = () => { S.jugando = false; renderSetup(); };
   $('#kpad').onclick = (e) => {
     const b = e.target.closest('button');
     if (!b || !S.jugando) return;

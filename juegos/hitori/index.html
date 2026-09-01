@@ -3,34 +3,34 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Hitori: tacha números repetidos sin juntar tachones y sin partir el tablero." />
 <title>Hitori</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E▦%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E▦%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
+  .zona { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
   .hwrap { display: flex; justify-content: center; padding: 16px 14px 0; }
   .hgrid { display: grid; gap: 4px; width: min(92vw, 400px); }
   .hc {
     aspect-ratio: 1; border: none; border-radius: 12px; cursor: pointer; padding: 0;
-    background: var(--card); box-shadow: var(--shadow); position: relative;
-    font-family: var(--title-font); font-weight: 700; color: var(--ink); transition: all .12s var(--ease);
+    background: var(--card); position: relative;
+    font-family: var(--title-font); font-weight: 500; color: var(--ink); transition: all .12s var(--ease);
     font-size: clamp(15px, 4.5vw, 22px);
   }
-  .hc.negra { background: var(--ink); color: color-mix(in srgb, var(--card) 30%, transparent); box-shadow: none; }
+  .hc.negra { background: var(--ink); color: color-mix(in srgb, var(--card) 30%, transparent); }
   .hc.punto::after {
     content: ''; position: absolute; inset: 12%; border-radius: 999px;
-    border: 2px solid var(--accent); opacity: .55;
+    border: 2px solid var(--accent);   /* al 55 % quedaba en 2:1 y se perdía */
   }
   .hc.dup { color: var(--bad); }
-  .leyenda { text-align: center; padding-top: 12px; font-size: 12.5px; color: var(--bg-sub); font-weight: 600; }
-  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
-  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
-    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
-    box-shadow: var(--shadow-sutil); }
+  .leyenda { text-align: center; padding: 12px 16px 0; font-family: var(--display); font-style: italic; font-size: 14px; color: var(--sub); }
+  .tools { margin: 0 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
   .tool:active { opacity: .6; }
 </style>
 </head>
@@ -322,12 +322,16 @@ function renderPlay() {
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Hitori', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clk">0:00</span>`)}
-    <div class="hwrap">
-      <div class="hgrid" id="hgrid" style="grid-template-columns: repeat(${S.n}, 1fr);">
-        ${S.val.map((v, i) => `<button class="hc" data-i="${i}">${v}</button>`).join('')}
+    <div class="zona">
+      <div>
+        <div class="hwrap">
+          <div class="hgrid" id="hgrid" style="grid-template-columns: repeat(${S.n}, 1fr);">
+            ${S.val.map((v, i) => `<button class="hc" data-i="${i}">${v}</button>`).join('')}
+          </div>
+        </div>
+        <div class="leyenda">Los rojos siguen repetidos en su fila o columna</div>
       </div>
     </div>
-    <div class="leyenda">Los rojos siguen repetidos en su fila o columna</div>
     <div class="tools">
       <button class="tool" id="t-limpiar">Limpiar</button>
       <button class="tool" id="t-salir">Salir</button>

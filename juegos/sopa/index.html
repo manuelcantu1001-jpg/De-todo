@@ -3,15 +3,17 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Sopa de letras en español con cuatro dificultades y palabras del diccionario." />
 <title>Sopa de letras</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
+  /* El lado definitivo lo pone fitBoard() midiendo lo que ocupan tema, lista y
+     mandos: con palabras largas la lista crece y el tablero tiene que ceder. */
   .board {
     margin: 6px auto 0; width: min(96vw, 400px); aspect-ratio: 1;
     background: var(--card); border-radius: 12px; box-shadow: var(--shadow);
@@ -19,25 +21,32 @@
     position: relative; border: 1px solid var(--linea-fuerte); }
   .lc {
     display: flex; align-items: center; justify-content: center;
-    font-weight: 700; color: var(--ink); border-radius: 12px; position: relative; z-index: 1;
+    font-weight: 600; color: var(--ink); border-radius: 7px; position: relative; z-index: 1;
   }
   .lc.selpath { background: var(--accent); color: var(--accent-ink); }
-  .lc.f0 { background: var(--accent-soft); color: var(--ink); }
-  .lc.f1 { background: var(--second-soft); color: var(--second); }
-  .lc.f2 { background: #E9E6F9; color: #6A5AD0; }
-  .lc.f3 { background: var(--warn-soft); color: var(--warn); }
-  .lc.f4 { background: #DFF0F2; color: #1F7F8A; }
+  /* Palabras encontradas: el color va en el fondo (tintas de la paleta al 65 %
+     sobre la tarjeta) y la letra se queda en tinta parda, que a 13px en experto
+     las letras coloreadas no llegaban a 3:1. Las cinco tintas son las que más
+     se separan entre sí una vez aclaradas (CIE76 ≥ 22). */
+  .lc.f0 { background: color-mix(in srgb, var(--tinta-1) 65%, var(--card)); }
+  .lc.f1 { background: color-mix(in srgb, var(--tinta-3) 65%, var(--card)); }
+  .lc.f2 { background: color-mix(in srgb, var(--tinta-6) 65%, var(--card)); }
+  .lc.f3 { background: color-mix(in srgb, var(--tinta-7) 65%, var(--card)); }
+  .lc.f4 { background: color-mix(in srgb, var(--tinta-8) 65%, var(--card)); }
   .lc.flash { animation: flashHint 1.2s var(--ease); }
   @keyframes flashHint { 0%, 60% { background: var(--warn-soft); color: var(--warn); } 100% { } }
   .tema { text-align: center; font-family: var(--title-font); font-size: 13.5px; color: var(--sub); padding: 4px 16px 0; letter-spacing: var(--title-track); }
   .tema b { color: var(--ink); }
-  .words { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; padding: 4px 16px; }
+  .words { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 4px 12px; }
   .wchip {
-    font-size: 14.5px; font-weight: 500; color: var(--ink); background: var(--card);
-    border-radius: 999px; padding: 10px 17px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 6px; border: 1px solid var(--linea-fuerte); }
-  .wchip.hit { color: var(--faint); text-decoration: line-through; box-shadow: none; background: var(--soft); }
-  .wchip .dot { width: 8px; height: 8px; border-radius: 999px; }
-  .tools { margin: 0 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
+    font-size: 14px; font-weight: 500; color: var(--ink); background: var(--card);
+    border-radius: 999px; padding: 7px 12px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 6px; border: 1px solid var(--linea-fuerte); }
+  .wchip.hit { color: var(--sub); text-decoration: line-through; box-shadow: none; background: var(--panel); border-color: transparent; }
+  /* El punto está siempre (anillo tenue si falta, tinta si se encontró) para que
+     la ficha no cambie de ancho al tacharse y la lista no salte de fila. */
+  .wchip .dot { width: 8px; height: 8px; border-radius: 999px; border: 1px solid var(--faint); flex-shrink: 0; }
+  .wchip.hit .dot { border-color: transparent; }
+  .tools { margin: 0 16px calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
   .tool {
     border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600; font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); box-shadow: var(--shadow-sutil);
   }
@@ -45,7 +54,7 @@
   .tool:disabled { opacity: .4; cursor: default; }
   /* El área de juego reparte el alto sobrante: los mandos bajan al fondo,
      donde está el pulgar, en vez de dejar pantalla muerta debajo. */
-  .scroll { display: flex; flex-direction: column; justify-content: space-evenly; }
+  .scroll:not(.g-setup) { display: flex; flex-direction: column; justify-content: space-evenly; }
 </style>
 </head>
 <body>
@@ -66,6 +75,8 @@ const CFG = {
 };
 const FILLER = 'AAAAEEEEEIIIOOOUSSRRNNLLDCCTUMPBGVYQHFZJ';
 const FCOLORS = 5;
+// Tinta de cada color de palabra (la misma que tiñe sus casillas, ver .lc.fN)
+const FTINTA = ['--tinta-1', '--tinta-3', '--tinta-6', '--tinta-7', '--tinta-8'];
 
 /* ── Estado ──────────────────────────────────────────────────────────── */
 const S = {
@@ -215,16 +226,30 @@ function renderPlay() {
     </div>
   </div>`;
   paintWords();
+  fitBoard();
   bindDrag();
   $('#t-pista').onclick = usePista;
   $('#t-nueva').onclick = startGame;
   $('#t-salir').onclick = renderSetup;
 }
 
+/* Lado del tablero: lo que quede de alto tras tema, lista de palabras y mandos
+   (sin bajar de 240px; si aun así no cabe, el área se desplaza). En 375×667
+   una lista de seis filas dejaba los mandos fuera de la vista. */
+function fitBoard() {
+  const board = $('#board'), sc = $('.scroll');
+  if (!board || !sc) return;
+  const otros = ['.tema', '#words', '.tools'].reduce((a, q) => a + ($(q) ? $(q).offsetHeight : 0), 0);
+  const libre = sc.clientHeight - otros - 22;   // márgenes del tablero y de los mandos
+  const lado = Math.max(240, Math.min(sc.clientWidth * .96, 400, libre));
+  board.style.width = lado + 'px';
+}
+addEventListener('resize', fitBoard);
+
 function paintWords() {
   $('#words').innerHTML = S.words.map((w, k) => `
     <span class="wchip ${w.found ? 'hit' : ''}" data-k="${k}">
-      ${w.found ? `<span class="dot" style="background: currentColor;"></span>` : ''}${esc(cap(w.n))}
+      <span class="dot" ${w.found ? `style="background: var(${FTINTA[w.color]});"` : ''}></span>${esc(cap(w.n))}
     </span>`).join('');
 }
 

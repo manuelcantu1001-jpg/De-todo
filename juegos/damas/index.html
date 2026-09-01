@@ -3,41 +3,54 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Damas clásicas con capturas obligatorias, contra la app o a dos." />
 <title>Damas</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E◉%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E◉%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
-  .boardwrap { display: flex; justify-content: center; padding: 12px 12px 0; }
+  /* El tablero se lleva el alto sobrante y se centra en él: así el marcador y
+     «Salir» bajan a la zona del pulgar en vez de dejar papel muerto debajo. */
+  .boardwrap { display: flex; justify-content: center; align-items: center; padding: 12px 12px 0; flex: 1; }
   .tab {
     display: grid; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow);
     touch-action: manipulation; user-select: none; -webkit-user-select: none; border: 1px solid var(--linea-fuerte); }
   .sq { display: flex; align-items: center; justify-content: center; position: relative; }
-  .sq.clara { background: var(--tile-bg); }
-  .sq.oscura { background: color-mix(in srgb, var(--ink) 24%, var(--tile-bg)); cursor: pointer; }
+  /* Las casillas jugables (clase .oscura, por tradición) se pintan CLARAS y las
+     inertes en beige: sobre el beige la ficha terracota daba 2,6:1 y la azul
+     2,0:1; sobre la tarjeta dan 4,2 y 5,5. El damero se sigue leyendo (ΔE 12). */
+  .sq.clara { background: color-mix(in srgb, var(--ink) 16%, var(--panel)); }
+  .sq.oscura { background: var(--tile-bg); cursor: pointer; }
   .sq.oscura.dest::after {
     content: ''; width: 30%; height: 30%; border-radius: 999px;
-    background: color-mix(in srgb, var(--accent) 70%, transparent);
+    background: var(--accent);
   }
   .sq.oscura.selsq { outline: 3px solid var(--accent); outline-offset: -3px; }
   .pieza {
     width: 76%; height: 76%; border-radius: 999px; position: relative;
-    box-shadow: 0 2px 3px rgba(0,0,0,.3);
+    border: 2px solid color-mix(in srgb, var(--ink) 22%, transparent);
   }
+  /* Ficha de la app en azul tinta-2 (ΔE 41 frente a la terracota); --second era gris azulado y apenas contrastaba. */
   .pieza.pa { background: var(--accent); }
-  .pieza.pb { background: var(--second); }
-  .pieza .corona { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(255,253,246,.9); }
-  .turnrow { text-align: center; padding: 12px 0 0; font-size: 15px; font-weight: 700; color: var(--bg-ink); }
-  .turnrow .who { color: var(--accent); }
-  .turnrow .who.o { color: var(--second); }
+  .pieza.pb { background: var(--tinta-2); }
+  .pieza .corona { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: color-mix(in srgb, var(--card) 90%, transparent); }
+  /* El aviso de turno va en tinta (el terracota a 15 px daba 3,85:1 sobre el papel
+     y el azul 3,0) y el color del jugador se lleva a un punto delante del texto. */
+  .turnrow { text-align: center; padding: 12px 0 0; font-family: var(--display); font-style: italic; font-size: 17px; font-weight: 400; color: var(--bg-ink); }
+  .turnrow .who { color: var(--ink); }
+  .turnrow .who::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 999px; background: var(--accent); margin-right: 8px; vertical-align: 1px; }
+  .turnrow .who.o::before { background: var(--tinta-2); }
+  .turnrow .who.neutro::before { display: none; }
+  .turnrow .aviso { font-family: var(--mono); font-style: normal; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  .turnrow .aviso.come { color: var(--bad); }
+  .turnrow .aviso.tablas { color: color-mix(in srgb, var(--warn) 70%, var(--ink)); }
   .scorebar { display: flex; justify-content: center; gap: 14px; margin: 14px 16px 0; }
   .scorebar .b { flex: 0 1 110px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 6px; text-align: center; border: 1px solid var(--linea-fuerte); }
-  .scorebar .bn { font-family: var(--title-font); font-size: 22px; font-weight: 700; color: var(--ink); }
-  .scorebar .bl { font-size: 10.5px; color: var(--sub); font-weight: 600; margin-top: 1px; }
+  .scorebar .bn { font-family: var(--title-font); font-size: 22px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .scorebar .bl { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); margin-top: 3px; }
   .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
   .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
     font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
@@ -298,8 +311,8 @@ function updateTurn() {
     : (S.mode === 'app' ? 'Piensa la app…' : 'Turno del Jugador 2');
   const faltan = LIMITE_SIN_COMER - S.sinComer;
   const aviso = S.movs.length && S.movs[0].cap.length && (S.mode === '2p' || S.turn === 'A')
-    ? ' <span style="color:var(--bad);font-size:12.5px;">· comer es obligatorio</span>'
-    : (faltan <= 12 ? ` <span style="color:var(--warn);font-size:12.5px;">· tablas en ${faltan}</span>` : '');
+    ? ' <span class="aviso come">· comer es obligatorio</span>'
+    : (faltan <= 12 ? ` <span class="aviso tablas">· tablas en ${faltan}</span>` : '');
   el.innerHTML = `<span class="who ${S.turn === 'B' ? 'o' : ''}">${who}</span>` + aviso;
 }
 
@@ -404,7 +417,7 @@ function endRound(winner, porque) {
     title = winner === 'A' ? 'Ganó el Jugador 1' : 'Ganó el Jugador 2';
     confetti();
   }
-  $('#turnrow').innerHTML = `<span class="who ${winner === 'B' ? 'o' : ''}">${title}</span>`;
+  $('#turnrow').innerHTML = `<span class="who ${winner === 'E' ? 'neutro' : winner === 'B' ? 'o' : ''}">${title}</span>`;
   setTimeout(() => {
     S.starter = S.starter === 'A' ? 'B' : 'A';
     openModal(`

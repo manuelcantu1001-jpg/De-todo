@@ -3,34 +3,41 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Texas Hold'em mano a mano contra la app: ciegas, faroles y todo el bote." />
 <title>Texas Hold'em</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E♠%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E♠%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .zona { padding: 10px 16px 0; }
-  .zona .quien { font-size: 12px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--bg-sub); display: flex; justify-content: space-between; align-items: center; }
-  .zona .quien b { color: var(--bg-ink); font-size: 13px; text-transform: none; letter-spacing: 0; }
-  .boton-d { display: inline-block; width: 18px; height: 18px; border-radius: 999px; background: var(--warn); color: #fff; font-size: 11px; font-weight: 800; text-align: center; line-height: 18px; margin-left: 6px; }
+  /* Etiquetas en mono (como .dato) y las fichas de cada quien en mono a peso medio
+     (antes el <b> heredaba «bolder» sobre 700 y salía en 900). Las zonas se
+     reparten el espacio libre con margin-top auto: la app arriba, la mesa en
+     medio y tus cartas junto a los botones. */
+  .zona + .zona { margin-top: auto; }
+  .zona .quien { font-family: var(--mono); font-size: 10.5px; font-weight: 400; letter-spacing: .12em; text-transform: uppercase; color: var(--bg-sub); display: flex; justify-content: space-between; align-items: center; }
+  .zona .quien b { color: var(--bg-ink); font-size: 15px; font-weight: 500; text-transform: none; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+  /* Botón del dealer: ficha clara con tinta (12:1). En blanco sobre --warn daba 3,4:1 a 11 px. */
+  .boton-d { display: inline-block; width: 18px; height: 18px; border-radius: 999px; background: var(--card); color: var(--ink); border: 1px solid var(--linea-fuerte); font-family: var(--font); font-size: 11px; font-weight: 600; letter-spacing: 0; text-align: center; line-height: 16px; margin-left: 6px; }
   .cartas { display: flex; gap: 7px; padding-top: 7px; min-height: 74px; }
   .cartas.centro { justify-content: center; min-height: 80px; }
   .carta {
     width: 50px; height: 70px; border-radius: 12px; background: var(--tile-bg);
     border: 1px solid var(--tile-border); box-shadow: none;
     display: flex; flex-direction: column; justify-content: space-between; padding: 5px 6px;
-    font-weight: 800; color: var(--ink); animation: popIn .22s var(--ease);
+    font-weight: 600; color: var(--ink); animation: popIn .22s var(--ease);
   }
   .carta .r { font-size: 17px; line-height: 1; }
   .carta .s { font-size: 18px; line-height: 1; align-self: flex-end; }
   .carta.roja { color: var(--bad); }
   .carta.dorso { background: repeating-linear-gradient(45deg, var(--accent), var(--accent) 5px, color-mix(in srgb, var(--accent) 80%, black) 5px, color-mix(in srgb, var(--accent) 80%, black) 10px); border-color: transparent; }
-  .bote { text-align: center; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); padding-top: 6px; }
-  .bote b { color: var(--bg-ink); font-size: 16px; }
-  .narra { text-align: center; min-height: 20px; padding-top: 8px; font-size: 13.5px; font-weight: 700; color: var(--accent); }
+  .bote { text-align: center; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--bg-sub); padding-top: 6px; }
+  .bote b { color: var(--bg-ink); font-size: 16px; font-weight: 500; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+  /* La narración en serif cursiva y tinta: en acento daba 3,85:1 a 13,5 px. */
+  .narra { text-align: center; min-height: 22px; padding-top: 8px; font-family: var(--display); font-style: italic; font-size: 15px; font-weight: 400; color: var(--ink); }
   .acciones { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; padding-top: 12px; }
   .acciones .fila { display: flex; gap: 10px; }
   .acciones .fila .btn { flex: 1; padding: 14px 10px; font-size: 15px; }
@@ -81,7 +88,9 @@ function pintaMano(sel, cartas, ocultas) {
   if (!cont) return;
   const fijas = [...cont.children].filter((e) => e.classList.contains('carta'));
   fijas.slice(cartas.length).forEach((e) => e.remove());
-  const vacio = cont.querySelector(':not(.carta)');
+  // Solo el hijo directo: sin :scope el primer «no carta» era el <span> del rango
+  // de la primera carta, y cada pintado borraba un span hasta dejarlas en blanco.
+  const vacio = cont.querySelector(':scope > :not(.carta)');
   if (vacio && cartas.length) vacio.remove();
   cartas.forEach((c, i) => {
     const clave = ocultas ? 'dorso' : `${c.r}-${c.s}`;
@@ -213,7 +222,7 @@ function paint() {
   pintaMano('#c-yo', S.hole.yo, false);
   if (!S.board.length) {
     const b = $('#c-board');
-    if (b && !b.querySelector('span')) b.innerHTML = '<span style="color:var(--faint);font-weight:600;font-size:13px;align-self:center;">— aún sin cartas comunes —</span>';
+    if (b && !b.querySelector('span')) b.innerHTML = '<span style="color:var(--sub);font-family:var(--display);font-style:italic;font-size:14px;align-self:center;">— aún sin cartas comunes —</span>';
   } else pintaMano('#c-board', S.board, false);
   $('#st-yo').textContent = '$' + (S.stack.yo - S.cont.yo);
   $('#st-app').textContent = '$' + (S.stack.app - S.cont.app);

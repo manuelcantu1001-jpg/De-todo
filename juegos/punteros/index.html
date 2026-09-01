@@ -3,33 +3,40 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Punteros: saca todas las flechas del tablero, pero solo si su camino está despejado." />
 <title>Punteros</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E➤%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E➤%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
+  /* La zona de juego reparte el alto que sobra entre marcador, tablero y pie:
+     sin media pantalla vacía antes de los mandos. */
+  .zona { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
   .pwrap { display: flex; justify-content: center; padding: 16px 14px 0; }
   .pgrid { display: grid; gap: 5px; width: min(92vw, 400px); }
   .pc {
     aspect-ratio: 1; border: none; border-radius: 12px; padding: 0; background: var(--soft);
-    box-shadow: inset 0 1px 3px rgba(60,50,30,.1); position: relative; overflow: visible;
+    position: relative; overflow: visible;
   }
-  .pc.flecha { background: var(--card); box-shadow: var(--shadow); cursor: pointer; border: 1px solid var(--linea-fuerte); }
+  .pc.flecha { background: var(--card); cursor: pointer; border: var(--trazo) solid var(--linea-fuerte); }
   .pc svg { display: block; width: 62%; height: 62%; margin: 19%; color: var(--accent); transition: transform .28s var(--ease), opacity .28s var(--ease); }
-  .pc:nth-child(2n) svg { color: var(--second); }
+  /* Las flechas alternan dos tintas para que vecinas no se confundan; --second
+     (gris azulado) daba 3,3:1 sobre la tarjeta, la tinta 2 da 5,5. */
+  .pc:nth-child(2n) svg { color: var(--tinta-2); }
   .pc.sale { z-index: 3; }
   .pc.sale svg { transform: rotate(var(--rot)) translateX(320%) !important; opacity: 0; }
-  .marcador { display: flex; justify-content: center; gap: 20px; padding-top: 14px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
-  .marcador b { color: var(--bg-ink); font-size: 15px; }
-  .marcador .vidas { color: var(--bad); letter-spacing: 2px; font-size: 15px; }
-  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
-  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
-    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
-    box-shadow: var(--shadow-sutil); }
+  /* Marcador al estilo de la piel: etiqueta técnica en monoespaciada y el número
+     en sans a peso medio, no todo en negrita. */
+  .marcador { display: flex; justify-content: center; gap: 22px; padding-top: 14px; }
+  .marcador span { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--sub); display: flex; align-items: baseline; gap: 7px; }
+  .marcador b { font-family: var(--font); font-size: 17px; font-weight: 500; color: var(--ink); letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+  .marcador .vidas { font-family: var(--font); color: var(--bad); letter-spacing: 2px; font-size: 16px; }
+  .tools { margin: 0 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
   .tool:active { opacity: .6; }
 </style>
 </head>
@@ -129,10 +136,12 @@ function renderPlay() {
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Punteros', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clk">0:00</span>`)}
-    <div class="marcador"><span>Quedan <b id="qn"></b></span><span class="vidas" id="vidas"></span></div>
-    <div class="pwrap">
-      <div class="pgrid" id="pgrid" style="grid-template-columns: repeat(${S.n}, 1fr);">
-        ${S.grid.map((_, i) => `<button class="pc" data-i="${i}"></button>`).join('')}
+    <div class="zona">
+      <div class="marcador"><span>Quedan <b id="qn"></b></span><span class="vidas" id="vidas"></span></div>
+      <div class="pwrap">
+        <div class="pgrid" id="pgrid" style="grid-template-columns: repeat(${S.n}, 1fr);">
+          ${S.grid.map((_, i) => `<button class="pc" data-i="${i}"></button>`).join('')}
+        </div>
       </div>
     </div>
     <div class="tools">

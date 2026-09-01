@@ -353,12 +353,12 @@ a { color: var(--accent-texto); }
 .kbd button:active { opacity: .6; }
 .kbd button.wide { max-width: 64px; font-size: 12.5px; }
 .kbd button.used { opacity: .38; }
-.kbd button.hit { background: var(--accent); color: var(--accent-ink); opacity: 1; }
-.kbd button.miss { background: var(--soft); color: var(--faint); opacity: .6; }
+.kbd button.hit { background: var(--accent-texto); color: var(--accent-ink); opacity: 1; }
+.kbd button.miss { background: var(--soft); color: var(--sub); opacity: .75; }
 
 /* ── Mensajes y estados ────────────────────────────────────────────── */
 .msg { font-family: var(--display); font-style: italic; font-size: 14px; text-align: center; min-height: 18px; color: var(--sub); }
-.msg.ok { color: var(--good); } .msg.err { color: var(--bad); } .msg.check { color: var(--sub); }
+.msg.ok { color: color-mix(in srgb, var(--good) 65%, var(--ink)); } .msg.err { color: var(--bad); } .msg.check { color: var(--sub); }
 .shake { animation: shake .34s var(--ease); }
 @keyframes shake { 0%,100% { transform: none; } 25% { transform: translateX(-6px); } 50% { transform: translateX(6px); } 75% { transform: translateX(-3px); } }
 @keyframes popIn { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
@@ -378,7 +378,7 @@ a { color: var(--accent-texto); }
 .stats .l { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); margin-top: 5px; }
 .end .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
 .end .again-hint { font-size: 12.5px; color: var(--bg-sub); margin-top: -2px; }
-.record { display: inline-block; margin-top: 14px; font-family: var(--mono); font-size: 12px; letter-spacing: .06em; color: var(--good); }
+.record { display: inline-block; margin-top: 14px; font-family: var(--mono); font-size: 12px; letter-spacing: .06em; color: color-mix(in srgb, var(--good) 65%, var(--ink)); }
 
 /* ── Ajustes de partida (setup genérico) ───────────────────────────── */
 .g-setup { padding: 8px 20px 24px; display: flex; flex-direction: column; gap: 14px; }

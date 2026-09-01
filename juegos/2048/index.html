@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="2048: desliza, suma fichas y llega a la grande." />
 <title>2048</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='40' font-size='18' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E2048%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='40' font-size='18' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E2048%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .scorerow { display: flex; justify-content: center; gap: 12px; padding: 10px 16px 0; }
-  .scorerow .b { flex: 0 1 130px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 8px; text-align: center; border: 1px solid var(--linea-fuerte); }
-  .scorerow .bn { font-family: var(--title-font); font-size: 22px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
-  .scorerow .bl { font-size: 10.5px; color: var(--sub); font-weight: 600; margin-top: 1px; }
+  .scorerow .b { flex: 0 1 130px; background: var(--panel); border-radius: var(--radius); padding: 10px 8px; text-align: center; border: none; }
+  .scorerow .bn { font-family: var(--title-font); font-size: 22px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .scorerow .bl { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--sub); margin-top: 2px; }
   .boardwrap { display: flex; justify-content: center; padding: 14px 12px 4px; }
   .board {
     display: grid; gap: 8px; background: var(--soft); padding: 8px; border-radius: 12px;
@@ -28,25 +28,28 @@
   }
   .t2.pop { animation: t2pop .16s var(--ease); }
   @keyframes t2pop { 0% { transform: scale(.6); } 100% { transform: scale(1); } }
-  .t2[data-v="2"]    { background: var(--card); border-color: var(--ink); }
-  .t2[data-v="4"]    { background: #F2EEE1; border-color: var(--ink); }
-  .t2[data-v="8"]    { background: #EBE2CB; border-color: var(--ink); }
-  .t2[data-v="16"]   { background: #E4D5AC; border-color: var(--ink); }
-  .t2[data-v="32"]   { background: #DCC48A; border-color: var(--ink); }
-  .t2[data-v="64"]   { background: var(--tinta-4); color: var(--card); border-color: var(--ink); }
-  .t2[data-v="128"]  { background: var(--tinta-1); color: var(--card); border-color: var(--ink); }
-  .t2[data-v="256"]  { background: var(--tinta-5); color: var(--card); border-color: var(--ink); }
-  .t2[data-v="512"]  { background: var(--tinta-6); color: var(--card); border-color: var(--ink); }
-  .t2[data-v="1024"] { background: var(--tinta-7); color: var(--card); border-color: var(--ink); }
-  .t2[data-v="2048"] { background: var(--tinta-3); color: var(--card); border-color: var(--ink); box-shadow: var(--shadow); }
-  .t2[data-v="4096"], .t2[data-v="8192"], .t2[data-v="16384"] { background: var(--ink); color: var(--card); border-color: var(--ink); }
+  /* Una tinta distinta por valor, ordenadas para que dos fichas consecutivas
+     se distingan de un vistazo (ΔE ≥ 24 entre vecinas; la rampa de beiges
+     anterior daba ΔE 5–6 entre 2, 4, 8, 16 y 32). El texto va en tinta sobre
+     las claras y en papel sobre las oscuras. Sin contorno de tinta sólida:
+     ese era el trazo de la piel vieja. */
+  .t2[data-v="2"]    { background: var(--card); }
+  .t2[data-v="4"]    { background: color-mix(in srgb, var(--card) 30%, var(--tinta-4)); }
+  .t2[data-v="8"]    { background: var(--tinta-5); }
+  .t2[data-v="16"]   { background: var(--tinta-4); }
+  .t2[data-v="32"]   { background: var(--tinta-2); color: var(--card); }
+  .t2[data-v="64"]   { background: var(--tinta-7); }
+  .t2[data-v="128"]  { background: var(--tinta-3); }
+  .t2[data-v="256"]  { background: var(--tinta-1); color: var(--card); }
+  .t2[data-v="512"]  { background: var(--tinta-6); }
+  .t2[data-v="1024"] { background: var(--tinta-8); color: var(--card); }
+  .t2[data-v="2048"] { background: var(--ink); color: var(--card); }
+  .t2[data-v="4096"], .t2[data-v="8192"], .t2[data-v="16384"] { background: color-mix(in srgb, var(--tinta-1) 60%, var(--ink)); color: var(--card); }
   .tools { margin: 0 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
   .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
     font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
     box-shadow: var(--shadow-sutil); }
   .tool:active { opacity: .6; }
-  /* El área de juego reparte el alto sobrante: los mandos bajan al fondo,
-     donde está el pulgar, en vez de dejar pantalla muerta debajo. */
   /* Reparte el alto sobrante entre marcador, tablero y mandos en vez de
      apilarlo abajo. Va en una clase propia porque esta pantalla no usa
      .scroll: sus bloques cuelgan directo de .screen. */

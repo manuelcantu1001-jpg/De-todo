@@ -3,17 +3,20 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Dominó contra la app: colócalas en las puntas, roba si no llevas y quédate sin fichas." />
 <title>Dominó</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E🁣%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E🁣%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
-  .estado { text-align: center; padding: 9px 16px 0; font-size: 14px; font-weight: 700; color: var(--bg-ink); min-height: 20px; }
-  .appinfo { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 14px; padding-top: 6px; font-size: 12.5px; font-weight: 600; color: var(--bg-sub); }
+  /* La voz de la piel: el estado en serif cursiva (como .msg), las etiquetas del
+     marcador en mono mayúsculas (como .dato) y los números en sans a peso medio. */
+  .estado { text-align: center; padding: 9px 16px 0; font-family: var(--display); font-style: italic; font-size: 16px; font-weight: 400; color: var(--bg-ink); min-height: 22px; }
+  .appinfo { display: flex; justify-content: center; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; padding-top: 6px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--bg-sub); }
+  .appinfo b { font-family: var(--font); font-size: 15px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--bg-ink); font-variant-numeric: tabular-nums; }
   /* La mesa ya no se come media pantalla en blanco: la cadena se acomoda en
      renglones centrados y la mano de abajo se lleva el espacio que sobra. */
   .mesa {
@@ -31,15 +34,19 @@
   .ficha .sep { width: 1px; background: var(--tile-border); margin: 4px 0; }
   .ficha.vert { flex-direction: column; }
   .ficha.vert .sep { width: auto; height: 1px; margin: 0 4px; }
-  .cadena .ficha { --mh: 24px; }
+  /* A 24 px cada punto medía 3,7 px y a 375 de ancho costaba contar un 6: con
+     28 px salen a 4,3 px y la cadena sigue cabiendo en dos renglones. */
+  .cadena .ficha { --mh: 28px; }
   .mano .ficha { --mh: 58px; box-shadow: none; }
   .zona-punta {
     flex-shrink: 0; width: 30px; height: 50px; border-radius: 12px; border: 2px dashed var(--accent);
-    background: var(--accent-soft); color: var(--ink); font-weight: 800; font-size: 16px;
+    background: var(--accent-soft); color: var(--ink); font-weight: 600; font-size: 16px;
     display: none; align-items: center; justify-content: center; cursor: pointer;
   }
   .zona-punta.on { display: flex; }
-  .mano-wrap { flex: 0 0 auto; margin-top: auto; padding: 0 0 calc(10px + env(safe-area-inset-bottom)); border-top: 1.5px dashed var(--soft); }
+  /* El atril de la mano es un bloque beige: la piel separa por relleno, no con
+     raya (la punteada en --soft daba 1,16:1 sobre el crema y no se veía). */
+  .mano-wrap { flex: 0 0 auto; margin-top: auto; padding: 4px 0 calc(10px + env(safe-area-inset-bottom)); background: var(--panel); border-radius: 22px 22px 0 0; }
   .mano-acciones { display: flex; gap: 10px; justify-content: center; padding: 6px 16px 0; }
   /* La mano se acomoda en dos renglones de fichas grandes en vez de siete
      apretadas al fondo: el espacio que sobraba en la mesa se va aquí. */
@@ -414,7 +421,9 @@ function renderPlay() {
   };
   $('#b-robar').onclick = robar;
   $('#b-pasar').onclick = pasar;
-  $('#b-salir').onclick = renderSetup;
+  // Sin apagar S.jugando, el temporizador de la app seguía jugando la mano en
+  // segundo plano y podía abrir el modal de «ganó la app» sobre la pantalla de inicio.
+  $('#b-salir').onclick = () => { S.jugando = false; renderSetup(); };
   paint();
 }
 
@@ -563,7 +572,7 @@ function ganador(quien, porque) {
       </div>
     `);
     $('#m-again').onclick = () => { closeModal(); nuevaMano(false); };
-    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+    $('#m-out').onclick = () => { closeModal(); S.jugando = false; renderSetup(); };
   }, 1100);
 }
 

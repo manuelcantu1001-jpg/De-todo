@@ -3,33 +3,39 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Ordena la frase: arma el refrán con las palabras revueltas." />
 <title>Ordena la frase</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E“”%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E“”%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
-  .zona { padding: 14px 18px 0; }
+  /* La zona crece y se centra: bandeja y banco a media pantalla, cerca del
+     pulgar, en vez de arriba con el hueco debajo. */
+  .zona { padding: 14px 18px 0; flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+  /* La bandeja es un bloque beige (--panel), no una pieza: agrupa sin caja. */
   .armado {
-    min-height: 108px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
-    padding: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; border: 1px solid var(--linea-fuerte); }
-  .armado .ph { color: var(--faint); font-size: 14px; font-weight: 500; padding: 6px 2px; }
+    min-height: 108px; background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; border: none; }
+  /* Es una instrucción, no adorno: cursiva del estilo y --sub (con --faint se quedaba en 1,8:1) */
+  .armado .ph { color: var(--sub); font-family: var(--display); font-style: italic; font-size: 14px; padding: 6px 2px; }
   .banco { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 2px 0; justify-content: center; }
   .wchip {
     border: 1px solid var(--tile-border); border-radius: 12px; cursor: pointer;
     background: var(--tile-bg); color: var(--tile-ink); padding: 9px 13px;
-    box-shadow: none; font-weight: 600; font-size: 16px;
+    box-shadow: none; font-weight: 500; font-size: 16px;
     animation: popIn .18s var(--ease);
   }
   .wchip:active { transform: scale(.95); }
-  .armado .wchip { background: var(--accent-soft); color: var(--ink); border-color: transparent; box-shadow: none; }
+  /* Sobre la bandeja beige el relleno claro no basta: filete de acento para recortarlas */
+  .armado .wchip { background: var(--accent-soft); color: var(--ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--tile-border)); box-shadow: none; }
   .armado .wchip.ok { background: var(--good-soft); border-color: var(--good); }
-  .armado.bien .wchip { background: var(--good); color: #fff; }
-  .prog { text-align: center; padding-top: 14px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
-  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  /* Verde oscurecido con tinta: con el verde puro la letra clara se quedaba en 3,1:1 */
+  .armado.bien .wchip { background: color-mix(in srgb, var(--good) 70%, var(--ink)); border-color: transparent; color: var(--card); }
+  .prog { text-align: center; padding-top: 14px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--bg-sub); }
+  .tools { margin: 0 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; flex-shrink: 0; }
   .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
     font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
     box-shadow: var(--shadow-sutil); }
@@ -261,7 +267,10 @@ function comprobar() {
     $('#armado').classList.add('bien');
     const msg = $('#msg'); msg.textContent = '¡Eso es!'; msg.className = 'msg ok';
     S.ronda++;
-    setTimeout(() => S.ronda >= RONDAS ? terminar() : nextRonda(false), 900);
+    setTimeout(() => {
+      if (!$('#armado')) return;   // el jugador salió antes de que llegara el cambio de ronda
+      if (S.ronda >= RONDAS) terminar(); else nextRonda(false);
+    }, 900);
   } else {
     S.seg += PENAL; S.fallos++;
     vibrate([60, 40, 60]);

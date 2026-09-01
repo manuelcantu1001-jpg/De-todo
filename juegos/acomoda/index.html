@@ -3,36 +3,43 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Acomoda la lista de palabras en el diagrama hasta que todas crucen bien." />
 <title>Acomoda-palabras</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='26' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EAc%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='26' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EAc%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .boardwrap { display: flex; justify-content: center; padding: 8px 12px 4px; }
-  .board { display: grid; gap: 2px; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  /* El tamaño de casilla (--cell) lo fija fitBoard() según el ancho real y el
+     alto del área de juego; el valor de aquí es solo el de arranque. */
+  .board { --cell: 36px; display: grid; gap: 2px; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  .cw, .cx { width: var(--cell); height: var(--cell); }
+  /* Esquinas cortas: es una cuadrícula, y con 12px las casillas eran bolitas. */
   .cw {
-    background: var(--card); border: 1px solid var(--tile-border); border-radius: 12px;
+    background: var(--card); border: 1px solid var(--tile-border); border-radius: 5px;
     display: flex; align-items: center; justify-content: center;
-    font-weight: 700; color: var(--ink); cursor: pointer; text-transform: uppercase;
+    font-weight: 600; font-size: calc(var(--cell) * .52); color: var(--ink); cursor: pointer; text-transform: uppercase;
   }
   .cw.actslot { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, var(--tile-border)); }
-  .cw.lockcell { color: var(--sub); background: var(--soft); }
+  /* La palabra de regalo se distingue por el fondo; la letra sigue en tinta
+     (en --sub sobre --soft se quedaba en 4,2:1). */
+  .cw.lockcell { background: var(--soft); }
   .cw.bad { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
   .cx { visibility: hidden; }
   .bank { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; padding: 12px 14px 4px; }
   .wchip {
-    font-size: 13px; font-weight: 600; color: var(--ink); background: var(--card);
-    border: none; border-radius: 999px; padding: 8px 13px; box-shadow: var(--shadow); cursor: pointer;
+    font-size: 13px; font-weight: 500; color: var(--ink); background: var(--card);
+    border: 1px solid var(--linea); border-radius: 999px; padding: 8px 13px; box-shadow: var(--shadow); cursor: pointer;
     text-transform: lowercase;
   }
-  .wchip .ln { font-size: 10px; color: var(--faint); font-weight: 700; margin-left: 4px; }
+  /* El largo es un dato útil (hay que casarlo con el hueco): en mono y en --sub */
+  .wchip .ln { font-family: var(--mono); font-size: 10px; color: var(--sub); margin-left: 5px; }
   .wchip.dim { opacity: .35; box-shadow: none; }
   .wchip.used { display: none; }
-  .hintbar { text-align: center; font-size: 12.5px; color: var(--sub); font-weight: 600; padding: 8px 16px 0; min-height: 18px; }
+  .hintbar { text-align: center; font-family: var(--display); font-style: italic; font-size: 14px; color: var(--sub); padding: 8px 16px 0; min-height: 18px; }
   .tools { margin: 8px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 8px; justify-content: center; }
   .tool {
     border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600; font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); box-shadow: var(--shadow-sutil);
@@ -71,7 +78,7 @@ const clock = makeClock(() => $('#clock'));
 const key = (r, c) => r + ',' + c;
 
 const REGLAS = `<p>Tienes un diagrama vacío y una <b>lista de palabras</b>: todas caben, cruzándose como en un crucigrama.</p>
-<p><b>Toca un hueco</b> del tablero para elegirlo (se ilumina) y luego toca una palabra de la lista <b>del mismo largo</b> para colocarla. Toca una palabra ya puesta en el tablero para devolverla a la lista.</p>
+<p><b>Toca un hueco</b> del tablero para elegirlo (se ilumina) y luego toca una palabra de la lista <b>del mismo largo</b> para colocarla. Toca una letra de una palabra ya puesta para devolverla a la lista (si esa letra es un cruce con un hueco vacío, el toque elige ese hueco).</p>
 <p>Si dos palabras chocan en un cruce, la letra se marca en rojo: algo va mal acomodado. Gana cuando todo el diagrama quede lleno y sin choques. <b>Pista</b> coloca una palabra en su sitio correcto (3 por partida).</p>`;
 
 /* ── Generador (mismas cruces que el crucigrama) ─────────────────────── */
@@ -227,7 +234,6 @@ const slotCells = (sl) => Array.from({ length: sl.len }, (_, k) =>
   key(sl.r + (sl.dir === 'V' ? k : 0), sl.c + (sl.dir === 'H' ? k : 0)));
 
 function renderPlay() {
-  const cell = Math.min(40, Math.floor(378 / S.W), Math.floor(330 / S.H));
   const inSlot = new Map();       // "r,c" -> [slotIds]
   for (const sl of S.slots) for (const kk of slotCells(sl)) {
     if (!inSlot.has(kk)) inSlot.set(kk, []);
@@ -237,15 +243,13 @@ function renderPlay() {
   const rows = [];
   for (let r = 0; r < S.H; r++) for (let c = 0; c < S.W; c++) {
     const kk = key(r, c);
-    rows.push(inSlot.has(kk)
-      ? `<div class="cw" data-k="${kk}" style="width:${cell}px;height:${cell}px;font-size:${Math.floor(cell * .52)}px;"></div>`
-      : `<div class="cx" style="width:${cell}px;height:${cell}px;"></div>`);
+    rows.push(inSlot.has(kk) ? `<div class="cw" data-k="${kk}"></div>` : `<div class="cx"></div>`);
   }
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Acomoda-palabras', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
     <div class="scroll">
-      <div class="boardwrap"><div class="board" style="grid-template-columns: repeat(${S.W}, ${cell}px);">${rows.join('')}</div></div>
+      <div class="boardwrap"><div class="board" id="board" style="grid-template-columns: repeat(${S.W}, var(--cell));">${rows.join('')}</div></div>
       <div class="hintbar" id="hintbar">Toca un hueco y luego una palabra</div>
       <div class="bank" id="bank"></div>
     </div>
@@ -259,8 +263,24 @@ function renderPlay() {
   $('#t-pista').onclick = usePista;
   $('#t-nueva').onclick = startGame;
   $('#t-salir').onclick = renderSetup;
+  fitBoard();
   paint();
 }
+
+/* Tamaño de casilla: lo que quepa a lo ancho, y a lo alto no más del 60 % del
+   área de juego para que la lista de palabras asome debajo sin desplazar.
+   Antes se calculaba con constantes (378/330) que no miraban la pantalla y
+   los diagramas anchos se salían por los lados. */
+function fitBoard() {
+  const board = $('#board'), sc = $('.scroll');
+  if (!board || !sc) return;
+  const gap = 2;
+  const byW = Math.floor((sc.clientWidth - 24 - gap * (S.W - 1)) / S.W);
+  const byH = Math.floor((sc.clientHeight * .6 - gap * (S.H - 1)) / S.H);
+  // A lo alto no se baja de 20px (la letra dejaría de leerse): entonces se desplaza.
+  board.style.setProperty('--cell', Math.min(byW, Math.max(20, Math.min(40, byH))) + 'px');
+}
+addEventListener('resize', fitBoard);
 
 function letraEn(kk) {
   // letras que aportan las palabras colocadas en esa celda

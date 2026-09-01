@@ -3,26 +3,31 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Rompe-ladrillos: rebota la bola con la paleta y limpia todos los niveles." />
 <title>Ladrillos</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E▬%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E▬%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
+  /* La zona de juego reparte el alto sobrante: el lienzo (que es el mando)
+     baja hacia el pulgar en vez de dejar ~150 px muertos sobre «Salir». */
+  .juego { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
   .lwrap { display: flex; justify-content: center; padding: 10px 12px 0; }
   canvas#juego {
     border: var(--trazo) solid var(--linea-fuerte); border-radius: 12px;
-    box-shadow: var(--shadow); background: var(--card); touch-action: none; width: min(94vw, 380px);
+    background: var(--card); touch-action: none; width: min(94vw, 380px);
   }
-  .marcador { display: flex; justify-content: center; gap: 18px; padding-top: 10px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
-  .marcador b { color: var(--bg-ink); font-size: 15px; }
-  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 12px; }
-  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
-    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
-    box-shadow: var(--shadow-sutil); }
+  /* Marcador: etiqueta técnica en monoespaciada, número en sans a peso 500. */
+  .marcador { display: flex; justify-content: center; gap: 22px; padding-top: 8px; }
+  .marcador span { display: flex; align-items: baseline; gap: 7px; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--sub); }
+  .marcador b { font-family: var(--font); color: var(--bg-ink); font-size: 17px; font-weight: 500; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+  .marcador #h-vidas { color: var(--accent); letter-spacing: 2px; }
+  .tools { margin: 0 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 12px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
   .tool:active { opacity: .6; }
 </style>
 </head>
@@ -90,7 +95,7 @@ function enderezar() {
 }
 
 /* ── Bucle ───────────────────────────────────────────────────────────── */
-let ctx = null, COLORES = [], INK = '#141413', dpr = 1;
+let ctx = null, COLORES = [], INK = '', dpr = 1;
 
 /* Un sub-paso de física. `f` es la fracción de paso de 16,67 ms que avanza. */
 function avanzar(f) {
@@ -176,16 +181,19 @@ function dibujar() {
   ctx.beginPath();
   ctx.roundRect(S.px - S.pw / 2, H - 30, S.pw, 12, 6);
   ctx.fill();
-  ctx.fillStyle = color('--ink');
   ctx.beginPath();
   ctx.arc(S.x, S.y, 8, 0, Math.PI * 2);
   ctx.fill();
 }
 
+/* Se llama en cada cuadro, así que solo toca el DOM cuando algo cambió:
+   reescribir tres textos 60 veces por segundo era trabajo de disposición inútil. */
+const HUD = { score: -1, nivel: -1, vidas: -1 };
 function hud() {
-  $('#h-score').textContent = S.score;
-  $('#h-nivel').textContent = S.nivel;
-  $('#h-vidas').textContent = '●'.repeat(S.vidas) || '—';
+  if (!$('#h-score')) return;
+  if (HUD.score !== S.score) { HUD.score = S.score; $('#h-score').textContent = S.score; }
+  if (HUD.nivel !== S.nivel) { HUD.nivel = S.nivel; $('#h-nivel').textContent = S.nivel; }
+  if (HUD.vidas !== S.vidas) { HUD.vidas = S.vidas; $('#h-vidas').textContent = '●'.repeat(S.vidas) || '—'; }
 }
 
 function aviso(t) {
@@ -222,6 +230,7 @@ function renderSetup() {
 
 function startGame() {
   S.nivel = 1; S.vidas = 3; S.score = 0; S.px = W / 2; S.ultimo = 0;
+  HUD.score = HUD.nivel = HUD.vidas = -1;   // la pantalla es nueva: repintar todo
   armarNivel();
   S.jugando = true;
   renderPlay();
@@ -238,19 +247,22 @@ function renderPlay() {
     ${topbarHTML('Ladrillos', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
     <div class="marcador"><span>Puntos <b id="h-score">0</b></span><span>Nivel <b id="h-nivel">1</b></span><span>Vidas <b id="h-vidas"></b></span></div>
     <div class="msg" id="aviso" style="padding-top:6px;">Toca para sacar · arrastra para mover</div>
-    <div class="lwrap">
-      <canvas id="juego" width="${W * dpr}" height="${H * dpr}"></canvas>
-    </div>
-    <div class="tools">
-      <button class="tool" id="t-salir">Salir</button>
+    <div class="juego">
+      <div class="lwrap">
+        <canvas id="juego" width="${W * dpr}" height="${H * dpr}"></canvas>
+      </div>
+      <div class="tools">
+        <button class="tool" id="t-salir">Salir</button>
+      </div>
     </div>
   </div>`;
   const cv = $('#juego');
   ctx = cv.getContext('2d');
   ctx.scale(dpr, dpr);
-  const cs = getComputedStyle(document.body);
-  COLORES = ['--tinta-1', '--tinta-3', '--tinta-4', '--tinta-5', '--tinta-2'].map((v) => cs.getPropertyValue(v).trim());
-  INK = cs.getPropertyValue('--ink').trim();
+  // Cinco filas, cinco tintas. En este orden ninguna pareja baja de ΔE 24
+  // (con ocre y salvia juntas medían 21). Los colores salen de color(), que cachea.
+  COLORES = ['--tinta-1', '--tinta-3', '--tinta-2', '--tinta-7', '--tinta-5'].map(color);
+  INK = color('--ink');
   /* Arrastre RELATIVO: la paleta se mueve lo que se mueve el dedo, esté
      donde esté. Así el pulgar nunca la tapa y el primer toque no la
      teletransporta. Un toque limpio (sin arrastrar) es «sacar la bola». */

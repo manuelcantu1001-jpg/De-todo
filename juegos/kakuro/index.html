@@ -3,28 +3,33 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Kakuro: el crucigrama de sumas. Sin repetir dígitos en cada bloque." />
 <title>Kakuro</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EK%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EK%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .boardwrap { display: flex; justify-content: center; padding: 8px 10px 4px; }
   .board { display: grid; gap: 2px; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  /* Radio pequeño: es un crucigrama y las casillas deben leerse como
+     cuadrícula, no como fichas sueltas. */
   .kc {
-    border-radius: 12px; position: relative; display: flex; align-items: center; justify-content: center;
+    border-radius: 6px; position: relative; display: flex; align-items: center; justify-content: center;
     font-weight: 700; font-variant-numeric: tabular-nums;
   }
+  /* Las celdas de pista son pardo oscuro, no negro: el negro puro rompe la
+     calma del papel y estas son un tercio del tablero. */
+  .kc { --pista: #5C5349; }
   .kc.negra {
     background: linear-gradient(to top right,
-      var(--ink) 0%, var(--ink) 49.5%, color-mix(in srgb, var(--ink) 82%, #fff) 49.5%,
-      color-mix(in srgb, var(--ink) 82%, #fff) 50.5%, var(--ink) 50.5%, var(--ink) 100%);
+      var(--pista) 0%, var(--pista) 49.5%, color-mix(in srgb, var(--pista) 70%, var(--card)) 49.5%,
+      color-mix(in srgb, var(--pista) 70%, var(--card)) 50.5%, var(--pista) 50.5%, var(--pista) 100%);
     color: var(--card);
   }
-  .kc.negra.sinsumas { background: var(--ink); }
+  .kc.negra.sinsumas { background: var(--pista); }
   .kc .sr { position: absolute; top: 2px; right: 4px; font-size: 11px; font-weight: 700; }
   .kc .sd { position: absolute; bottom: 2px; left: 4px; font-size: 11px; font-weight: 700; }
   .kc.blanca { background: var(--card); border: 1px solid var(--tile-border); color: var(--accent); cursor: pointer; }
@@ -45,6 +50,9 @@
   }
   .tool:active { opacity: .6; }
   .tool:disabled { opacity: .4; cursor: default; }
+  /* El área de juego reparte el alto sobrante entre tablero y teclado en
+     vez de dejar un hueco muerto encima de los mandos. */
+  .scroll:not(.g-setup) { display: flex; flex-direction: column; justify-content: space-evenly; }
 </style>
 </head>
 <body>
@@ -402,7 +410,9 @@ function startGame() {
 }
 
 function renderPlay() {
-  const cell = Math.min(46, Math.floor(378 / S.W));
+  // El tamaño sale del ancho real: con 378 fijos, el tablero de 9 columnas
+  // (experto) medía 394px y se cortaba 10px por cada lado en un 375.
+  const cell = Math.min(46, Math.floor((Math.min(400, innerWidth) - 20 - (S.W - 1) * 2) / S.W));
   const cs = [];
   for (let r = 0; r < S.H; r++) for (let c = 0; c < S.W; c++) {
     const d = S.celdas[r][c];

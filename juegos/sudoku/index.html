@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Sudoku clásico con cuatro dificultades y solución única garantizada." />
 <title>Sudoku</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E9%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E9%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
@@ -30,7 +30,7 @@
   .cell.user { font-weight: 700; color: var(--accent); }
   .cell.peer { background: color-mix(in srgb, var(--soft) 55%, transparent); }
   .cell.same { background: var(--accent-soft); }
-  .cell.sel { background: var(--accent-soft); outline: 2.5px solid var(--accent); outline-offset: -2.5px; border-radius: 12px; z-index: 1; }
+  .cell.sel { background: var(--accent-soft); outline: 2.5px solid var(--accent); outline-offset: -2.5px; border-radius: 6px; z-index: 1; }   /* radio corto: es una casilla de cuadrícula, no una ficha */
   .cell.bad { color: var(--bad); }
   .cell.bad.sel { outline-color: var(--bad); }
   .notes { position: absolute; inset: 2px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
@@ -55,7 +55,7 @@
   .tool:disabled { opacity: .4; cursor: default; }
   /* El área de juego reparte el alto sobrante: los mandos bajan al fondo,
      donde está el pulgar, en vez de dejar pantalla muerta debajo. */
-  .scroll { display: flex; flex-direction: column; justify-content: space-evenly; }
+  .scroll:not(.g-setup) { display: flex; flex-direction: column; justify-content: space-evenly; }
 </style>
 </head>
 <body>

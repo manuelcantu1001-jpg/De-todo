@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Bloques que caen: acomoda las piezas y limpia líneas antes de llegar al tope." />
 <title>Bloques</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E▟%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E▟%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
@@ -15,23 +15,24 @@
   .juego { display: flex; justify-content: center; gap: 12px; padding: 10px 12px 0; }
   canvas#tablero {
     border: var(--trazo) solid var(--linea-fuerte); border-radius: 12px;
-    box-shadow: var(--shadow); background: var(--card); touch-action: none;
+    background: var(--card); touch-action: none;
   }
   .lateral { display: flex; flex-direction: column; gap: 10px; width: 88px; }
   .panelito {
-    background: var(--card); border: 1px solid var(--linea-fuerte);
-    border-radius: 12px; box-shadow: var(--shadow-sutil);
-    padding: 7px; text-align: center;
+    background: var(--card); border: var(--trazo) solid var(--linea-fuerte);
+    border-radius: 12px; padding: 7px; text-align: center;
   }
-  .panelito .t { font-size: 10px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--sub); }
-  .panelito .v { font-family: var(--title-font); font-size: 19px; font-weight: 700; color: var(--ink); }
+  /* Etiqueta técnica en monoespaciada, número a peso 500: como el resto de la piel. */
+  .panelito .t { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--sub); }
+  .panelito .v { font-family: var(--font); font-size: 19px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
   canvas#prox { display: block; margin: 4px auto 0; }
   .controles { display: flex; gap: 8px; justify-content: center; margin-top: auto; padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); }
   .ctl {
-    flex: 1; max-width: 76px; height: 56px; border: none; border-radius: 12px; cursor: pointer;
-    background: var(--card); box-shadow: var(--shadow); color: var(--ink); font-size: 22px; font-weight: 700;
+    flex: 1; max-width: 76px; height: 56px; border: var(--trazo) solid var(--linea-fuerte); border-radius: 12px; cursor: pointer;
+    background: var(--card); color: var(--ink); font-size: 22px; font-weight: 500;
+    transition: background var(--dur) var(--ease), opacity var(--dur) var(--ease);
   }
-  .ctl:active { transform: scale(.93); background: var(--accent-soft); color: var(--ink); }
+  .ctl:active { opacity: .82; background: var(--accent-soft); }
 </style>
 </head>
 <body>
@@ -268,11 +269,15 @@ function startGame() {
 
 function renderPlay() {
   dpr = Math.min(2, window.devicePixelRatio || 1);
+  // El tablero crece hasta sus 240 px de dibujo si caben a lo ancho (con el
+  // lateral de 88 px) y a lo alto (barra + mandos ≈ 190 px): con 56vw se
+  // quedaba en 218 px y dejaba un cuarto de la pantalla vacío.
+  const anchoTablero = Math.min(COLS * U, Math.floor(innerWidth * .64), Math.floor((innerHeight - 190) / 2));
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Bloques', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
     <div class="juego">
-      <canvas id="tablero" width="${COLS * U * dpr}" height="${FILAS * U * dpr}" style="width: min(56vw, ${COLS * U}px); aspect-ratio: ${COLS} / ${FILAS};"></canvas>
+      <canvas id="tablero" width="${COLS * U * dpr}" height="${FILAS * U * dpr}" style="width: ${anchoTablero}px; aspect-ratio: ${COLS} / ${FILAS};"></canvas>
       <div class="lateral">
         <div class="panelito"><div class="t">Puntos</div><div class="v" id="h-score">0</div></div>
         <div class="panelito"><div class="t">Líneas</div><div class="v" id="h-lineas">0</div></div>
@@ -294,10 +299,11 @@ function renderPlay() {
   ctx.scale(dpr, dpr);
   ctxP = $('#prox').getContext('2d');
   ctxP.scale(dpr, dpr);
-  const cs = getComputedStyle(document.body);
-  // Una tinta distinta por pieza: I O T S Z J L
-  COLORES = ['--tinta-2', '--tinta-4', '--tinta-6', '--tinta-3', '--tinta-5', '--tinta-7', '--tinta-1']
-    .map((v) => cs.getPropertyValue(v).trim());
+  // Un color distinto por pieza: I O T S Z J L. La T va en tinta porque con
+  // las ocho tintas de la paleta no hay siete que se separen: lavanda y rosa
+  // (6 y 5) miden ΔE 15 entre sí, y 1 y 8 miden 17. Con esta mezcla el par
+  // más cercano es salvia/ocre a ΔE 21; el resto pasa de 24.
+  COLORES = ['--tinta-2', '--tinta-4', '--ink', '--tinta-3', '--tinta-5', '--tinta-7', '--tinta-1'].map(color);
   // Mantener pulsado repite la acción (si no, mover 4 casillas son 4 toques)
   const repetible = (sel, accion) => {
     const el = $(sel);

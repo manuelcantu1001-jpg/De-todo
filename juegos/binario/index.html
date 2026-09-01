@@ -3,34 +3,40 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Binario (Takuzu): llena la rejilla con dos colores sin tres seguidos y con mitades iguales." />
 <title>Binario</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E01%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E01%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
+  /* La zona de juego reparte el alto que sobra: el tablero no se queda pegado
+     arriba con media pantalla vacía antes de los mandos. */
+  .zona { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
   .bwrap { display: flex; justify-content: center; padding: 16px 14px 0; }
   .bgrid { display: grid; gap: 4px; width: min(92vw, 400px); }
+  /* Filete tenue: la tarjeta clara sobre el crema (ΔE 4,5) apenas se ve, y las
+     casillas vacías hay que verlas para tocarlas. */
   .bc {
-    aspect-ratio: 1; border: none; border-radius: 12px; cursor: pointer; padding: 0;
-    background: var(--card); box-shadow: var(--shadow); position: relative; transition: background .12s var(--ease);
+    aspect-ratio: 1; border: var(--trazo) solid var(--linea); border-radius: 12px; cursor: pointer; padding: 0;
+    background: var(--card); position: relative; transition: background .12s var(--ease);
   }
   .bc::after {
     content: ''; position: absolute; inset: 22%; border-radius: 999px; transition: all .12s var(--ease);
   }
   .bc.v0::after { background: var(--accent); }
-  .bc.v1::after { background: var(--second); }
-  .bc.dada { background: var(--soft); box-shadow: none; cursor: default; }
+  /* --second (gris azulado) daba 2,6:1 sobre las casillas dadas; la tinta 2 es
+     el azul de verdad de la paleta y pasa de 4:1 en todas las casillas. */
+  .bc.v1::after { background: var(--tinta-2); }
+  .bc.dada { background: var(--soft); border-color: transparent; cursor: default; }
   .bc.dada::after { inset: 26%; }
   .bc.mal { outline: 2px solid var(--bad); outline-offset: -2px; }
-  .leyenda { text-align: center; padding-top: 12px; font-size: 12.5px; color: var(--bg-sub); font-weight: 600; }
-  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
-  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
-    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
-    box-shadow: var(--shadow-sutil); }
+  .leyenda { text-align: center; padding: 12px 16px 0; font-family: var(--display); font-style: italic; font-size: 14px; color: var(--sub); }
+  .tools { margin: 0 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
   .tool:active { opacity: .6; }
 </style>
 </head>
@@ -57,7 +63,7 @@ const S = {
 
 const REGLAS = `<p>Llena la rejilla con fichas <b>naranjas y azules</b> tocando cada casilla (un toque: naranja; dos: azul; tres: vacía).</p>
 <p>Dos reglas: nunca <b>tres iguales seguidas</b> en fila o columna, y cada fila y columna lleva <b>la misma cantidad</b> de cada color.</p>
-<p>Cada tablero tiene <b>solución única</b> y sale sin adivinar. Las casillas grises vienen dadas.</p>`;
+<p>Cada tablero tiene <b>solución única</b> y sale sin adivinar. Las casillas de fondo beige vienen dadas.</p>`;
 
 /* ── Generador ───────────────────────────────────────────────────────── */
 function genFull(n) {
@@ -207,12 +213,16 @@ function renderPlay() {
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Binario', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clk">0:00</span>`)}
-    <div class="bwrap">
-      <div class="bgrid" id="bgrid" style="grid-template-columns: repeat(${S.n}, 1fr);">
-        ${S.celda.map((v, i) => `<button class="bc" data-i="${i}"></button>`).join('')}
+    <div class="zona">
+      <div>
+        <div class="bwrap">
+          <div class="bgrid" id="bgrid" style="grid-template-columns: repeat(${S.n}, 1fr);">
+            ${S.celda.map((v, i) => `<button class="bc" data-i="${i}"></button>`).join('')}
+          </div>
+        </div>
+        <div class="leyenda">Sin tres seguidas · mitad y mitad en cada fila y columna</div>
       </div>
     </div>
-    <div class="leyenda">Sin tres seguidas · mitad y mitad en cada fila y columna</div>
     <div class="tools">
       <button class="tool" id="t-limpiar">Limpiar</button>
       <button class="tool" id="t-salir">Salir</button>

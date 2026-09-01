@@ -3,24 +3,28 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Come solo (senku): salta fichas para comerlas y deja las menos posibles." />
 <title>Come solo</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E◉%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E◉%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
-  .cwrap { display: flex; justify-content: center; padding: 20px 14px 0; }
+  /* margin-top auto reparte el espacio libre con los mandos: tablero centrado. */
+  .cwrap { display: flex; justify-content: center; padding: 20px 14px 0; margin-top: auto; }
   .cgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; width: min(92vw, 380px); }
   .cc { aspect-ratio: 1; border: none; border-radius: 999px; padding: 0; background: transparent; }
-  .cc.hoyo { background: var(--soft); box-shadow: inset 0 2px 4px rgba(60,50,30,.15); cursor: pointer; }
+  /* El hoyo se recorta con un filete, no con la sombra hundida de la piel vieja:
+     --soft sobre el crema da 1,16:1 y sin borde no se distinguía del fondo. */
+  .cc.hoyo { background: var(--soft); border: 1px solid var(--linea-fuerte); box-shadow: none; cursor: pointer; }
   .cc.ficha { background: var(--second); box-shadow: var(--shadow); cursor: pointer; border: 1px solid var(--linea-fuerte); }
   .cc.ficha.sel { background: var(--accent); transform: scale(1.08); }
   .cc.destino { outline: 3px dashed var(--accent); outline-offset: -3px; }
-  .marcador { display: flex; justify-content: center; gap: 20px; padding-top: 16px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
-  .marcador b { color: var(--bg-ink); font-size: 15px; }
+  /* Etiquetas técnicas en mono (como .dato) y números en sans a peso medio. */
+  .marcador { display: flex; justify-content: center; align-items: baseline; gap: 20px; padding-top: 16px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--bg-sub); }
+  .marcador b { color: var(--bg-ink); font-size: 16px; font-weight: 500; font-family: var(--font); letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
   .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
   .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
     font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
@@ -57,7 +61,7 @@ const clock = makeClock(() => $('#clock'));
 
 const REGLAS = `<p>Una ficha <b>salta por encima de otra</b> (en horizontal o vertical) hasta un hoyo vacío, y la saltada <b>se come</b>. Toca una ficha y luego el hoyo punteado a donde quieres saltar.</p>
 <p>El juego termina cuando ya nadie puede saltar, y cada tablero tiene <b>su propia meta</b>: en el <b>Inglés</b> se puede dejar <b>una sola</b> ficha (y de lujo, en el centro); en el <b>Europeo</b> dejar una es <b>matemáticamente imposible</b> — el mínimo alcanzable es <b>2</b>, y llegar ahí ya es perfecto.</p>
-<p>Tu marca es la menor cantidad de fichas que dejas; el reloj y los movimientos desempatan. El <b>deshacer</b> está limitado a ${MAX_UNDO} por partida, para que la marca signifique algo.</p>`;
+<p>Tu marca es la menor cantidad de fichas que dejas; a igual cantidad, desempata el reloj. El <b>deshacer</b> está limitado a ${MAX_UNDO} por partida, para que la marca signifique algo.</p>`;
 
 const I = (r, c) => r * 7 + c;
 

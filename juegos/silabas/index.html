@@ -3,28 +3,32 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Palabras encadenadas por sílabas contra la app: responde con una palabra que empiece con la última sílaba." />
 <title>Sílabas encadenadas</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3ESÍ%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='24' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3ESÍ%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
-  .escena { padding: 18px 20px 0; text-align: center; }
-  .dicho { font-family: var(--title-font); font-size: 34px; font-weight: 700; color: var(--bg-ink); line-height: 1.1; word-break: break-word; }
+  /* El bloque de juego flota a media pantalla (márgenes automáticos arriba y
+     en los mandos): el hueco se reparte en vez de quedar todo bajo las usadas. */
+  .escena { padding: 18px 20px 0; text-align: center; margin-top: auto; }
+  /* La palabra dicha es el protagonista: serif de la identidad, sin negrita pesada */
+  .dicho { font-family: var(--display); font-size: 34px; font-weight: 500; color: var(--bg-ink); line-height: 1.1; word-break: break-word; }
   .dicho .fin { color: var(--accent); }
-  .quien { font-size: 12.5px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--bg-sub); margin-bottom: 8px; }
-  .pide { margin-top: 14px; font-size: 15px; color: var(--bg-sub); font-weight: 500; }
-  .pide b { color: var(--accent); font-size: 17px; }
-  .cadena { display: flex; justify-content: center; gap: 18px; padding-top: 16px; font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
-  .cadena b { color: var(--bg-ink); font-size: 15px; }
+  .quien { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--bg-sub); margin-bottom: 8px; }
+  .pide { margin-top: 14px; font-size: 15px; color: var(--bg-sub); font-weight: 400; }
+  /* La sílaba pedida es el dato clave: en tinta (en acento sobre crema se quedaba en 3,9:1) */
+  .pide b { color: var(--ink); font-weight: 600; font-size: 17px; }
+  .cadena { display: flex; justify-content: center; gap: 18px; padding-top: 16px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--bg-sub); }
+  .cadena b { color: var(--bg-ink); font-size: 14px; font-weight: 500; }
   .entrada { padding: 18px 20px 0; display: flex; gap: 10px; }
   .entrada .field { flex: 1; text-transform: lowercase; }
   .entrada .btn { width: auto; padding: 16px 20px; flex-shrink: 0; }
   .usadas { display: flex; flex-wrap: wrap; gap: 6px; padding: 14px 16px 8px; justify-content: center; max-height: 84px; overflow-y: auto; }
-  .usadas .h { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--soft); color: var(--sub); }
+  .usadas .h { font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 999px; background: var(--soft); color: var(--ink); }
   .usadas .h.mia { background: var(--accent-soft); color: var(--ink); }
   .tools { margin: auto 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 10px; }
   .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;

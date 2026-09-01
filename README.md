@@ -101,6 +101,14 @@ el banco del crucigrama sin el crucigrama, y Póker 3 cartas, donde decidir bien
 con piezas que tienen forma y flota tachable, que era lo que faltaba para poder
 deducir. Para contrastar con una segunda opinión: `scripts/auditar-con-codex.sh`.
 
+Segunda pasada (septiembre de 2026), tras el cambio de piel: los 42 se revisaron
+uno por uno a dos tamaños de pantalla, midiendo contrastes y distancias de color
+en vez de mirarlos, y jugando cada uno con un bot. Salieron cosas que nadie había
+visto: el Hold'em mostraba tus cartas en blanco, la ficha del Conecta 4 aparecía
+sin caer, Enter físico re-pulsaba la última tecla táctil en La palabra del día,
+cuatro juegos abrían el modal de fin encima de la pantalla de inicio si salías a
+tiempo, y la Serpiente tapaba su mando en un iPhone chico.
+
 ## Pendiente
 
 - **El nombre de la colección**: hoy es «Juegos», provisional.

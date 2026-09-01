@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#FBF6ED" />
+<meta name="theme-color" content="#FAF4E8" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="description" content="Reflejos: toca las casillas que se encienden antes de que se apaguen." />
 <title>Topos</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E◉%3C/text%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E◉%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
@@ -17,53 +17,49 @@
   .tgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px; width: min(90vw, 348px); }
   .tp {
     aspect-ratio: 1; border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; padding: 0;
-    background: var(--soft); box-shadow:;
+    background: var(--soft); border-radius: var(--mano-1);
     display: grid; place-items: center; transition: none;
-    font-family: var(--title-font); font-size: 40px; font-weight: 700; line-height: 1; color: transparent;
+    font-family: var(--font); font-size: 40px; font-weight: 500; line-height: 1; color: transparent;
   }
-  .tp:nth-child(3n+1) { border-radius: var(--mano-1); }
-  .tp:nth-child(3n+2) { border-radius: var(--mano-2); }
-  .tp:nth-child(3n)   { border-radius: var(--mano-3); }
-  /* Verde = tócala · Azul = vale por tres · Rojo = ni la roces.
-     Además del color, cada una lleva su dibujo: no hay que adivinar. */
-  .tp.on   { background: var(--good);   color: var(--ink); box-shadow: var(--shadow); }
-  .tp.oro  { background: var(--second); color: var(--ink); box-shadow: var(--shadow); }
-  .tp.mala { background: var(--bad);    color: var(--card); box-shadow: var(--shadow); }
-  .tp.brota { animation: brota var(--fps) var(--ease) 1; }
+  /* Verde = tócala · Azul = vale por tres · Rojo = ni la roces (ΔE entre los
+     tres ≥ 27). Además del color, cada una lleva su dibujo: no hay que adivinar. */
+  .tp.on   { background: var(--good);   color: var(--ink); }
+  .tp.oro  { background: var(--second); color: var(--ink); }
+  .tp.mala { background: var(--bad);    color: var(--card); }
+  .tp.brota { animation: brota var(--dur) var(--ease) 1; }
   @keyframes brota { 0% { transform: translateY(10px) scale(.84); } 55% { transform: translateY(-3px) scale(1.05); } 100% { transform: none; } }
-  .tp:active { transform: translate(2px, 2.5px); }
-  .tp.falla { animation: falla calc(var(--fps) * .8) var(--ease) 2; }
+  .tp:active { opacity: .82; }
+  .tp.falla { animation: falla calc(var(--dur) * .8) var(--ease) 2; }
   @keyframes falla { 0% { transform: translateX(-4px); } 50% { transform: translateX(4px); } 100% { transform: none; } }
 
   /* El hueco entre la barra y la rejilla es el marcador: número grande. */
   .tanteo { margin: auto 0; text-align: center; padding: 8px 0; }
-  .tanteo .grande { font-family: var(--title-font); font-size: 62px; font-weight: 700; line-height: .95; color: var(--bg-ink); font-variant-numeric: tabular-nums; }
-  .tanteo .pie { font-size: 12px; font-style: italic; color: var(--bg-sub); margin-top: 2px; letter-spacing: .04em; }
-  .marcador { display: flex; justify-content: center; align-items: center; gap: 14px; padding-top: 14px;
-    font-size: 13.5px; font-weight: 700; color: var(--bg-sub); }
-  .marcador b { color: var(--bg-ink); font-size: 17px; font-variant-numeric: tabular-nums; }
+  .tanteo .grande { font-family: var(--font); font-size: 62px; font-weight: 400; letter-spacing: -0.02em; line-height: .95; color: var(--bg-ink); font-variant-numeric: tabular-nums; }
+  .tanteo .pie { font-family: var(--mono); font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase; color: var(--bg-sub); margin-top: 4px; }
+  .marcador { display: flex; justify-content: center; align-items: center; gap: 14px; padding-top: 14px; }
+  .marcador > span:first-child { display: flex; align-items: baseline; gap: 7px; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--bg-sub); }
+  .marcador b { font-family: var(--font); color: var(--bg-ink); font-size: 17px; font-weight: 500; letter-spacing: 0; font-variant-numeric: tabular-nums; }
   .marcador .vidas { color: var(--bad); letter-spacing: 2px; font-size: 16px; }
   .mult {
-    font-family: var(--title-font); font-size: 13px; font-weight: 700; color: var(--ink);
+    font-family: var(--font); font-size: 13px; font-weight: 500; color: var(--ink);
     border: var(--trazo) solid var(--linea-fuerte); border-radius: var(--pastilla); padding: 3px 11px;
-    background: var(--card); box-shadow: var(--shadow-sutil);
+    background: var(--card);
   }
   .mult.viva { background: var(--good); color: var(--card); }
   /* Leyenda honesta: el mismo dibujo y el mismo color que en la rejilla. */
   .leyenda { display: flex; justify-content: center; gap: 12px; padding: 12px 12px 0; flex-wrap: wrap; }
-  .leyenda span { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-style: italic; color: var(--bg-sub); }
+  .leyenda span { display: inline-flex; align-items: center; gap: 6px; font-family: var(--display); font-size: 12.5px; font-style: italic; color: var(--bg-sub); }
   .leyenda i {
-    width: 22px; height: 22px; border: var(--trazo) solid var(--linea-fuerte); border-radius: var(--mano-2);
-    display: grid; place-items: center; font-family: var(--title-font); font-style: normal; font-size: 12px; font-weight: 700;
+    width: 22px; height: 22px; border: var(--trazo) solid var(--linea-fuerte); border-radius: 8px;
+    display: grid; place-items: center; font-family: var(--font); font-style: normal; font-size: 12px; font-weight: 500;
   }
   .leyenda .l-on { background: var(--good); color: var(--ink); }
   .leyenda .l-oro { background: var(--second); color: var(--ink); }
   .leyenda .l-mala { background: var(--bad); color: var(--card); }
 
   .tools { margin: 14px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
-  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
-    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
-    box-shadow: var(--shadow-sutil); }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
   .tool:active { opacity: .6; }
 </style>
 </head>
