@@ -10,9 +10,6 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FBF6ED'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E9%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="../../manifest.webmanifest" />
 <link rel="apple-touch-icon" href="../../icons/icon-180.png" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../../comun/estilo.css" />
 <style>
   .board {
@@ -38,7 +35,7 @@
   .cell.bad.sel { outline-color: var(--bad); }
   .notes { position: absolute; inset: 2px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
   .notes i { font-style: normal; font-size: 8.5px; font-weight: 600; color: var(--sub); display: flex; align-items: center; justify-content: center; }
-  .pad { margin: 14px 16px 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 9px; }
+  .pad { margin: auto 16px 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 9px; }
   .key {
     height: 54px; background: var(--card); border: none; border-radius: 12px; box-shadow: var(--shadow);
     font-family: var(--title-font); font-size: 22px; font-weight: 600; color: var(--ink); cursor: pointer;
@@ -53,6 +50,9 @@
   .tool:active { opacity: .6; }
   .tool.on { background: var(--accent); color: var(--accent-ink); }
   .tool:disabled { opacity: .4; cursor: default; }
+  /* El área de juego reparte el alto sobrante: los mandos bajan al fondo,
+     donde está el pulgar, en vez de dejar pantalla muerta debajo. */
+  .scroll { display: flex; flex-direction: column; }
 </style>
 </head>
 <body>

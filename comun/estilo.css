@@ -6,6 +6,106 @@
    etiquetas técnicas en monoespaciada. El movimiento es suave y corto.
    Para re-vestir la app basta cambiar los tokens de :root. */
 
+/* ── Tipografías propias ───────────────────────────────────────────
+   Alojadas en el repo: se ven igual sin conexión, cargan antes que pedirlas
+   a un tercero y la app instalada no depende de que Google responda. */
+@font-face {
+  font-family: 'Fraunces';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fuentes/fraunces-400i-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fuentes/fraunces-400i-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fuentes/fraunces-400-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fuentes/fraunces-400-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(fuentes/fraunces-500-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(fuentes/fraunces-500-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fuentes/dmsans-400-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fuentes/dmsans-400-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(fuentes/dmsans-500-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(fuentes/dmsans-500-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(fuentes/dmsans-600-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(fuentes/dmsans-600-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* ── Tokens ────────────────────────────────────────────────────────── */
 :root {
   --display: 'Fraunces', Georgia, 'Times New Roman', serif;
@@ -15,10 +115,10 @@
   --title-track: -0.015em;
 
   /* Papel */
-  --bg: #FBF6ED;                   /* crema de la página */
-  --card: #FFFCF7;                 /* tarjeta, un punto más clara que el papel */
-  --panel: #F2EADE;                /* panel de relleno: agrupa sin dibujar caja */
-  --soft: #EFE7DA;
+  --bg: #FAF4E8;                   /* crema de la página */
+  --card: #FFFDFA;                 /* tarjeta clara: para piezas y superficies que deben saltar */
+  --panel: #F1E7D7;                /* beige de bloque: agrupa sin dibujar caja */
+  --soft: #EDE3D3;
 
   /* Tinta parda: nunca negro puro, que es lo que rompe la calma del papel */
   --ink: #33302B; --bg-ink: #33302B;
@@ -26,7 +126,7 @@
   --faint: #B6AEA1;
 
   /* Acentos */
-  --accent: #C0603A; --accent-ink: #FFFCF7; --accent-soft: #F4E3D8;
+  --accent: #C0603A; --accent-ink: #FFFDFA; --accent-soft: #F4E3D8;
   --second: #7C8FA3; --second-soft: #E6EBEF;
   --good: #7C9A6E; --good-soft: #E9EFE2;
   --bad: #A8503A; --bad-soft: #F5E3DB;
@@ -53,8 +153,8 @@
   --mano-1: 18px; --mano-2: 18px; --mano-3: 18px;
   --pastilla: 999px;
 
-  --seg-bg: #F2EADE;
-  --tile-bg: #FFFCF7; --tile-ink: #33302B; --tile-border: rgba(51, 48, 43, .22);
+  --seg-bg: #F1E7D7;
+  --tile-bg: #FFFDFA; --tile-ink: #33302B; --tile-border: rgba(51, 48, 43, .22);
   --toggle-off: #DED5C7;
 
   /* Movimiento: corto y suave. Nada de saltos. */
@@ -190,9 +290,9 @@ a { color: var(--accent); }
 .topbar .clock { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 15px; color: var(--bg-ink); }
 
 /* ── Marca (hub) ───────────────────────────────────────────────────── */
-.brand { text-align: center; margin: 26px 0 16px; }
+.brand { text-align: center; margin: 30px 0 22px; }
 .brand h1 {
-  margin: 0; font-family: var(--display); font-size: 46px; font-weight: 400;
+  margin: 0; font-family: var(--display); font-size: 52px; font-weight: 400;
   color: var(--bg-ink); letter-spacing: -0.02em; line-height: 1;
 }
 .brand .tag { font-family: var(--display); font-style: italic; font-size: 14.5px; color: var(--bg-sub); margin-top: 8px; }
@@ -204,20 +304,20 @@ a { color: var(--accent); }
   color: var(--sub); margin: 28px 2px 12px; display: flex; align-items: center; gap: 12px;
 }
 .sect::after { content: ''; flex: 1; height: 1px; background: var(--linea); }
-.gcards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.gcards { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
 .gcard {
-  background: var(--card); border: var(--trazo) solid var(--linea); border-radius: var(--mano-1);
-  padding: 14px 14px 13px; display: flex; flex-direction: column; gap: 9px;
+  background: var(--panel); border: none; border-radius: 20px;
+  padding: 17px 16px 16px; display: flex; flex-direction: column; gap: 10px;
   text-decoration: none; color: var(--ink);
   transition: background var(--dur) var(--ease);
 }
-.gcard:active { background: var(--panel); }
+.gcard:active { background: var(--soft); }
 .gcard .gi {
-  width: 40px; height: 40px; border-radius: 12px;
+  width: 42px; height: 42px; border-radius: 13px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--accent-soft); color: var(--accent); border: none;
+  background: var(--card); color: var(--accent); border: none;
 }
-.gcard .gi.alt { background: var(--second-soft); color: var(--second); }
+.gcard .gi.alt { color: var(--second); }
 .gcard .gn { font-size: 15.5px; font-weight: 500; letter-spacing: var(--title-track); line-height: 1.15; }
 .gcard .gs { font-family: var(--display); font-style: italic; font-size: 12px; color: var(--sub); margin-top: -5px; }
 .gcard .gb { font-family: var(--mono); font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--accent); margin-top: auto; }
