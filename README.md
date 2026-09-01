@@ -1,7 +1,8 @@
-# Juegos · Pasatiempos en español
+# Sobremesa · Pasatiempos en español
 
 Colección propia de juegos de pasatiempos, al estilo de las apps de «mil juegos»
-pero hecha en casa: **43 juegos sin anuncios, sin conexión y con el mismo lenguaje
+pero hecha en casa. Se llama **Sobremesa** por el rato para el que es: el de después
+de comer, con la mesa recogida, dominó, cartas y plática. Son **43 juegos sin anuncios, sin conexión y con el mismo lenguaje
 de diseño** en todos. Auditados uno por uno: si un juego no tenía juego dentro, se
 fue; si prometía algo que no cumplía, se arregló.
 
@@ -112,6 +113,5 @@ tiempo, y la Serpiente tapaba su mando en un iPhone chico.
 
 ## Pendiente
 
-- **El nombre de la colección**: hoy es «Juegos», provisional.
 - Modo online de Encadena (reservado en la interfaz).
 - Más juegos: la arquitectura del hub escala solo con añadir carpeta y tarjeta.

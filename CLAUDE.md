@@ -23,7 +23,7 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
   inunda (límite = resolutor voraz + margen).
 - **Sistema compartido** en `comun/`: `estilo.css` (TODA la identidad visual vive ahí,
   tokens en `:root`) y `nucleo.js` (utilidades + diccionario). Cada juego enlaza ambos.
-- **PWA instalable** (manifest «Juegos» provisional, `sw.js` cache `juegos-v11`).
+- **PWA instalable** (manifest «Sobremesa», `sw.js` cache `sobremesa-v12`).
   Al añadir/cambiar assets: bump de versión del cache.
 - **Publicación automática**: push a esta rama → workflow construye `_site` → rama
   `gh-pages` → **https://manuelcantu1001-jpg.github.io/De-todo/**
@@ -79,9 +79,13 @@ en el historial de git (commit «Identidad nueva: letra de Claude…»).
   primera vez la regla alcanzó a la pantalla de inicio y mandó el «Jugar» al fondo.
   Se mide contando píxeles (última fila distinta del fondo), no a ojo.
 
-Sigue **pendiente el nombre** de la colección (hoy «Juegos» provisional en
-manifest/hub/README). Las 4 direcciones viejas (Quiosco/Arcadia/Recreo/Casillas)
-quedan archivadas en `design/direcciones/`.
+**La colección se llama «Sobremesa»** (elegido en sept. 2026, cuando Manuel pidió
+«ponle nombre»): nombra el rato para el que es, el de mesa recogida, dominó y
+plática, que es la misma calma del papel. Va en manifest (`name` y `short_name`),
+en la portada (`h1`, `<title>`, `apple-mobile-web-app-title`) y en el README. Los
+iconos PNG siguen siendo los de la identidad anterior (contorno negro grueso):
+son lo único que aún no se ha redibujado al papel. Las 4 direcciones viejas
+(Quiosco/Arcadia/Recreo/Casillas) quedan archivadas en `design/direcciones/`.
 
 ## La auditoría (agosto 2026): qué se encontró y qué se corrigió
 
