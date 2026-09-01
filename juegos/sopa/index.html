@@ -31,13 +31,13 @@
   @keyframes flashHint { 0%, 60% { background: var(--warn-soft); color: var(--warn); } 100% { } }
   .tema { text-align: center; font-family: var(--title-font); font-size: 13.5px; color: var(--sub); padding: 4px 16px 0; letter-spacing: var(--title-track); }
   .tema b { color: var(--ink); }
-  .words { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 14px 16px 6px; }
+  .words { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; padding: 4px 16px; }
   .wchip {
-    font-size: 13.5px; font-weight: 600; color: var(--ink); background: var(--card);
-    border-radius: 999px; padding: 7px 14px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 6px; border: 1px solid var(--linea-fuerte); }
+    font-size: 14.5px; font-weight: 500; color: var(--ink); background: var(--card);
+    border-radius: 999px; padding: 10px 17px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 6px; border: 1px solid var(--linea-fuerte); }
   .wchip.hit { color: var(--faint); text-decoration: line-through; box-shadow: none; background: var(--soft); }
   .wchip .dot { width: 8px; height: 8px; border-radius: 999px; }
-  .tools { margin: auto 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
+  .tools { margin: 0 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
   .tool {
     border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600; font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); box-shadow: var(--shadow-sutil);
   }
@@ -45,7 +45,7 @@
   .tool:disabled { opacity: .4; cursor: default; }
   /* El área de juego reparte el alto sobrante: los mandos bajan al fondo,
      donde está el pulgar, en vez de dejar pantalla muerta debajo. */
-  .scroll { display: flex; flex-direction: column; }
+  .scroll { display: flex; flex-direction: column; justify-content: space-evenly; }
 </style>
 </head>
 <body>

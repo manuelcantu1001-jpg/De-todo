@@ -40,14 +40,17 @@
   .t2[data-v="1024"] { background: var(--tinta-7); color: var(--card); border-color: var(--ink); }
   .t2[data-v="2048"] { background: var(--tinta-3); color: var(--card); border-color: var(--ink); box-shadow: var(--shadow); }
   .t2[data-v="4096"], .t2[data-v="8192"], .t2[data-v="16384"] { background: var(--ink); color: var(--card); border-color: var(--ink); }
-  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
+  .tools { margin: 0 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
   .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
     font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
     box-shadow: var(--shadow-sutil); }
   .tool:active { opacity: .6; }
   /* El área de juego reparte el alto sobrante: los mandos bajan al fondo,
      donde está el pulgar, en vez de dejar pantalla muerta debajo. */
-  .scroll { display: flex; flex-direction: column; }
+  /* Reparte el alto sobrante entre marcador, tablero y mandos en vez de
+     apilarlo abajo. Va en una clase propia porque esta pantalla no usa
+     .scroll: sus bloques cuelgan directo de .screen. */
+  .screen.jugando { justify-content: space-evenly; }
 </style>
 </head>
 <body>
@@ -124,7 +127,7 @@ function addTile() {
 function renderPlay() {
   const cell = Math.min(88, Math.floor((Math.min(400, innerWidth * .94) - 16 - (S.size - 1) * 8) / S.size));
   $('#app').innerHTML = `
-  <div class="screen">
+  <div class="screen jugando">
     ${topbarHTML('2048', `<span class="chip">${S.size}×${S.size}</span>`)}
     <div class="scorerow">
       <div class="b"><div class="bn" id="score">0</div><div class="bl">Puntos</div></div>
