@@ -1,7 +1,7 @@
 # Juegos · Pasatiempos en español
 
 Colección propia de juegos de pasatiempos, al estilo de las apps de «mil juegos»
-pero hecha en casa: **42 juegos sin anuncios, sin conexión y con el mismo lenguaje
+pero hecha en casa: **43 juegos sin anuncios, sin conexión y con el mismo lenguaje
 de diseño** en todos. Auditados uno por uno: si un juego no tenía juego dentro, se
 fue; si prometía algo que no cumplía, se arregló.
 
@@ -30,7 +30,8 @@ Conecta 4 (minimax α-β) · Damas (capturas obligatorias, multisalto y tablas) 
 Solitario Klondike (elige el destino de cada carta y avisa si te atascas) ·
 Reversi (minimax α-β con final exacto) · Dominó (el rival deduce por tus pases) ·
 Deslizante (empuja filas enteras; revueltos de dificultad fija) · Come solo ·
-Torres de Hanoi · Blackjack (con división y reto de banca: de $200 a $500) ·
+Torres de Hanoi · Ludo (contra 1, 2 o 3 rivales; los niveles se miden con
+simulación) · Blackjack (con división y reto de banca: de $200 a $500) ·
 Texas Hold'em (tú eliges cuánto apostar; evaluador de 7 cartas y equity Monte Carlo).
 
 **Arcade**: Serpiente (mando de flechas y gestos que giran al vuelo) · Simón (con
@@ -52,7 +53,7 @@ banco-es.js           Banco curado: 7.800 palabras y 14 listas temáticas
 vocab-es.js           Vocabulario amplio (17.100 formas) para los juegos de cadena
 lexico-es.txt.gz      Léxico de validación (~635.000 formas normalizadas)
 scripts/              auditar-con-codex.sh (segunda opinión) y las dos pruebas
-                      de robustez que se pasan a los 42 juegos con Playwright
+                      de robustez que se pasan a los 43 juegos con Playwright
 manifest.webmanifest  PWA instalable · sw.js: cache para jugar sin conexión
 .github/workflows/    Deploy automático a GitHub Pages (rama gh-pages) en cada push
 ```

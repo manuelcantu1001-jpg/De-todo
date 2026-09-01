@@ -1,5 +1,5 @@
 /* Service worker de la colección: cache-first para jugar sin conexión. */
-const CACHE = 'juegos-v10';
+const CACHE = 'juegos-v11';
 const ASSETS = [
   './', 'index.html',
   'comun/estilo.css', 'comun/nucleo.js',
@@ -27,7 +27,7 @@ const ASSETS = [
   'juegos/buscapalabras/', 'juegos/frase/', 'juegos/silabas/',
   'juegos/binario/', 'juegos/puentes/', 'juegos/hitori/', 'juegos/luces/', 'juegos/picas/',
   'juegos/punteros/', 'juegos/inunda/',
-  'juegos/reversi/', 'juegos/domino/', 'juegos/deslizante/', 'juegos/comesolo/', 'juegos/hanoi/',
+  'juegos/reversi/', 'juegos/domino/', 'juegos/deslizante/', 'juegos/comesolo/', 'juegos/hanoi/', 'juegos/ludo/',
   'juegos/blackjack/', 'juegos/holdem/',
   'juegos/bloques/', 'juegos/ladrillos/', 'juegos/topos/',
 ];

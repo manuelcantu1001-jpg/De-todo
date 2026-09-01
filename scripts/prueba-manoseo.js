@@ -58,6 +58,6 @@ const JUEGOS = require('path').join(__dirname, '..', 'juegos');
   }
 
   console.log(`juegos probados: ${dirs.length}`);
-  console.log(fallas.length ? 'PROBLEMAS:\n' + fallas.join('\n') : 'los 42 aguantan 25 toques al azar sin romperse');
+  console.log(fallas.length ? 'PROBLEMAS:\n' + fallas.join('\n') : 'los ' + dirs.length + ' aguantan 25 toques al azar sin romperse');
   await browser.close();
 })().catch((e) => { console.error('FALLO:', e); process.exit(1); });

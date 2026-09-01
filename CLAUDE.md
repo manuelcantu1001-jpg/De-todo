@@ -6,7 +6,7 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
 
 ## Lo que ya existe y funciona
 
-- **Hub + 42 juegos** (eran 44: se retiraron «La definición» y «Póker 3 cartas» por
+- **Hub + 43 juegos** (eran 44: se retiraron «La definición» y «Póker 3 cartas» por
   relleno, ver auditoría abajo), todos vanilla JS sin build, con dificultades, marcas y
   «¿Cómo se juega?»: Palabras (Encadena, Sopa, Crucigrama con banco propio de ~390
   pistas, La palabra del día con modo diario, Ahorcado, Anagramas, Acomoda-palabras,
@@ -16,14 +16,14 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
   2048, Binario/Takuzu, Puentes/Hashi, Hitori, Luces fuera, Picas y fijas,
   Punteros —el de las flechas que pidió Manuel—, Inunda),
   Mesa (Memorama, Gato, Conecta 4, Damas, Solitario, Reversi, Dominó, Deslizante,
-  Come solo, Hanoi, Blackjack con división y reto de banca, Texas Hold'em con
+  Come solo, Hanoi, Ludo, Blackjack con división y reto de banca, Texas Hold'em con
   equity Monte Carlo y apuesta a elección) y Arcade (Serpiente, Simón, Laberinto, Bloques/tetrominós, Ladrillos,
   Topos). Ver `README.md`. Generadores con garantías (unicidad/solubilidad) en
   sudoku, nonograma, naval, cifras, binario, luces, deslizante, punteros e
   inunda (límite = resolutor voraz + margen).
 - **Sistema compartido** en `comun/`: `estilo.css` (TODA la identidad visual vive ahí,
   tokens en `:root`) y `nucleo.js` (utilidades + diccionario). Cada juego enlaza ambos.
-- **PWA instalable** (manifest «Juegos» provisional, `sw.js` cache `juegos-v10`).
+- **PWA instalable** (manifest «Juegos» provisional, `sw.js` cache `juegos-v11`).
   Al añadir/cambiar assets: bump de versión del cache.
 - **Publicación automática**: push a esta rama → workflow construye `_site` → rama
   `gh-pages` → **https://manuelcantu1001-jpg.github.io/De-todo/**
@@ -32,7 +32,7 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
   ids: enc, sopa, cru, pal, ahorcado, ana, aco, sud, cif, nono, kak, mina, naval,
   m2048, memo, gato, c4, damas, sol, serp, simon, lab, bus, fra, sil, bin,
   pue, hit, luz, pic, pun, inu, rev, dom, des, come, han, bj, hold, blo,
-  lad, topo. (Carpeta ≠ id en varios: buscapalabras→bus, frase→fra, etc.)
+  lad, topo, ludo. (Carpeta ≠ id en varios: buscapalabras→bus, frase→fra, etc.)
   Los juegos con rival guardan la marca por nivel (`<juego>.wins.<nivel>`) y al hub
   mandan la del nivel más alto ganado.
 - La portada tiene **buscador** y **«seguir jugando»** (últimos abiertos, en
@@ -161,6 +161,14 @@ en la política de red del entorno; el script lo detecta y avisa en vez de colga
   Gato y Reversi. Regla: **toda función de pintado a la que pueda llegar un
   temporizador empieza con `if (!$('#algo')) return;`**, y los temporizadores propios
   se guardan en `S` para poder cancelarlos al reiniciar.
+- **Un generador de azar roto invalida la medición.** La simulación del Ludo usaba
+  un LCG (`seed * 1103515245 + 12345`) que desborda los 2^53 de coma flotante y
+  degenera: los porcentajes bailaban 25 puntos entre corridas y la escalera de
+  niveles salía no monótona. En simulaciones usa mulberry32 (`Math.imul`) y
+  comprueba que dos arneses distintos den lo mismo. La escalera del Ludo medida
+  así: normal 80 % a fácil, difícil 62 % a normal, experto 59 % a difícil.
+- Otro nombre genérico que pisó el estilo compartido: `.meta` (el centro del Ludo)
+  contra `.topbar .meta` de la barra; el chip de nivel acababa encima del título.
 - Pruebas: Playwright + Chromium en `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`.
   OJO: `page.evaluate(() => ...)` no ve los `const` globales de la página — usar la
   forma string `page.evaluate('expr')`. Google Fonts está bloqueado en el sandbox.
