@@ -1,5 +1,5 @@
 /* Service worker de la colección: cache-first para jugar sin conexión. */
-const CACHE = 'sobremesa-v12';
+const CACHE = 'sobremesa-v13';
 const ASSETS = [
   './', 'index.html',
   'comun/estilo.css', 'comun/nucleo.js',
