@@ -363,27 +363,34 @@ function hayContacto(t) {
    `lado` puntúa lo que vale la posición para un bando y `evalua` resta el
    del otro: así la evaluación es antisimétrica por construcción
    (evalua(t, YO) === -evalua(t, APP)), y eso se comprueba en la medición.
-   `alTiro` es quién tira A CONTINUACIÓN: una ficha sola vale mucho menos
-   cuando el que tira es su dueño (aún puede taparla o huir) que cuando tira
-   el rival. Sin ese dato la hoja de la búsqueda se mediría con otra vara que
-   la raíz, así que hace falta para que Experto tenga sentido. */
+   `alTiro` es quién tira A CONTINUACIÓN, y sirve para rebajar el riesgo de
+   una ficha sola cuando el que tira es su dueño (aún puede taparla o huir).
+   Está cableado pero apagado: con `propio` = 1 no cambia nada. Se midió y en
+   combinación con lo demás restaba (59,5 % → 58,1 % en 1.500 partidas), así
+   que se deja a la vista, medido y en cero, en vez de venderlo. */
 /* Difícil mira exactamente lo que promete y NADA más: pips, puntos hechos,
-   primas y fichas solas pesadas por el riesgo real de que se las coman. Mide
-   siempre con esa misma vara, esté la partida como esté.
-   Experto ve cuatro cosas que Difícil no ve, y ninguna es un peso distinto:
-     · `carrera`: cuando ya no queda contacto la partida es una carrera y lo
-       único que cuenta son los pips y no desperdiciar dados al sacar. Difícil
-       sigue puntuando primas y puntos hechos, que ahí ya no significan nada.
-     · `desp`: el desperdicio al sacar (huecos en casa y montones de más de dos).
-     · `casa` y `apila`: los puntos hechos dentro de su propia casa y las fichas
-       amontonadas de más de tres, que no trabajan.
-     · `propio` < 1: una ficha sola vale menos cuando el que tira es su dueño.
-   Y encima de todo eso mira un tiro por delante. Los pesos NO se afinaron por
-   simulación: se probó (ascenso de coordenadas, 400 partidas pareadas por
-   prueba) y el 62 % que salía se caía a 52,5 % con semillas nuevas — era ruido
-   ajustado, no juego. Lo que separa a los dos niveles es lo que mide cada uno. */
+   primas y fichas solas pesadas por el riesgo real de que se las coman. Y lo
+   mide siempre con la misma vara, esté la partida como esté.
+   Experto se separa por lo que MIDE, no por tener otros pesos, y cada cosa
+   está medida a 1.500 partidas contra la evaluación de Difícil:
+     · `carrera` (+5,5 puntos): cuando ya no queda contacto la partida es una
+       carrera y solo cuentan los pips. Difícil sigue puntuando primas y
+       puntos hechos, que ahí ya no significan nada.
+     · `clave` (+2,1): los puntos de 4 a 7 pips (el de 5 y el del bar) estorban
+       al rival mucho más que los demás; para Difícil todos valen igual.
+     · `desp` (+0,9): huecos y montones en casa desperdician dados al sacar.
+     · `blot` más alto: pesa más el riesgo de que le coman una ficha sola.
+   Se probaron y NO se quedaron, porque medidos no aportan o restan: premiar
+   los puntos de la propia casa, castigar los montones de más de tres, castigar
+   las fichas en la barra (los pips ya las cuentan a 25), premiar el ancla en
+   campo rival (−8,7 puntos: es una trampa) y bajar el riesgo de las fichas
+   solas cuando tiras tú.
+   Tampoco se afinaron los pesos por ascenso de coordenadas: se probó con 400
+   partidas pareadas por prueba y el 62 % que salía se cayó a 52,5 % con
+   semillas nuevas. Era ruido ajustado, no juego. Todo lo de arriba está
+   validado con semillas distintas de las de la búsqueda. */
 const W_DIF = { pip: 1, fuera: 0, barra: 0, punto: 2.4, casa: 0, prima: 0.6, ancla: 0, blot: 0.75, apila: 0, desp: 0, clave: 0, atras: 0, propio: 1, carrera: 0, escala: 90 };
-const W_EXP = { pip: 1, fuera: 6, barra: 0, punto: 2.4, casa: 2, prima: 0.6, ancla: 0, blot: 0.75, apila: 0, desp: 1.5, clave: 0, atras: 0, propio: 1, carrera: 1, escala: 90 };
+const W_EXP = { pip: 1, fuera: 0, barra: 0, punto: 2.0, casa: 0, prima: 0.6, ancla: 0, blot: 1.0, apila: 0, desp: 1.5, clave: 3, atras: 0, propio: 1, carrera: 1, escala: 90 };
 const W_CAR = { pip: 1, fuera: 10, cruce: 1.6 };
 
 const puntoPip = (j, k) => (j === YO ? k - 1 : 24 - k);   // el punto que está a k pips de salir (k = 1..24)
@@ -482,13 +489,20 @@ const TIRADAS = (() => {
    de verdad a Experto de Difícil son las tres cosas más que mira y los pesos
    afinados; la búsqueda es la guinda, no el motor. */
 const CAND_EXP = 6;
+/* Tope de trabajo por decisión, en posiciones de respuesta miradas. Es un
+   tope de TRABAJO, no de reloj: así la app juega igual en el teléfono que en
+   la simulación y las medidas siguen siendo reproducibles. Con una tirada
+   normal no llega a morder; corta la cola de posiciones abiertas con dobles,
+   que son las que se iban a 430 ms en Node. */
+const TOPE_EXP = 4500;
 function trasRespuesta(t, j, W) {
   const o = 1 - j;
-  if (t.fuera[j] === 15) return 1;
+  if (t.fuera[j] === 15) return { valor: 1, coste: 0 };
   const eq = (v) => Math.tanh(v / W.escala);
-  let tot = 0;
+  let tot = 0, coste = 0;
   for (const [a, b, w] of TIRADAS) {
     const rs = jugadas(t, o, [a, b]);
+    coste += rs.length;
     let peor = Infinity;
     for (const r of rs) {
       const v = eq(evalua(r.t, j, W, j));    // tras la respuesta del rival, el que tira eres tú
@@ -496,7 +510,7 @@ function trasRespuesta(t, j, W) {
     }
     tot += w * (peor === Infinity ? eq(evalua(t, j, W, j)) : peor);
   }
-  return tot;
+  return { valor: tot, coste };
 }
 
 function eligeApp(t, j, js, nivel, azar, pesos) {
@@ -515,10 +529,13 @@ function eligeApp(t, j, js, nivel, azar, pesos) {
   const cand = js.map((x) => ({ x, s: evalua(x.t, j, W, 1 - j) + rnd() * 0.01 }));   // tras mover, tira el rival
   cand.sort((p, q) => q.s - p.s);
   if (nivel === 'dificil') return cand[0].x;
-  let mejor = cand[0].x, mejorS = -Infinity;
+  let mejor = cand[0].x, mejorS = -Infinity, queda = TOPE_EXP;
   for (const c of cand.slice(0, CAND_EXP)) {
-    const s = trasRespuesta(c.x.t, j, W) + rnd() * 0.0001;
+    const r = trasRespuesta(c.x.t, j, W);
+    queda -= r.coste;
+    const s = r.valor + rnd() * 0.0001;
     if (s > mejorS) { mejorS = s; mejor = c.x; }
+    if (queda <= 0) break;                   // se acabó el presupuesto: nos quedamos con lo mirado
   }
   return mejor;
 }
@@ -565,7 +582,7 @@ const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
 const REGLAS = `<p>Quince fichas cada uno sobre 24 triángulos. Tú corres del 24 al 1 y sacas por abajo a la derecha; la app va al revés. Tiras dos dados y mueves <b>una ficha ese número de puntos</b>, con la misma o con dos distintas; <b>si salen dobles juegas cuatro movimientos</b>.</p>
 <p>Solo puedes caer en un triángulo <b>libre, tuyo o con UNA sola ficha rival</b>: a esa la comes y va a la barra. Mientras tengas fichas en la barra lo primero es reentrarlas. Hay que gastar los dos dados siempre que se pueda y, si solo cabe uno, tiene que ser el más alto.</p>
 <p>Cuando tus quince estén en tu cuadrante final empiezas a <b>sacarlas</b>. Gana quien saca las quince: si el rival no sacó ninguna es <b>gammon</b> y vale doble, y si además le quedan fichas en la barra o en tu cuadrante es <b>backgammon</b> y vale triple. <b>Sin cubo de doblar.</b></p>
-<p>Toca una ficha para ver a dónde puede ir y toca el destino; puedes <b>deshacer</b> mientras no confirmes con «Listo». La app: <b>Fácil</b> elige al azar entre sus jugadas legales; <b>Normal</b> come, evita dejar fichas solas, hace puntos y avanza; <b>Difícil</b> valora la posición entera (pips, puntos hechos, primas y el riesgo real de que te coman cada ficha sola); <b>Experto</b> mira además los puntos hechos dentro de su casa, las fichas amontonadas y el desperdicio al sacar, y promedia la mejor respuesta del rival en las 21 tiradas posibles.</p>`;
+<p>Toca una ficha para ver a dónde puede ir y toca el destino; puedes <b>deshacer</b> mientras no confirmes con «Listo». La app: <b>Fácil</b> elige al azar entre sus jugadas legales; <b>Normal</b> come, evita dejar fichas solas, hace puntos y avanza; <b>Difícil</b> valora la posición entera (pips, puntos hechos, primas y el riesgo real de que te coman cada ficha sola); <b>Experto</b> sabe además que cuando ya no queda contacto la partida es una carrera, pelea los puntos clave y no tira dados a la basura al sacar, y encima promedia la mejor respuesta del rival en las 21 tiradas posibles.</p>`;
 
 const S = {
   nivel: store.get('bak.nivel', 'normal'),
@@ -625,7 +642,7 @@ function renderSetup() {
     facil: 'Mueve al azar entre sus jugadas legales. Para agarrarle el modo.',
     normal: 'Come, evita dejar fichas solas, hace puntos y avanza.',
     dificil: 'Valora la posición entera: pips, puntos, primas y el riesgo real de cada ficha sola.',
-    experto: 'Lo de Difícil, su casa, las fichas amontonadas y tu mejor respuesta en las 21 tiradas.',
+    experto: 'Lo de Difícil, más los puntos clave, la carrera final y tu mejor respuesta en las 21 tiradas.',
   };
   const hint = () => { const e = $('#bg-hint'); if (e) e.textContent = textos[S.nivel]; };
   hint();
