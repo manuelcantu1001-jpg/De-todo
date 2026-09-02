@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="FreeCell: las 52 cartas a la vista, cuatro huecos y ningún reparto imposible." />
+<title>FreeCell</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='44' font-size='30' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EF%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Prefijo fc- en todo: .carta, .mesa o .tool a secas ya pisaron el estilo
+     compartido en otros juegos de la colección. */
+  .fc-zona {
+    flex: 1; min-height: 0; display: flex; flex-direction: column;
+    justify-content: space-evenly; user-select: none; -webkit-user-select: none;
+  }
+  .fc-rotulos { display: flex; justify-content: space-between; padding: 0 6px 5px; }
+  .fc-arriba { display: flex; justify-content: space-between; padding: 0 6px; }
+  .fc-grupo { display: flex; gap: 3px; }
+  .fc-mesa { display: flex; gap: 3px; justify-content: center; align-items: flex-start; padding: 0 5px; }
+  .fc-col { position: relative; flex: none; }
+  .fc-col > * { position: absolute; left: 0; top: 0; }
+
+  /* Carta: un SVG por carta, dibujado aquí (nada de emoji de palo). El color
+     lo pone la clase y todo el interior hereda con currentColor. */
+  .fc-carta { display: block; border-radius: 11px; cursor: pointer; }
+  /* La carta es casi del color del papel (1,08:1), así que quien la separa de
+     la mesa es el filete. A 26 % de tinta daba 1,64:1 y, encima, con el grosor
+     en unidades del viewBox salía de menos de un píxel: a 32 % y grosor atado
+     al tamaño real son 1,86:1 y 1,25 px de línea limpia. */
+  .fc-carta .fondo { fill: var(--card); stroke: color-mix(in srgb, var(--ink) 32%, transparent); }
+  .fc-carta text { fill: currentColor; font-family: var(--font); font-weight: 600; }
+  .fc-carta .pip { fill: currentColor; stroke: none; }
+  /* Rojo de la paleta: 5,3:1 sobre la carta y bien lejos de la tinta parda. */
+  .fc-carta.roja { color: var(--bad); }
+  .fc-carta.negra { color: var(--ink); }
+
+  .fc-hueco {
+    border-radius: 11px; border: 1.5px dashed color-mix(in srgb, var(--ink) 30%, transparent);
+    background: color-mix(in srgb, var(--card) 45%, transparent);
+    display: flex; align-items: center; justify-content: center; color: var(--sub); cursor: pointer;
+  }
+  .fc-hueco svg { display: block; fill: currentColor; opacity: .75; }
+
+  /* Elegida y destino: aro. El outline sigue el border-radius de la carta. */
+  .fc-carta.fc-sel, .fc-hueco.fc-sel { outline: 3px solid var(--accent); outline-offset: 1px; z-index: 3; }
+  .fc-carta.fc-dest, .fc-hueco.fc-dest {
+    outline: 3px solid color-mix(in srgb, var(--good) 70%, var(--ink)); outline-offset: 1px; z-index: 2;
+  }
+  .fc-hueco.fc-dest { border-style: solid; background: color-mix(in srgb, var(--good) 18%, transparent); }
+
+  .fc-marcador { display: flex; justify-content: center; gap: 20px; padding: 2px 0; }
+  .fc-marcador span {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .11em; text-transform: uppercase;
+    color: var(--sub); display: flex; align-items: baseline; gap: 6px;
+  }
+  .fc-marcador b {
+    font-family: var(--font); font-size: 16px; font-weight: 500; color: var(--ink);
+    letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums;
+  }
+  .fc-aviso {
+    text-align: center; font-family: var(--display); font-style: italic; font-size: 13.5px;
+    min-height: 17px; padding: 0 14px; color: color-mix(in srgb, var(--sub) 85%, var(--ink));
+  }
+  .fc-aviso.mal { color: var(--bad); font-style: normal; font-family: var(--font); font-size: 13px; }
+
+  .fc-tools {
+    display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
+    padding: 8px 8px calc(12px + env(safe-area-inset-bottom));
+  }
+  .fc-tool {
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font);
+    font-weight: 500; font-size: 12.5px; padding: 11px 13px; border-radius: var(--pastilla);
+    background: var(--card); color: var(--ink); min-height: 40px;
+    transition: opacity var(--dur) var(--ease);
+  }
+  .fc-tool:active { opacity: .6; }
+  .fc-tool:disabled { color: var(--faint); border-color: var(--linea); cursor: default; }
+  .fc-sacude { animation: shake .34s var(--ease); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ═══ Motor de FreeCell: reparto, reglas y resolutor ═══════════════════
+   Este bloque es el mismo, línea por línea, que corrió fuera del navegador
+   para medir los repartos de la lista de abajo. Si aquí cambia una regla,
+   la garantía de que todos se pueden ganar deja de valer. */
+
+/* Azar reproducible (mulberry32 con Math.imul: sin desbordes de coma
+   flotante, que ya invalidaron una medición en esta colección). */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* Carta = 0..51. Palo = 0 picas, 1 corazones, 2 tréboles, 3 diamantes. */
+const PALO = (c) => (c / 13) | 0;
+const VAL = (c) => (c % 13) + 1;
+const ROJO = (c) => PALO(c) === 1 || PALO(c) === 3;
+
+/* Reparto: baraja completa revuelta con la semilla y repartida por filas
+   en 8 columnas (las cuatro primeras con 7 cartas, las otras con 6). */
+function repartoDe(semilla) {
+  const rnd = mulberry32(semilla >>> 0);
+  const d = [];
+  for (let i = 0; i < 52; i++) d.push(i);
+  for (let i = 51; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    const t = d[i]; d[i] = d[j]; d[j] = t;
+  }
+  const cols = [[], [], [], [], [], [], [], []];
+  for (let i = 0; i < 52; i++) cols[i % 8].push(d[i]);
+  return cols;
+}
+
+const nuevoEstado = (cols) => ({
+  cols: cols.map((c) => c.slice()),
+  libres: [],                    // cartas en las celdas
+  bases: [0, 0, 0, 0],           // valor más alto subido, por palo
+});
+const clonar = (st) => ({ cols: st.cols.map((c) => c.slice()), libres: st.libres.slice(), bases: st.bases.slice() });
+const subidas = (st) => st.bases[0] + st.bases[1] + st.bases[2] + st.bases[3];
+
+/* ¿Encaja «c» sobre «base» en una columna? Descendente y alternando color. */
+const encajaCol = (c, base) => VAL(base) === VAL(c) + 1 && ROJO(base) !== ROJO(c);
+const encajaBase = (st, c) => st.bases[PALO(c)] === VAL(c) - 1;
+
+/* Cuántas cartas del final de la columna forman escalera válida. */
+function largoEscalera(col) {
+  let k = 1;
+  for (let i = col.length - 1; i > 0; i--) {
+    if (!encajaCol(col[i], col[i - 1])) break;
+    k++;
+  }
+  return col.length ? k : 0;
+}
+
+/* Cuántas cartas puedes mover de golpe: (celdas libres + 1) × 2^(columnas
+   vacías). Si el destino es una columna vacía, esa no cuenta. */
+function capacidad(st, celdas, destinoVacio) {
+  const libres = celdas - st.libres.length;
+  let vacias = 0;
+  for (const col of st.cols) if (!col.length) vacias++;
+  if (destinoVacio) vacias--;
+  return (libres + 1) * Math.pow(2, Math.max(0, vacias));
+}
+
+/* Subida segura: una carta ya no le hace falta a nadie si las dos bases del
+   color contrario van por su valor o más (nadie va a apoyarse en ella).
+   Ases y doses, siempre: un as nunca necesita apoyo. */
+function seguraSubir(st, c) {
+  const v = VAL(c);
+  if (v <= 2) return true;
+  const op = ROJO(c) ? [0, 2] : [1, 3];
+  return st.bases[op[0]] >= v - 1 && st.bases[op[1]] >= v - 1;
+}
+
+/* Aplica todas las subidas seguras posibles. Devuelve cuántas hizo. */
+function subirSeguras(st) {
+  let n = 0;
+  for (;;) {
+    let movio = false;
+    for (let i = 0; i < st.cols.length; i++) {
+      const col = st.cols[i];
+      if (!col.length) continue;
+      const c = col[col.length - 1];
+      if (encajaBase(st, c) && seguraSubir(st, c)) { col.pop(); st.bases[PALO(c)] = VAL(c); movio = true; n++; }
+    }
+    for (let i = 0; i < st.libres.length; i++) {
+      const c = st.libres[i];
+      if (encajaBase(st, c) && seguraSubir(st, c)) { st.libres.splice(i, 1); st.bases[PALO(c)] = VAL(c); movio = true; n++; break; }
+    }
+    if (!movio) return n;
+  }
+}
+
+/* Clave canónica: las columnas son intercambiables entre sí y las celdas
+   también, así que se ordenan antes de comparar. Sin esto la búsqueda
+   repite la misma posición hasta 8! veces. */
+function clave(st) {
+  const cs = st.cols.map((col) => {
+    let s = '';
+    for (let i = 0; i < col.length; i++) s += String.fromCharCode(48 + col[i]);
+    return s;
+  }).sort();
+  const ls = st.libres.map((c) => String.fromCharCode(48 + c)).sort().join('');
+  return cs.join('/') + '|' + ls + '|' + String.fromCharCode(48 + st.bases[0], 48 + st.bases[1], 48 + st.bases[2], 48 + st.bases[3]);
+}
+
+/* ── Jugadas ──────────────────────────────────────────────────────────
+   Una jugada es {t, o, d, k}: tipo, origen, destino, cuántas cartas.
+   t: 'cb' columna→base, 'lb' celda→base, 'cl' columna→celda,
+      'lc' celda→columna, 'cc' columna→columna (k cartas). */
+function jugadas(st, celdas) {
+  const out = [];
+  const vacia = st.cols.findIndex((c) => !c.length);       // una sola vacía como destino: todas son iguales
+  const hayCelda = st.libres.length < celdas;
+
+  for (let i = 0; i < 8; i++) {
+    const col = st.cols[i];
+    if (!col.length) continue;
+    if (encajaBase(st, col[col.length - 1])) out.push({ t: 'cb', o: i });
+  }
+  for (let i = 0; i < st.libres.length; i++) {
+    if (encajaBase(st, st.libres[i])) out.push({ t: 'lb', o: i });
+  }
+  for (let i = 0; i < st.libres.length; i++) {
+    const c = st.libres[i];
+    for (let d = 0; d < 8; d++) {
+      const col = st.cols[d];
+      if (col.length) { if (encajaCol(c, col[col.length - 1])) out.push({ t: 'lc', o: i, d }); }
+      else if (d === vacia) out.push({ t: 'lc', o: i, d });
+    }
+  }
+  for (let o = 0; o < 8; o++) {
+    const col = st.cols[o];
+    if (!col.length) continue;
+    const esc = largoEscalera(col);
+    for (let d = 0; d < 8; d++) {
+      if (d === o) continue;
+      const dcol = st.cols[d];
+      if (dcol.length) {
+        const base = dcol[dcol.length - 1];
+        // El destino fija cuántas cartas se mueven: solo una encaja encima.
+        for (let k = 1; k <= esc; k++) {
+          if (encajaCol(col[col.length - k], base)) {
+            if (k <= capacidad(st, celdas, false)) out.push({ t: 'cc', o, d, k });
+            break;
+          }
+        }
+      } else if (d === vacia) {
+        if (col.length === esc) continue;                  // columna entera a otra vacía: no cambia nada
+        const cap = capacidad(st, celdas, true);
+        for (let k = 1; k <= Math.min(esc, cap); k++) out.push({ t: 'cc', o, d, k });
+      }
+    }
+    if (hayCelda) out.push({ t: 'cl', o });
+  }
+  return out;
+}
+
+/* Aplica la jugada sobre el estado (lo modifica). */
+function aplicar(st, j) {
+  if (j.t === 'cb') { const c = st.cols[j.o].pop(); st.bases[PALO(c)] = VAL(c); }
+  else if (j.t === 'lb') { const c = st.libres.splice(j.o, 1)[0]; st.bases[PALO(c)] = VAL(c); }
+  else if (j.t === 'cl') { st.libres.push(st.cols[j.o].pop()); }
+  else if (j.t === 'lc') { st.cols[j.d].push(st.libres.splice(j.o, 1)[0]); }
+  else { const col = st.cols[j.o]; const mov = col.splice(col.length - j.k, j.k); for (const c of mov) st.cols[j.d].push(c); }
+}
+
+/* Heurística: cuenta lo que falta. Cartas sin subir, cartas encima de la que
+   toca subir, pilas desordenadas y celdas ocupadas. Menos es mejor. */
+function coste(st) {
+  let h = (52 - subidas(st)) * 2;
+  for (const col of st.cols) {
+    for (let i = 0; i < col.length; i++) {
+      const c = col[i];
+      if (VAL(c) === st.bases[PALO(c)] + 1) h += (col.length - 1 - i);
+      if (i > 0 && !encajaCol(c, col[i - 1])) h += 1;
+    }
+  }
+  h += st.libres.length * 2;
+  return h;
+}
+
+/* Jugadas de un estado, ordenadas por lo prometedor del resultado. */
+function ordena(st, celdas) {
+  const con = jugadas(st, celdas).map((j) => {
+    const n = clonar(st);
+    aplicar(n, j);
+    subirSeguras(n);
+    return { j, h: coste(n) };
+  });
+  con.sort((a, b) => a.h - b.h);
+  return con.map((x) => x.j);
+}
+
+/* ── Resolutor: profundidad con memoria de estados y orden por coste ───
+   Iterativo con pila propia: con recursión, los repartos duros (caminos de
+   cientos de jugadas antes de retroceder) desbordaban la pila.
+   Devuelve {gano, nodos, prof, tope, jugadas}. «nodos» = estados expandidos,
+   y es la medida de coste con la que están clasificados los repartos.
+   gano=false con tope=false significa que la búsqueda se agotó entera: desde
+   ahí no se puede ganar. Con tope=true solo significa «no lo encontré».
+   Busca desde CUALQUIER posición, no solo desde el reparto: así el botón
+   «¿Queda salida?» usa exactamente el mismo código que dio la garantía. */
+function resolver(cols, celdas, tope, topeProf) {
+  return resolverDesde(nuevoEstado(cols), celdas, tope, topeProf);
+}
+
+function resolverDesde(st0, celdas, tope, topeProf) {
+  const maxProf = topeProf || 900;
+  const raiz = clonar(st0);
+  subirSeguras(raiz);
+  if (subidas(raiz) === 52) return { gano: true, nodos: 0, prof: 0, tope: false, jugadas: [] };
+  const vistos = new Set([clave(raiz)]);
+  let nodos = 0, prof = 0, corto = false;
+
+  const pila = [{ st: raiz, js: ordena(raiz, celdas), i: 0, j: null }];
+  while (pila.length) {
+    const m = pila[pila.length - 1];
+    if (m.i >= m.js.length) { pila.pop(); continue; }
+    if (nodos >= tope) { corto = true; break; }
+    const j = m.js[m.i++];
+    const n = clonar(m.st);
+    aplicar(n, j);
+    subirSeguras(n);
+    const k = clave(n);
+    if (vistos.has(k)) continue;
+    vistos.add(k);
+    nodos++;
+    if (pila.length > prof) prof = pila.length;
+    if (subidas(n) === 52) {
+      const camino = pila.slice(1).map((x) => x.j);
+      camino.push(j);
+      return { gano: true, nodos, prof, tope: false, jugadas: camino };
+    }
+    if (pila.length >= maxProf) { corto = true; continue; }
+    pila.push({ st: n, js: ordena(n, celdas), i: 0, j });
+  }
+  return { gano: false, nodos, prof, tope: corto, jugadas: null };
+}
+
+/* ═══ Los repartos ════════════════════════════════════════════════════
+   Semillas en base 36. Cada una pasó por el resolutor CON LAS CELDAS DE SU
+   NIVEL y ganó; el reparto que no se resolvió dentro del tope no entró.
+   La banda de nodos de cada nivel no se solapa con la de los demás:
+     Fácil    4 celdas ·      32 –    100 nodos
+     Normal   4 celdas ·     402 –  2 996 nodos
+     Difícil  3 celdas ·  10 025 – 89 949 nodos
+     Experto  2 celdas · 150 069 – 599 122 nodos
+   300 repartos por nivel, todos verificados dos veces (ver informe). */
+const SEMILLAS = {
+  facil: '1,2,8,9,b,d,g,j,p,q,s,v,w,x,z,10,13,15,17,18,1e,1g,1i,1j,1m,1o,1q,1r,1s,1u,1x,21,24,25,28,2a,2b,2e,2f,2i,2j,2l,2p,2q,2r,2s,2t,2u,2w,2y,33,36,3a,3b,3d,3e,3f,3g,3k,3l,3n,3o,3t,3u,3w,3x,3y,3z,40,41,42,4b,4e,4f,4g,4k,4l,4m,4u,4v,4x,50,54,55,5a,5c,5f,5h,5i,5j,5l,5m,5o,5p,5q,5s,5t,5u,5v,5w,5x,5y,5z,62,63,66,67,68,69,6a,6e,6i,6k,6m,6o,6p,6q,6r,6u,6v,6w,6x,6y,6z,76,77,78,7b,7e,7f,7k,7n,7q,7r,7t,7v,7w,83,85,87,8b,8d,8h,8j,8k,8l,8q,8t,8u,8v,8w,94,95,98,9d,9e,9i,9m,9n,9o,9p,9t,9x,a1,a2,a3,a6,a8,a9,af,ai,ap,aq,ar,at,av,aw,ax,b5,b7,b8,ba,bd,be,bf,bg,bh,bi,bs,bt,bv,bx,by,bz,c1,c5,c9,cb,cf,cg,ch,ci,cj,ck,cl,cm,cp,d0,d1,d5,db,dd,de,dl,dp,dq,dt,e2,e6,ed,ee,ei,ep,et,eu,ex,ey,f2,f9,fe,fp,fq,fy,g9,ga,gd,ge,gi,gm,gt,gy,h1,h5,h9,ha,hu,i6,ia,ii,iy,ja,je,jq,jy,ka,ki,km,kq,ku,ky,l2,l6,la,lu,ma,mm,mq,mu,my,n2,nm,nq,nu,oe,oi,om,oq,pa,pq,pu,qi,qm,qu,r6,re,ri,rm,rq,ru,ry,s2,s6,sa,sq,su,t6,ta,te,ti,tq',
+  normal: 'lflt,lflz,lfm3,lfm4,lfm8,lfml,lfms,lfmz,lfn0,lfn1,lfn5,lfno,lfnp,lfnz,lfo1,lfo3,lfoc,lfoq,lfp7,lfpn,lfps,lfpx,lfq0,lfq1,lfq2,lfqi,lfqk,lfr7,lfri,lfrm,lfrt,lfru,lfrw,lfry,lfs4,lfsc,lfse,lfsl,lft6,lft9,lfte,lftn,lftq,lfu0,lful,lfuo,lfuq,lfux,lfva,lfvf,lfvk,lfvr,lfw0,lfw3,lfw6,lfws,lfwu,lfww,lfxb,lfxe,lfxf,lfxh,lfxi,lfxr,lfxs,lfxv,lfxy,lfy4,lfyc,lfyg,lfz0,lfza,lfzo,lfzv,lg05,lg0d,lg0e,lg0k,lg0m,lg0y,lg10,lg12,lg15,lg17,lg18,lg1e,lg1j,lg1p,lg1t,lg22,lg2a,lg2k,lg2r,lg3c,lg3n,lg3q,lg3r,lg3x,lg42,lg46,lg4b,lg4h,lg4i,lg4n,lg4t,lg4x,lg54,lg5c,lg5d,lg5e,lg5v,lg5x,lg6q,lg6u,lg6z,lg70,lg76,lg7h,lg7l,lg7t,lg7u,lg7x,lg7y,lg7z,lg81,lg84,lg88,lg8o,lg8s,lg8w,lg8z,lg91,lg95,lg96,lg9a,lg9e,lgab,lgac,lgad,lgaf,lgam,lgar,lgax,lgbn,lgbq,lgbu,lgbw,lgbx,lgby,lgc2,lgcb,lgcd,lgch,lgco,lgcy,lgcz,lgd1,lgd3,lgdf,lgdn,lgds,lgdz,lge3,lge5,lge7,lgeg,lgej,lgek,lgel,lgeu,lgex,lgf4,lgf7,lgfa,lgff,lgfk,lgfr,lgft,lggg,lggm,lggr,lggx,lgh2,lgh8,lghf,lghj,lghy,lgi0,lgi3,lgia,lgio,lgir,lgiy,lgjc,lgjd,lgjq,lgk1,lgk4,lgk6,lgks,lgku,lgkx,lgl4,lgl6,lglb,lgld,lglh,lglr,lglv,lglw,lgly,lgm0,lgm3,lgmc,lgmk,lgmn,lgmu,lgn8,lgni,lgnq,lgnr,lgns,lgo0,lgo5,lgo6,lgod,lgoi,lgok,lgp3,lgp6,lgp9,lgpa,lgpg,lgph,lgpi,lgpu,lgpv,lgq7,lgqe,lgqn,lgqs,lgr3,lgrb,lgrf,lgrg,lgrm,lgrs,lgry,lgs4,lgs8,lgse,lgso,lgsv,lgt4,lgto,lgts,lgu7,lgue,lgvf,lgvj,lgvq,lgvr,lgwq,lgwu,lgx7,lgxv,lgyn,lgza,lgze,lgzm,lgzr,lgzu,lgzy,lgzz,lh06,lh0f,lh0m,lh0n,lh16,lh1b,lh1f,lh1r,lh2m,lh2r,lh2y,lh2z,lh32,lh36,lh3a,lh4q,lh5m,lh5q,lh5y,lh62,lh6y,lh86,lh8q,lh9e,lh9q,lhaa',
+  dificil: '16v7w,16v7x,16v8c,16v8i,16v8n,16v8x,16v8y,16v95,16v98,16v99,16v9g,16v9i,16v9t,16v9x,16va9,16vae,16vah,16var,16vax,16vb0,16vb8,16vbf,16vbi,16vbv,16vcb,16vcf,16vcn,16vcv,16vd1,16vde,16vdf,16vdg,16vdn,16vdv,16veq,16vet,16vf4,16vf7,16vfx,16vge,16vgk,16vgl,16vgo,16vgy,16vgz,16vha,16vhi,16vhl,16vhr,16vhu,16vhx,16vi0,16vim,16viq,16vjj,16vjz,16vk5,16vkr,16vky,16vkz,16vl4,16vla,16vli,16vlo,16vm4,16vm5,16vmh,16vmr,16vms,16vn0,16vn8,16vnb,16vnr,16vnv,16vnz,16vo1,16vok,16vos,16voy,16vp2,16vpd,16vpw,16vq2,16vqg,16vqk,16vqs,16vr0,16vr2,16vr4,16vra,16vrg,16vro,16vs6,16vsb,16vsk,16vsl,16vss,16vt0,16vt3,16vtm,16vtv,16vu0,16vu7,16vui,16vuj,16vur,16vuy,16vvb,16vvh,16vvq,16vw3,16vw5,16vwa,16vwb,16vwd,16vwo,16vxd,16vxp,16vxr,16vxt,16vxx,16vyb,16vyk,16vyp,16vyx,16vz4,16vz6,16vzd,16vzl,16w07,16w0r,16w15,16w1g,16w1t,16w1u,16w28,16w2h,16w35,16w36,16w3j,16w3t,16w4e,16w4f,16w4i,16w4p,16w4s,16w4u,16w4z,16w53,16w59,16w5m,16w5u,16w5w,16w61,16w6d,16w6g,16w6w,16w6z,16w72,16w7d,16w7m,16w85,16w8y,16w9e,16waf,16wag,16wah,16wam,16wao,16wat,16wav,16wbb,16wbi,16wbj,16wbl,16wc2,16wc8,16wcg,16wch,16wct,16wcz,16wd1,16wdk,16wdr,16we6,16wet,16wew,16wfg,16wfj,16wfl,16wfo,16wfs,16wfw,16wg5,16wh3,16whb,16whw,16wi2,16wi5,16wif,16wik,16wiq,16wiu,16wj3,16wjj,16wjv,16wk2,16wk6,16wkb,16wkc,16wkh,16wkq,16wks,16wkt,16wl1,16wl2,16wl7,16wl8,16wl9,16wlb,16wlh,16wlp,16wlw,16wm1,16wm7,16wmg,16wmm,16wmu,16wmz,16wn3,16wn8,16wn9,16wnj,16wnl,16wnp,16wo3,16wo5,16wo7,16wo9,16woj,16woq,16wor,16wov,16wpi,16wpo,16wps,16wpx,16wq5,16wqg,16wql,16wqp,16wqt,16wr5,16wrp,16wru,16ws0,16ws2,16ws8,16wsa,16wsg,16wsp,16wsr,16wsz,16wt2,16wt3,16wtf,16wtg,16wth,16wts,16wuy,16wv0,16wv2,16wv3,16wvt,16wwp,16wwy,16wxj,16wxq,16wxr,16wyw,16wzc,16wzw,16x04,16x0k,16x10,16x1g,16x1s,16x2q,16x3a,16x3i,16x3q,16x4y,16x52,16x5i,16x6q,16x76,16xa2,16xby,16xda,16xey',
+  experto: '',
+};
+
+const CFG = {
+  facil:   { celdas: 4 },
+  normal:  { celdas: 4 },
+  dificil: { celdas: 3 },
+  experto: { celdas: 2 },
+};
+const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+const RANGO = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const PALO_NOMBRE = ['picas', 'corazones', 'tréboles', 'diamantes'];
+
+/* Los cuatro palos, dibujados aquí en una caja de 24×24. */
+const PIP = [
+  '<path d="M12 2.6C9.4 7 3.8 10.1 3.8 14.1a4.3 4.3 0 0 0 6.8 3.5c-.2 1.9-1 3.3-2.1 4.2h7a5.9 5.9 0 0 1-2.1-4.2 4.3 4.3 0 0 0 6.8-3.5c0-4-5.6-7.1-8.2-11.5z"/>',
+  '<path d="M12 21.3C4.9 16.2 2.9 12.7 2.9 9.7A4.7 4.7 0 0 1 12 7.4a4.7 4.7 0 0 1 9.1 2.3c0 3-2 6.5-9.1 11.6z"/>',
+  '<circle cx="12" cy="7.3" r="3.95"/><circle cx="6.4" cy="14.2" r="3.95"/><circle cx="17.6" cy="14.2" r="3.95"/><path d="M10.3 14.6c.3 3.1-.5 5.8-1.7 7.2h6.8c-1.2-1.4-2-4.1-1.7-7.2z"/>',
+  '<path d="M12 2.4 20.5 12 12 21.6 3.5 12z"/>',
+];
+
+const S = {
+  nivel: store.get('fre.nivel', 'normal'),
+  celdas: 4, semilla: 0, idx: 0, est: null,
+  sel: null,          // {tipo:'col', c, k} | {tipo:'cel', i}
+  mov: 0, hist: [], jugando: false, gen: 0, temp: null,
+  vistas: {},         // repartos ya servidos en esta sesión, por nivel
+  CW: 42, CH: 60, alto: 300,
+};
+const reloj = makeClock(() => $('#reloj'));
+
+const REGLAS = `<p>Las <b>52 cartas</b> se reparten boca arriba en 8 columnas: no hay nada tapado ni nada que robar, todo está a la vista desde el principio. Arriba tienes las <b>celdas</b> (guardan una carta cada una) y las <b>cuatro bases</b>, que se llenan por palo del as al rey. Ganas cuando suben las 52.</p>
+<p>En las columnas se apila en <b>descendente y alternando color</b>: un 7 rojo va sobre un 8 negro. Una <b>columna vacía</b> acepta cualquier carta.</p>
+<p><b>Cuántas cartas puedes mover de golpe:</b> (celdas libres + 1), y eso se <b>duplica por cada columna vacía</b>. Con 2 celdas libres y 1 columna vacía son 6. Si el destino es una columna vacía, esa no cuenta. El marcador lo dice en cada momento: mover un grupo es en realidad mover carta por carta usando los huecos, y el juego lo hace por ti.</p>
+<p>Toca una carta para tomarla y toca a dónde va; los destinos legales se marcan. <b>Doble toque</b> (o volver a tocar la carta ya tomada) la manda sola a su base. <b>Deshacer</b> no tiene límite y no cuenta como movimiento.</p>
+<p><b>Ningún reparto está perdido de salida</b>: los 300 de cada nivel los ganó el resolutor del juego con las celdas de ese nivel antes de entrar a la lista. Pero sí te puedes atorar tú: el botón <b>¿Queda salida?</b> busca desde donde estás y te dice si aún se puede.</p>
+<p>Fácil y Normal dan <b>4 celdas</b>; Difícil, <b>3</b>; Experto, <b>2</b>. Menos celdas es menos sitio donde dejar cartas y grupos más cortos.</p>
+<p>Tu marca es el <b>número de movimientos</b>: menos es mejor. El mínimo posible es 52 (uno por carta que sube) y cada carta que guardas en una celda son dos más.</p>`;
+
+/* ═══ Dibujo de las cartas ════════════════════════════════════════════
+   Cada carta es un SVG hecho aquí: el valor va en la esquina, dentro del
+   cuarto de arriba, que es lo único que se ve cuando la tapa la siguiente.
+   El palo grande solo se dibuja en las cartas destapadas (la última de cada
+   columna, celdas y bases): así el tablero baja de ~470 nodos a ~350. */
+const RATIO = 1.48;
+const ALTO = (w) => Math.round(w * RATIO);
+const cacheCarta = new Map();
+
+function cartaSVG(c, w, entera) {
+  const k = c + '|' + w + '|' + (entera ? 1 : 0);
+  let s = cacheCarta.get(k);
+  if (s) return s;
+  const r = RANGO[VAL(c)];
+  const dos = r.length > 1;
+  s = `<svg class="fc-carta ${ROJO(c) ? 'roja' : 'negra'}" width="${w}" height="${ALTO(w)}" viewBox="0 0 100 148" ` +
+    `role="img" aria-label="${r} de ${PALO_NOMBRE[PALO(c)]}">` +
+    `<rect class="fondo" x="1.6" y="1.6" width="96.8" height="144.8" rx="12" stroke-width="${(1.25 * 148 / ALTO(w)).toFixed(2)}"/>` +
+    `<text x="${dos ? 7 : 10}" y="37" font-size="${dos ? 33 : 40}">${r}</text>` +
+    `<g class="pip" transform="translate(64 7) scale(1.18)">${PIP[PALO(c)]}</g>` +
+    (entera ? `<g class="pip" transform="translate(26 66) scale(2)">${PIP[PALO(c)]}</g>` : '') +
+    `</svg>`;
+  cacheCarta.set(k, s);
+  return s;
+}
+
+function huecoHTML(w, dentro, attrs, cls) {
+  return `<div class="fc-hueco ${cls || ''}" ${attrs || ''} style="width:${w}px;height:${ALTO(w)}px;">${dentro || ''}</div>`;
+}
+const pipHueco = (s, w) => `<svg width="${Math.round(w * .42)}" height="${Math.round(w * .42)}" viewBox="0 0 24 24">${PIP[s]}</svg>`;
+
+/* ═══ Pantalla de inicio ══════════════════════════════════════════════ */
+function renderSetup() {
+  reloj.stop();
+  S.jugando = false;
+  S.gen++;
+  if (S.temp) { clearTimeout(S.temp); S.temp = null; }
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('FreeCell', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;">
+          <div class="row-title">Dificultad</div><div class="row-hint" id="d-hint"></div>
+        </div>
+        ${diffSegHTML('seg-d', S.nivel)}
+        <div class="row-hint" id="d-nota" style="padding: 10px 2px 4px;"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejor marca: movimientos para ganar</div>
+      <div class="bests" id="bests"></div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Repartir</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const pinta = () => {
+    const c = CFG[S.nivel].celdas;
+    $('#d-hint').textContent = `${c} celda${c === 1 ? '' : 's'}`;
+    $('#d-nota').innerHTML = {
+      facil: 'Cuatro celdas y repartos que salen casi de corrido.',
+      normal: 'Cuatro celdas, pero hay que pensar el orden.',
+      dificil: '<b>Tres celdas</b>: un hueco menos y grupos más cortos.',
+      experto: '<b>Dos celdas</b>: casi todo se resuelve con las columnas vacías.',
+    }[S.nivel] + ' Los 300 repartos del nivel se pueden ganar.';
+    $('#bests').innerHTML = NIVELES.map((n) => {
+      const b = store.get('fre.best.' + n, null);
+      return `<div class="b"><div class="bn">${b == null ? '—' : b}</div><div class="bl">${DIFF_LABEL[n]}</div></div>`;
+    }).join('');
+  };
+  pinta();
+  bindSeg('seg-d', (v) => { S.nivel = v; store.set('fre.nivel', v); pinta(); });
+  $('#new').onclick = nuevaPartida;
+  bindHowto(REGLAS);
+}
+
+/* ═══ Partida ═════════════════════════════════════════════════════════ */
+function nuevaPartida() {
+  const lista = SEMILLAS[S.nivel].split(',');
+  if (!S.vistas[S.nivel] || S.vistas[S.nivel].length >= lista.length) S.vistas[S.nivel] = [];
+  let i;
+  do { i = randInt(lista.length); } while (S.vistas[S.nivel].includes(i));
+  S.vistas[S.nivel].push(i);
+  S.idx = i;
+  S.semilla = parseInt(lista[i], 36);
+  S.celdas = CFG[S.nivel].celdas;
+  S.est = nuevoEstado(repartoDe(S.semilla));
+  S.sel = null; S.mov = 0; S.hist = []; S.jugando = true;
+  S.gen++;
+  renderPlay();
+  reloj.start();
+}
+
+function medidas() {
+  const w = Math.min(window.innerWidth, 480);
+  // El ancho manda: 8 cartas + 7 huecos + el respiro que separa celdas de
+  // bases. La misma medida sirve arriba y en las columnas.
+  S.CW = Math.max(34, Math.floor((w - 12 - 7 * 3 - 8) / 8));
+  S.CH = ALTO(S.CW);
+}
+
+function renderPlay() {
+  medidas();
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('FreeCell', `<span class="chip">${DIFF_LABEL[S.nivel]}</span><span class="clock" id="reloj">0:00</span>`)}
+    <div class="fc-zona">
+      <div>
+        <div class="fc-rotulos"><span class="dato">Celdas</span><span class="dato">Bases</span></div>
+        <div class="fc-arriba">
+          <div class="fc-grupo" id="celdas"></div>
+          <div class="fc-grupo" id="bases"></div>
+        </div>
+      </div>
+      <div class="fc-marcador">
+        <span>Movimientos <b id="mv">0</b></span>
+        <span>Mueves <b id="cap">1</b></span>
+        <span>Reparto <b id="rep">1</b></span>
+      </div>
+      <div class="fc-mesa" id="mesa"></div>
+      <div class="fc-aviso" id="aviso"></div>
+    </div>
+    <div class="fc-tools">
+      <button class="fc-tool" id="t-undo">Deshacer</button>
+      <button class="fc-tool" id="t-salida">¿Queda salida?</button>
+      <button class="fc-tool" id="t-nueva">Nueva</button>
+      <button class="fc-tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#t-undo').onclick = deshacer;
+  $('#t-salida').onclick = revisarSalida;
+  $('#t-nueva').onclick = confirmarNueva;
+  $('#t-salir').onclick = () => { reloj.stop(); renderSetup(); };
+  $('#celdas').onclick = (e) => {
+    const el = e.target.closest('[data-cel]');
+    if (el) tocaCelda(el.dataset.cel);
+  };
+  $('#bases').onclick = (e) => {
+    const el = e.target.closest('[data-b]');
+    if (el) tocaBase(Number(el.dataset.b));
+  };
+  $('#mesa').onclick = (e) => {
+    const el = e.target.closest('[data-c]');
+    if (el) tocaColumna(Number(el.dataset.c), Number(el.dataset.k));
+  };
+  // El alto libre de la mesa se mide una vez por pantalla, nunca dentro de
+  // un bucle de dibujo; con él se decide cuánto se solapan las cartas.
+  // Tope de alto de la mesa: se mide una vez por pantalla, nunca dentro de un
+  // bucle de dibujo. Con él se estira o encoge el solapamiento de las
+  // columnas para llenar la pantalla sin dejar un hueco muerto abajo.
+  const zona = $('#mesa').parentElement;
+  S.alto = Math.max(S.CH + 10, zona.clientHeight - $('.fc-rotulos').parentElement.offsetHeight -
+    $('.fc-marcador').offsetHeight - $('#aviso').offsetHeight - 50);
+  $('#rep').textContent = S.idx + 1;
+  pintar();
+}
+
+/* Cartas seleccionadas, o null. */
+function grupoSel() {
+  if (!S.sel) return null;
+  if (S.sel.tipo === 'cel') return S.est.libres.length > S.sel.i ? [S.est.libres[S.sel.i]] : null;
+  const col = S.est.cols[S.sel.c];
+  return col.length > S.sel.k ? col.slice(S.sel.k) : null;
+}
+
+function pintar() {
+  if (!$('#mesa')) return;                 // el jugador ya se fue de la pantalla
+  const st = S.est, W = S.CW;
+  const grupo = grupoSel();
+  const n = grupo ? grupo.length : 0;
+
+  // ¿A dónde puede ir lo que está tomado?
+  const dCols = new Set(); let dCelda = false; const dBases = new Set();
+  if (grupo) {
+    for (let d = 0; d < 8; d++) {
+      if (S.sel.tipo === 'col' && S.sel.c === d) continue;
+      const col = st.cols[d];
+      if (col.length) { if (encajaCol(grupo[0], col[col.length - 1]) && n <= capacidad(st, S.celdas, false)) dCols.add(d); }
+      else if (n <= capacidad(st, S.celdas, true)) dCols.add(d);
+    }
+    if (n === 1 && S.sel.tipo !== 'cel' && st.libres.length < S.celdas) dCelda = true;
+    if (n === 1 && encajaBase(st, grupo[0])) dBases.add(PALO(grupo[0]));
+  }
+
+  // Celdas
+  let html = '';
+  for (let i = 0; i < S.celdas; i++) {
+    const c = st.libres[i];
+    if (c === undefined) html += huecoHTML(W, '', 'data-cel="v"', dCelda ? 'fc-dest' : '');
+    else {
+      const marca = (S.sel && S.sel.tipo === 'cel' && S.sel.i === i) ? ' fc-sel' : '';
+      html += cartaSVG(c, W, true).replace('class="fc-carta', `data-cel="${i}" class="fc-carta${marca}`);
+    }
+  }
+  $('#celdas').innerHTML = html;
+
+  // Bases
+  html = '';
+  for (let s = 0; s < 4; s++) {
+    const v = st.bases[s];
+    const marca = dBases.has(s) ? ' fc-dest' : '';
+    if (!v) html += huecoHTML(W, pipHueco(s, W), `data-b="${s}"`, marca);
+    else html += cartaSVG(s * 13 + v - 1, W, true).replace('class="fc-carta', `data-b="${s}" class="fc-carta${marca}`);
+  }
+  $('#bases').innerHTML = html;
+
+  // Columnas. El solapamiento se estira hasta llenar la mesa y se encoge
+  // cuando una columna crece, con suelo en el 27 % de la carta: por debajo
+  // de eso el valor de la esquina deja de verse.
+  let masLarga = 1;
+  for (const col of st.cols) if (col.length > masLarga) masLarga = col.length;
+  let off = Math.floor((S.alto - S.CH) / Math.max(1, masLarga - 1));
+  off = Math.min(off, Math.round(S.CH * .8));
+  off = Math.max(off, Math.round(S.CH * .27));
+  $('#mesa').style.height = (S.CH + (masLarga - 1) * off) + 'px';
+
+  html = '';
+  for (let c = 0; c < 8; c++) {
+    const col = st.cols[c];
+    const alto = col.length ? S.CH + (col.length - 1) * off : S.CH;
+    let dentro = '';
+    if (!col.length) {
+      dentro = huecoHTML(W, '', `data-c="${c}" data-k="-1"`, dCols.has(c) ? 'fc-dest' : '');
+    } else {
+      for (let k = 0; k < col.length; k++) {
+        const ultima = k === col.length - 1;
+        const tomada = S.sel && S.sel.tipo === 'col' && S.sel.c === c && k >= S.sel.k;
+        const marca = (tomada ? ' fc-sel' : '') + (dCols.has(c) && ultima ? ' fc-dest' : '');
+        dentro += cartaSVG(col[k], W, ultima).replace('class="fc-carta',
+          `data-c="${c}" data-k="${k}" style="top:${k * off}px" class="fc-carta${marca}`);
+      }
+    }
+    html += `<div class="fc-col" data-colw="${c}" style="width:${W}px;height:${alto}px;">${dentro}</div>`;
+  }
+  $('#mesa').innerHTML = html;
+
+  $('#mv').textContent = S.mov;
+  $('#cap').textContent = capacidad(st, S.celdas, false);
+}
+
+function aviso(txt, mal) {
+  const el = $('#aviso');
+  if (!el) return;
+  el.textContent = txt || '';
+  el.classList.toggle('mal', !!mal);
+}
+
+function sacude(sel) {
+  const el = $(sel);
+  if (el) { el.classList.remove('fc-sacude'); void el.getBoundingClientRect(); el.classList.add('fc-sacude'); }
+  vibrate(40);
+}
+
+/* ═══ Toques ══════════════════════════════════════════════════════════ */
+function guarda() {
+  S.hist.push({ est: clonar(S.est), mov: S.mov });
+}
+
+function deshacer() {
+  if (!S.hist.length) return;
+  const h = S.hist.pop();
+  S.est = h.est; S.mov = h.mov; S.sel = null;
+  if (!S.jugando) { S.jugando = true; reloj.resume(); }
+  S.gen++;
+  vibrate(8);
+  pintar();
+  aviso(S.hist.length ? '' : 'Vuelves al reparto de salida');
+  if ($('#t-undo')) $('#t-undo').disabled = !S.hist.length;
+}
+
+function trasJugada() {
+  S.sel = null;
+  S.mov++;
+  vibrate(10);
+  pintar();
+  if ($('#t-undo')) $('#t-undo').disabled = false;
+  if (subidas(S.est) === 52) return ganar();
+  // ¿Ya solo queda subirlas? Entonces se terminan solas, contando cada una.
+  const prueba = clonar(S.est);
+  subirSeguras(prueba);
+  if (subidas(prueba) === 52) { rematar(); return; }
+  if (!jugadas(S.est, S.celdas).length) atorado();
+}
+
+function tocaColumna(c, k) {
+  if (!S.jugando) return;
+  const col = S.est.cols[c];
+  const enEsta = S.sel && S.sel.tipo === 'col' && S.sel.c === c;
+  // Segundo toque en la misma carta: se va sola a su base.
+  if (enEsta && S.sel.k === k) { mandarABase(); return; }
+  // ¿Es destino de lo que traigo? (a su propia columna, no)
+  if (S.sel && !enEsta && mueveA('col', c)) return;
+  // Si no se pudo mover, se intenta tomar la carta tocada.
+  if (k < 0) {
+    if (S.sel) { sacude(`[data-colw="${c}"]`); aviso('Ahí no cabe ese grupo', true); }
+    return;
+  }
+  for (let i = k + 1; i < col.length; i++) {
+    if (!encajaCol(col[i], col[i - 1])) {
+      sacude(`[data-colw="${c}"]`);
+      aviso(S.sel ? 'Esa carta no encaja ahí' : 'Esa carta lleva encima cartas que no siguen la escalera', true);
+      return;
+    }
+  }
+  const n = col.length - k;
+  const tope = Math.max(capacidad(S.est, S.celdas, false), capacidad(S.est, S.celdas, true));
+  if (n > tope) {
+    sacude(`[data-colw="${c}"]`);
+    aviso(`Ahora solo puedes mover ${tope} carta${tope === 1 ? '' : 's'} de golpe`, true);
+    return;
+  }
+  S.sel = { tipo: 'col', c, k };
+  vibrate(6);
+  pintar();
+  aviso(n > 1 ? `${n} cartas tomadas: toca a dónde van` : 'Toca a dónde va, o vuelve a tocarla para subirla');
+}
+
+function tocaCelda(v) {
+  if (!S.jugando) return;
+  if (v === 'v') {
+    if (S.sel && mueveA('cel')) return;
+    if (S.sel) { sacude('#celdas'); aviso('A una celda solo va una carta suelta', true); }
+    return;
+  }
+  const i = Number(v);
+  if (S.sel && S.sel.tipo === 'cel' && S.sel.i === i) { mandarABase(); return; }
+  if (i >= S.est.libres.length) return;
+  S.sel = { tipo: 'cel', i };            // tomar la carta de esa celda
+  vibrate(6);
+  pintar();
+  aviso('Toca a dónde va, o vuelve a tocarla para subirla');
+}
+
+function tocaBase(s) {
+  if (!S.jugando) return;
+  if (!S.sel) { aviso('Las bases se llenan del as al rey, por palo'); return; }
+  const g = grupoSel();
+  if (g && g.length === 1 && PALO(g[0]) === s && encajaBase(S.est, g[0])) { mueveA('base', s); return; }
+  sacude('#bases');
+  aviso(g && g.length > 1 ? 'A la base sube una carta a la vez' : 'Esa carta todavía no toca en esa base', true);
+}
+
+/* Ejecuta el movimiento de lo tomado al destino. Devuelve si se hizo. */
+function mueveA(tipo, d) {
+  const g = grupoSel();
+  if (!g) { S.sel = null; return false; }
+  const st = S.est, n = g.length;
+  if (tipo === 'base') {
+    if (n !== 1 || !encajaBase(st, g[0])) return false;
+    guarda();
+    quitaSel();
+    st.bases[PALO(g[0])] = VAL(g[0]);
+  } else if (tipo === 'cel') {
+    if (n !== 1 || S.sel.tipo === 'cel' || st.libres.length >= S.celdas) return false;
+    guarda();
+    quitaSel();
+    st.libres.push(g[0]);
+  } else {
+    const col = st.cols[d];
+    if (S.sel.tipo === 'col' && S.sel.c === d) return false;
+    if (col.length) {
+      if (!encajaCol(g[0], col[col.length - 1]) || n > capacidad(st, S.celdas, false)) return false;
+    } else if (n > capacidad(st, S.celdas, true)) return false;
+    guarda();
+    quitaSel();
+    for (const c of g) col.push(c);
+  }
+  aviso('');
+  trasJugada();
+  return true;
+}
+
+function quitaSel() {
+  if (S.sel.tipo === 'cel') S.est.libres.splice(S.sel.i, 1);
+  else S.est.cols[S.sel.c].length = S.sel.k;
+}
+
+/* Doble toque: la carta tomada se va sola a su base. */
+function mandarABase() {
+  const g = grupoSel();
+  if (g && g.length === 1 && encajaBase(S.est, g[0])) { mueveA('base', PALO(g[0])); return; }
+  S.sel = null;
+  pintar();
+  aviso(g && g.length > 1 ? 'A la base sube una carta a la vez' : 'Esa carta todavía no puede subir');
+}
+
+/* ═══ Final de la mano ════════════════════════════════════════════════ */
+/* Cuando ya no queda más que subirlas, se suben solas de una en una, y cada
+   una cuenta como movimiento: es lo que le habría costado al jugador. */
+function rematar() {
+  S.jugando = false;
+  const gen = S.gen;
+  const paso = () => {
+    S.temp = null;
+    if (gen !== S.gen || !$('#mesa')) return;      // se salió o pidió otra mano
+    const antes = subidas(S.est);
+    const st = S.est;
+    let hecho = false;
+    for (let i = 0; i < 8 && !hecho; i++) {
+      const col = st.cols[i];
+      if (col.length && encajaBase(st, col[col.length - 1]) && seguraSubir(st, col[col.length - 1])) {
+        st.bases[PALO(col[col.length - 1])] = VAL(col.pop()); hecho = true;
+      }
+    }
+    for (let i = 0; i < st.libres.length && !hecho; i++) {
+      const c = st.libres[i];
+      if (encajaBase(st, c) && seguraSubir(st, c)) { st.libres.splice(i, 1); st.bases[PALO(c)] = VAL(c); hecho = true; }
+    }
+    if (!hecho) return;
+    S.mov++;
+    pintar();
+    aviso('Se acomodan solas…');
+    if (subidas(S.est) === 52) { ganar(); return; }
+    if (subidas(S.est) > antes) S.temp = setTimeout(paso, 55);
+  };
+  S.temp = setTimeout(paso, 220);
+}
+
+function atorado() {
+  S.jugando = false;
+  reloj.stop();
+  vibrate([60, 40, 60]);
+  openModal(`
+    <h3>Ya no hay jugadas</h3>
+    <p style="text-align:center;">No queda ni un movimiento legal: las celdas están llenas y ninguna carta encaja en ninguna parte. El reparto sí se podía ganar, así que la salida está unas cuantas jugadas atrás.</p>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${subidas(S.est)}</div><div class="l">de 52 arriba</div></div>
+      <div class="stat"><div class="n">${S.mov}</div><div class="l">movimientos</div></div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-undo">Deshacer y seguir</button>
+      <button class="btn btn-soft" id="m-again">Otro reparto</button>
+      <button class="btn btn-ghost" id="m-out">Salir</button>
+    </div>
+  `);
+  $('#m-undo').onclick = () => { closeModal(); deshacer(); };
+  $('#m-again').onclick = () => { closeModal(); nuevaPartida(); };
+  $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+}
+
+function ganar() {
+  S.jugando = false;
+  reloj.stop();
+  S.gen++;
+  const best = store.get('fre.best.' + S.nivel, null);
+  const record = best == null || S.mov < best;
+  if (record) {
+    store.set('fre.best.' + S.nivel, S.mov);
+    for (let i = NIVELES.length - 1; i >= 0; i--) {
+      const b = store.get('fre.best.' + NIVELES[i], null);
+      if (b != null) { store.set('fre.hub', `${b} movimientos · ${DIFF_LABEL[NIVELES[i]]}`); break; }
+    }
+  }
+  confetti(); vibrate([30, 60, 30]);
+  const secs = reloj.seconds;
+  setTimeout(() => {
+    openModal(`
+      <h3>${record ? '¡Récord!' : '¡Las 52 arriba!'}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${S.mov}</div><div class="l">movimientos</div></div>
+        <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+        <div class="stat"><div class="n">${S.celdas}</div><div class="l">celdas</div></div>
+      </div>
+      <p style="text-align:center;">${record
+        ? `Tu mejor mano en ${DIFF_LABEL[S.nivel]}. El mínimo posible son 52 movimientos.`
+        : `Tu récord en ${DIFF_LABEL[S.nivel]} sigue siendo <b>${best}</b> movimientos.`}</p>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otro reparto</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); nuevaPartida(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 520);
+}
+
+function confirmarNueva() {
+  if (!S.mov) { nuevaPartida(); return; }
+  openModal(`
+    <h3>¿Otro reparto?</h3>
+    <p>Se pierde la mano en curso.</p>
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-si">Sí, repartir</button>
+      <button class="btn btn-soft" id="m-no">Seguir jugando</button>
+    </div>
+  `, closeModal);
+  $('#m-si').onclick = () => { closeModal(); nuevaPartida(); };
+  $('#m-no').onclick = closeModal;
+}
+
+/* ═══ «¿Queda salida?» ════════════════════════════════════════════════
+   El mismo resolutor que aprobó el reparto, ahora desde la posición actual
+   y con menos cuerda. Si se queda sin nodos lo dice: no inventa. */
+const TOPE_UI = 30000;
+
+function revisarSalida() {
+  if (!S.est) return;
+  const b = $('#t-salida');
+  if (b) { b.disabled = true; b.textContent = 'Buscando…'; }
+  aviso('Buscando salida…');
+  setTimeout(() => {
+    if (!$('#mesa')) return;
+    const legales = jugadas(S.est, S.celdas).length;
+    const r = legales ? resolverDesde(S.est, S.celdas, TOPE_UI) : null;
+    if (!$('#mesa')) return;
+    if ($('#t-salida')) { $('#t-salida').disabled = false; $('#t-salida').textContent = '¿Queda salida?'; }
+    if (!legales) { aviso('No queda ninguna jugada legal: toca Deshacer', true); return; }
+    if (!r) return;
+    if (r.gano) aviso(`Sí, todavía se gana desde aquí (${r.nodos} posiciones miradas)`);
+    else if (r.tope) aviso('No lo sé: la búsqueda se quedó sin cuerda', true);
+    else aviso('Desde aquí ya no se puede ganar: deshaz unas jugadas', true);
+  }, 30);
+}
+
+window.addEventListener('resize', () => {
+  if (!$('#mesa')) return;
+  const antes = S.CW;
+  medidas();
+  if (antes !== S.CW) renderPlay();
+});
+
+renderSetup();
+</script>
+</body>
+</html>

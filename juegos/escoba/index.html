@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Escoba del 15 contra la app: baraja española, suma quince y barre la mesa." />
+<title>Escoba del 15</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EE%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Todo lo propio va con prefijo eb-: los nombres sueltos (.seg, .row, .chip…)
+     ya pisaron el estilo compartido en otros juegos. */
+  .eb-juego {
+    flex: 1; min-height: 0; position: relative;
+    display: flex; flex-direction: column; justify-content: space-evenly;
+    user-select: none; -webkit-user-select: none;
+  }
+
+  /* ── Marcador: un bloque por bando, con las capturas contadas ─────── */
+  .eb-tanteo { display: flex; gap: 9px; padding: 4px 14px 0; }
+  .eb-lado { flex: 1; min-width: 0; background: var(--panel); border-radius: var(--mano-2); padding: 10px 11px 9px; }
+  .eb-lado.eb-turno { background: var(--accent-soft); }
+  .eb-cabeza { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+  /* Sobre el bloque beige, --sub se queda en 4,35:1 (y 4,26 en el lado en turno):
+     un punto de tinta lo sube a 5,40 / 5,30. Medido, no supuesto. */
+  .eb-quien { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: color-mix(in srgb, var(--sub) 75%, var(--ink)); }
+  .eb-pts { font-family: var(--font); font-size: 25px; font-weight: 500; color: var(--ink); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .eb-caps { display: flex; gap: 4px; margin-top: 7px; }
+  .eb-caps div { flex: 1; min-width: 0; text-align: center; }
+  .eb-caps .eb-n { font-family: var(--font); font-size: 14px; font-weight: 500; color: var(--ink); line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .eb-caps .eb-l { font-family: var(--mono); font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase; color: color-mix(in srgb, var(--sub) 75%, var(--ink)); margin-top: 2px; }
+  .eb-velo { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--accent-texto) 75%, var(--ink)); margin-top: 5px; min-height: 12px; text-align: center; }
+
+  /* ── Mesa y mano ──────────────────────────────────────────────────── */
+  .eb-zona { padding: 0 14px; }
+  .eb-cab {
+    display: flex; align-items: baseline; justify-content: space-between;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--sub); padding: 0 3px 6px;
+  }
+  .eb-mesa, .eb-mano { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-content: center; }
+  .eb-mesa { min-height: 78px; padding-top: 8px; }   /* hueco para la carta elegida, que sube */
+  .eb-mano { min-height: 102px; gap: 10px; }
+  /* --faint se queda en 1,9:1 sobre el crema: para un texto, aunque sea de
+     relleno, hace falta --sub (4,86:1). */
+  .eb-vacia { font-family: var(--display); font-style: italic; font-size: 14px; color: var(--sub); align-self: center; }
+
+  /* ── La carta española, dibujada aquí mismo ───────────────────────── */
+  .eb-c {
+    position: relative; flex: 0 0 auto; padding: 0; margin: 0; overflow: hidden;
+    width: var(--w); height: calc(var(--w) * 1.42);
+    border-radius: 9px; background: var(--card); border: 1px solid var(--linea-fuerte);
+    transition: transform var(--dur) var(--ease), background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  }
+  .eb-mesa-c, .eb-mano-c { cursor: pointer; }
+  .eb-c .eb-r {
+    position: absolute; left: 8%; top: 5%; line-height: 1;
+    font-family: var(--font); font-weight: 500; font-size: calc(var(--w) * .3);
+    color: var(--ink); letter-spacing: -0.04em;
+  }
+  .eb-c .eb-fig {
+    position: absolute; right: 8%; top: 8%; line-height: 1;
+    font-family: var(--mono); font-size: calc(var(--w) * .2); color: var(--sub);
+  }
+  .eb-c .eb-pip {
+    position: absolute; left: 50%; top: 60%; transform: translate(-50%, -50%);
+    width: calc(var(--w) * .58); height: calc(var(--w) * .58); display: block;
+  }
+  /* Un palo, una tinta: oros ocre, copas terracota, espadas azul, bastos salvia. */
+  .eb-c.eb-p0 .eb-pip { color: var(--tinta-4); }
+  .eb-c.eb-p1 .eb-pip { color: var(--tinta-1); }
+  .eb-c.eb-p2 .eb-pip { color: var(--tinta-2); }
+  .eb-c.eb-p3 .eb-pip { color: var(--tinta-3); }
+
+  /* Estados. Nada de sombras, y ningún estado tiñe el fondo de la carta: el
+     oro (3,42:1) y el basto (3,08:1) no tienen holgura sobre el crema claro y
+     cualquier relleno los bajaba de 3:1. Se marca con filete y con altura. */
+  .eb-c.eb-hot { border-color: var(--accent); border-width: 2px; }
+  .eb-c.eb-sel { border-color: var(--accent); border-width: 2px; transform: translateY(-7px); }
+  .eb-c.eb-off { border-color: var(--linea); }
+  .eb-c.eb-jug { border-color: var(--accent); border-width: 2px; transform: translateY(-9px); }
+  .eb-c.eb-ghost { border-color: var(--accent); border-width: 2px; border-style: dashed; animation: popIn .22s var(--ease); }
+
+  /* ── Aviso, mandos y escoba ───────────────────────────────────────── */
+  .eb-msg { text-align: center; padding: 0 18px; min-height: 20px; font-family: var(--display); font-style: italic; font-size: 15px; color: var(--ink); }
+  .eb-accion { display: flex; gap: 9px; justify-content: center; align-items: center; min-height: 46px; padding-top: 10px; flex-wrap: wrap; }
+  .eb-tools { margin: 0 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 8px; }
+  .eb-tool {
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+  }
+  .eb-tool:active { opacity: .6; }
+  .eb-flash { position: absolute; left: 0; right: 0; top: 42%; text-align: center; pointer-events: none; z-index: 4; }
+  .eb-flash span {
+    display: inline-block; font-family: var(--display); font-size: 33px; color: var(--accent-texto);
+    background: var(--card); border: 1px solid var(--accent); border-radius: var(--pastilla);
+    padding: 8px 26px; animation: ebFlash 1.1s var(--ease) forwards;
+  }
+  @keyframes ebFlash {
+    0% { opacity: 0; transform: scale(.9); }
+    18% { opacity: 1; transform: scale(1); }
+    78% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.02); }
+  }
+
+  /* ── Tabla de puntos (reglas y fin de ronda) ──────────────────────── */
+  .eb-tabla { width: 100%; border-collapse: collapse; margin: 2px 0 10px; }
+  .eb-tabla td { padding: 7px 0; font-size: 14.5px; color: var(--sub); border-bottom: 1px solid var(--linea); }
+  .eb-tabla td + td { text-align: right; width: 54px; color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .eb-tabla tr:last-child td { border-bottom: none; }
+  .eb-tabla th { padding: 0 0 5px; font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); font-weight: 400; text-align: right; }
+  .eb-tabla th:first-child { text-align: left; }
+  .eb-tabla td.eb-gana { color: var(--accent-texto); }
+  .eb-total td { border-top: 1px solid var(--linea-fuerte); padding-top: 9px; color: var(--ink); font-weight: 500; }
+  .eb-nota { font-size: 12.5px; color: var(--sub); padding: 4px 2px 0; }
+  /* Las reglas de este juego llevan tabla de puntos y no caben de una a
+     375×667: la hoja del modal está anclada abajo y lo que sobra se sale por
+     arriba (se comía el título). Se le pone tope y desplazamiento propio.
+     Solo aquí: comun/estilo.css no se toca. */
+  #modal .sheet { max-height: calc(100dvh - 18px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ══════════════════════════════════════════════════════════════════════
+   MOTOR — puro, sin pantalla. Sirve igual para jugar y para simular miles
+   de partidas y medir la escalera de niveles (ver informe de la tanda).
+   Una carta es un entero 0..39: palo = c/10 (0 oros, 1 copas, 2 espadas,
+   3 bastos) y valor = c%10 + 1 (sota 8, caballo 9, rey 10).
+   ══════════════════════════════════════════════════════════════════════ */
+const VAL = (c) => c % 10 + 1;
+const PALO = (c) => (c / 10) | 0;
+const ES_ORO = (c) => c < 10;
+const ES_7 = (c) => c % 10 === 6;
+const VELO = 6;                       // el siete de oros
+const META = 15;                      // puntos para ganar la partida
+const MAX_COMBOS = 120;
+
+const sumaV = (cs) => cs.reduce((a, c) => a + VAL(c), 0);
+
+function barajado(rnd) {
+  const a = [];
+  for (let i = 0; i < 40; i++) a.push(i);
+  for (let i = 39; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
+/* Todos los subconjuntos de la mesa que suman «objetivo». Devuelve arreglos
+   de índices de mesa. Va en profundidad de mayor a menor con poda por suma
+   restante, así que en una mesa normal (3–7 cartas) son unos pocos nodos. */
+function combos(vals, objetivo) {
+  const out = [];
+  if (objetivo < 1) return out;
+  const idx = vals.map((v, i) => i).sort((a, b) => vals[b] - vals[a]);
+  const n = idx.length;
+  const suf = new Array(n + 1).fill(0);
+  for (let i = n - 1; i >= 0; i--) suf[i] = suf[i + 1] + vals[idx[i]];
+  const cur = [];
+  (function go(i, resta) {
+    if (out.length >= MAX_COMBOS) return;
+    if (resta === 0) { out.push(cur.slice()); return; }
+    if (i >= n || resta < 0 || suf[i] < resta) return;
+    const v = vals[idx[i]];
+    if (v <= resta) { cur.push(idx[i]); go(i + 1, resta - v); cur.pop(); }
+    go(i + 1, resta);
+  })(0, objetivo);
+  return out;
+}
+
+function reparte(R) {
+  for (let k = 0; k < 3; k++) for (const j of [0, 1]) if (R.mazo.length) R.manos[j].push(R.mazo.shift());
+}
+
+function nuevaRonda(rnd, empieza) {
+  const mazo = barajado(rnd);
+  const R = {
+    mazo, manos: [[], []], mesa: mazo.splice(0, 4), cap: [[], []],
+    esc: [0, 0], turno: empieza, ultima: -1, fin: false, restos: 0,
+  };
+  reparte(R);
+  return R;
+}
+
+/* Una jugada es {carta, combo}: combo son los índices de mesa que se lleva,
+   o null si la carta se queda en la mesa. Capturar es obligatorio con la
+   carta que juegas, así que una carta que puede capturar no genera descarte. */
+function jugadasLegales(R, j) {
+  const out = [];
+  const vals = R.mesa.map(VAL);
+  for (const c of R.manos[j]) {
+    const cs = combos(vals, 15 - VAL(c));
+    if (cs.length) for (const k of cs) out.push({ carta: c, combo: k });
+    else out.push({ carta: c, combo: null });
+  }
+  return out;
+}
+
+/* La escoba de la última carta de la ronda no cuenta (regla clásica: esos
+   restos se los llevaba igual quien capturó al final). Es una guarda que en
+   esta baraja NUNCA se dispara: la baraja suma 220 y cada captura retira
+   exactamente 15, así que mesa+manos+mazo ≡ 220 ≡ 10 (mod 15) en todo
+   momento, y barrer con la última carta exigiría que sumaran 15 ≡ 0.
+   Comprobado a lo bruto en 144.000 jugadas. Por eso no se cuenta en las
+   reglas: sería prometer una excepción que no existe. */
+const esUltimaJugada = (R) => R.mazo.length === 0 && (R.manos[0].length + R.manos[1].length - 1) === 0;
+
+function esEscoba(R, jug) {
+  if (!jug.combo || R.mesa.length !== jug.combo.length) return false;
+  return !esUltimaJugada(R);
+}
+
+function mesaTras(R, jug) {
+  if (!jug.combo) return R.mesa.concat([jug.carta]);
+  const f = new Set(jug.combo);
+  return R.mesa.filter((_, i) => !f.has(i));
+}
+
+function aplicar(R, j, jug) {
+  const mano = R.manos[j];
+  // Se mira ANTES de quitar la carta de la mano: esUltimaJugada ya descuenta
+  // la que se está jugando, y hacerlo dos veces adelantaba el final una jugada.
+  const ultima = esUltimaJugada(R);
+  const k = mano.indexOf(jug.carta);
+  if (k >= 0) mano.splice(k, 1);
+  const res = { escoba: false, tomadas: [], ultima };
+  if (jug.combo) {
+    const f = new Set(jug.combo);
+    res.tomadas = jug.combo.map((i) => R.mesa[i]);
+    R.mesa = R.mesa.filter((_, i) => !f.has(i));
+    R.cap[j].push(jug.carta, ...res.tomadas);
+    R.ultima = j;
+    if (R.mesa.length === 0 && !ultima) { R.esc[j]++; res.escoba = true; }
+  } else {
+    R.mesa.push(jug.carta);
+  }
+  return res;
+}
+
+function cerrar(R) {
+  if (R.mesa.length && R.ultima >= 0) {
+    R.restos = R.mesa.length;
+    R.cap[R.ultima].push(...R.mesa);
+    R.mesa = [];
+  }
+  R.fin = true;
+}
+
+/* Avanza el estado tras una jugada: reparte tres más o cierra la ronda. */
+function tras(R, j) {
+  R.turno = 1 - j;
+  if (R.manos[0].length === 0 && R.manos[1].length === 0) {
+    if (R.mazo.length) { reparte(R); return 'reparto'; }
+    cerrar(R); return 'fin';
+  }
+  return 'sigue';
+}
+
+function cuentas(cs) {
+  let oros = 0, sietes = 0, velo = false;
+  for (const c of cs) { if (ES_ORO(c)) oros++; if (ES_7(c)) sietes++; if (c === VELO) velo = true; }
+  return { cartas: cs.length, oros, sietes, velo };
+}
+
+/* Puntos de la ronda: más cartas, más oros, el siete de oros, más sietes y
+   una por escoba. Los empates no dan punto a nadie. */
+function tanteo(R) {
+  const a = cuentas(R.cap[0]), b = cuentas(R.cap[1]);
+  const p = [R.esc[0], R.esc[1]];
+  const duelo = (x, y) => { if (x > y) { p[0]++; return 0; } if (y > x) { p[1]++; return 1; } return -1; };
+  const det = [];
+  det.push(['Cartas', a.cartas, b.cartas, duelo(a.cartas, b.cartas)]);
+  det.push(['Oros', a.oros, b.oros, duelo(a.oros, b.oros)]);
+  const velo = a.velo ? 0 : b.velo ? 1 : -1;
+  if (velo >= 0) p[velo]++;
+  det.push(['7 de oros', a.velo ? 1 : 0, b.velo ? 1 : 0, velo]);
+  det.push(['Sietes', a.sietes, b.sietes, duelo(a.sietes, b.sietes)]);
+  det.push(['Escobas', R.esc[0], R.esc[1], R.esc[0] > R.esc[1] ? 0 : R.esc[1] > R.esc[0] ? 1 : -1]);
+  return { a, b, p, det };
+}
+
+/* ── Las cuatro apps ──────────────────────────────────────────────────
+   facil: al azar entre las jugadas válidas. normal: captura siempre que
+   puede y prefiere oros y sietes. dificil: además evita dejar la mesa
+   servida para una escoba y no suelta las cartas que valen. experto:
+   cuenta las cartas ya vistas, calcula qué le queda al rival, pesa cada
+   punto según lo que aún está en disputa y mira la respuesta del rival. */
+const PESO = { escoba: 100, velo: 45, siete: 15, oro: 9, carta: 2 };
+
+function valorCartas(cs, W) {
+  let s = 0;
+  for (const c of cs) {
+    s += W.carta;
+    if (ES_ORO(c)) s += W.oro;
+    if (ES_7(c)) s += W.siete;
+    if (c === VELO) s += W.velo;
+  }
+  return s;
+}
+
+function ganancia(R, j, jug, W) {
+  if (!jug.combo) return 0;
+  return valorCartas([jug.carta, ...jug.combo.map((i) => R.mesa[i])], W);
+}
+
+function noVistas(R, j) {
+  const vis = new Uint8Array(40);
+  for (const c of R.manos[j]) vis[c] = 1;
+  for (const c of R.mesa) vis[c] = 1;
+  for (const c of R.cap[0]) vis[c] = 1;
+  for (const c of R.cap[1]) vis[c] = 1;
+  const out = [];
+  for (let c = 0; c < 40; c++) if (!vis[c]) out.push(c);
+  return out;
+}
+
+/* Probabilidad de que en una mano de n cartas sacadas del montón oculto
+   haya al menos una de ese valor. */
+function probTiene(ocultas, valor, n) {
+  const U = ocultas.length;
+  if (!U || !n) return 0;
+  let k = 0;
+  for (const c of ocultas) if (VAL(c) === valor) k++;
+  if (!k) return 0;
+  if (U - k < n) return 1;
+  let p = 1;
+  for (let t = 0; t < n; t++) p *= (U - k - t) / (U - t);
+  return 1 - p;
+}
+
+/* Lo mejor que se puede capturar en esa mesa con una carta de valor v. */
+function mejorCaptura(mesa, vals, v, W) {
+  const cs = combos(vals, 15 - v);
+  let mx = 0;
+  for (const k of cs) {
+    let val = valorCartas(k.map((i) => mesa[i]), W) + W.carta;
+    if (k.length === mesa.length) val += W.escoba;
+    if (val > mx) mx = val;
+  }
+  return mx;
+}
+
+/* Esperanza de lo que el rival se lleva en su turno: para cada valor, la
+   probabilidad de que lo tenga por lo mejor que haría con él, tomados de
+   mayor a menor (esperanza del máximo suponiendo independencia).
+   Aquí está la diferencia entre Difícil y Experto: los dos miden el peligro
+   de la mesa que dejan, pero `probDe` es una probabilidad plana para Difícil
+   y la cuenta exacta de lo que falta por salir para Experto. */
+function amenazaCon(mesa, W, probDe) {
+  if (!mesa.length) return 0;
+  const vals = mesa.map(VAL);
+  const lista = [];
+  for (let v = 1; v <= 10; v++) {
+    const p = probDe(v);
+    if (p < 0.02) continue;
+    const mx = mejorCaptura(mesa, vals, v, W);
+    if (mx > 0) lista.push([mx, p]);
+  }
+  lista.sort((x, y) => y[0] - x[0]);
+  let e = 0, q = 1;
+  for (const [mx, p] of lista) { e += q * p * mx; q *= (1 - p); }
+  return e;
+}
+
+/* Lo mejor que yo podría capturar después con lo que me queda en la mano. */
+function oportunidad(mesa, mano, W) {
+  if (!mano.length || !mesa.length) return 0;
+  const vals = mesa.map(VAL);
+  let mx = 0;
+  for (const c of mano) {
+    const v = mejorCaptura(mesa, vals, VAL(c), W) + valorCartas([c], W) - W.carta;
+    if (v > mx) mx = v;
+  }
+  return mx;
+}
+
+function elegirNormal(R, j, legales, rnd) {
+  const caps = legales.filter((l) => l.combo);
+  if (!caps.length) return legales[Math.floor(rnd() * legales.length)];
+  let mejor = caps[0], ms = -Infinity;
+  for (const l of caps) {
+    const s = ganancia(R, j, l, PESO) + (esEscoba(R, l) ? PESO.escoba : 0) + rnd() * 0.01;
+    if (s > ms) { ms = s; mejor = l; }
+  }
+  return mejor;
+}
+
+/* Difícil no cuenta cartas: supone que cualquier valor está igual de vivo
+   (cuatro de cada cuarenta) y con eso mide dos cosas — que no le dejen la
+   mesa lista para una escoba y que no le regale una captura gorda — además
+   de no soltar las cartas que valen. Medido: sin el término de amenaza
+   ganaba 53 % a Normal; con él, 60,6 %. */
+const P_FIJA = 0.27;
+function elegirDificil(R, j, legales, rnd) {
+  const pPlana = 1 - Math.pow(1 - 4 / 40, R.manos[1 - j].length);
+  const plana = () => pPlana;
+  let mejor = legales[0], ms = -Infinity;
+  for (const l of legales) {
+    let s = ganancia(R, j, l, PESO) + (esEscoba(R, l) ? PESO.escoba : 0);
+    const m2 = mesaTras(R, l);
+    const sm = sumaV(m2);
+    if (sm >= 5 && sm <= 14 && !esUltimaJugada(R)) s -= PESO.escoba * P_FIJA;
+    if (!l.combo) s -= valorCartas([l.carta], PESO) * 0.7 + (l.carta === VELO ? 20 : 0);
+    s -= 0.8 * amenazaCon(m2, PESO, plana);
+    s += rnd() * 0.01;
+    if (s > ms) { ms = s; mejor = l; }
+  }
+  return mejor;
+}
+
+/* Cuánto vale cada punto AHORA: un oro más no vale nada si los oros ya
+   están decididos, y el velo deja de valer en cuanto alguien lo tiene. */
+function pesosExperto(R, j) {
+  const o = 1 - j;
+  const a = cuentas(R.cap[j]), b = cuentas(R.cap[o]);
+  const decidido = (mi, su, resto) => mi > su + resto || mi + resto <= su;
+  return {
+    carta: decidido(a.cartas, b.cartas, 40 - a.cartas - b.cartas) ? 0.7 : 3,
+    oro: decidido(a.oros, b.oros, 10 - a.oros - b.oros) ? 1.5 : 13,
+    siete: decidido(a.sietes, b.sietes, 4 - a.sietes - b.sietes) ? 1.5 : 20,
+    velo: (a.velo || b.velo) ? 0 : 52,
+    escoba: 100,
+  };
+}
+
+function elegirExperto(R, j, legales, rnd) {
+  const o = 1 - j;
+  const W = pesosExperto(R, j);
+  const ocultas = noVistas(R, j);
+  const nRival = R.manos[o].length;
+  const ultima = esUltimaJugada(R);
+  let mejor = legales[0], ms = -Infinity;
+  for (const l of legales) {
+    let s = ganancia(R, j, l, W) + (esEscoba(R, l) ? W.escoba : 0);
+    const m2 = mesaTras(R, l);
+    if (ultima) {
+      // Lo que quede en la mesa se lo lleva quien capturó al final
+      const dueno = l.combo ? j : R.ultima;
+      const v = valorCartas(m2, W);
+      s += dueno === j ? v : dueno === o ? -v : 0;
+    } else {
+      const sm = sumaV(m2);
+      if (sm >= 5 && sm <= 14) s -= W.escoba * probTiene(ocultas, 15 - sm, nRival);
+      s -= 0.55 * amenazaCon(m2, W, (v) => probTiene(ocultas, v, nRival));
+      s += 0.3 * oportunidad(m2, R.manos[j].filter((c) => c !== l.carta), W);
+    }
+    s += rnd() * 0.01;
+    if (s > ms) { ms = s; mejor = l; }
+  }
+  return mejor;
+}
+
+function elegirApp(R, j, nivel, rnd) {
+  const r = rnd || Math.random;
+  const legales = jugadasLegales(R, j);
+  if (!legales.length) return null;
+  if (nivel === 'facil') return legales[Math.floor(r() * legales.length)];
+  if (nivel === 'normal') return elegirNormal(R, j, legales, r);
+  if (nivel === 'dificil') return elegirDificil(R, j, legales, r);
+  return elegirExperto(R, j, legales, r);
+}
+
+/* Partida entera sin pantalla: la usa el arnés que mide la escalera. */
+function simularPartida(nivA, nivB, rnd, repartePrimero) {
+  const pts = [0, 0];
+  let da = repartePrimero;
+  for (let r = 0; r < 80; r++) {
+    const R = nuevaRonda(rnd, 1 - da);
+    let paso = 0;
+    while (!R.fin && paso++ < 200) {
+      const j = R.turno;
+      const jug = elegirApp(R, j, j === 0 ? nivA : nivB, rnd);
+      if (!jug) break;
+      aplicar(R, j, jug);
+      tras(R, j);
+    }
+    const t = tanteo(R);
+    pts[0] += t.p[0]; pts[1] += t.p[1];
+    da = 1 - da;
+    if ((pts[0] >= META || pts[1] >= META) && pts[0] !== pts[1]) break;
+  }
+  return pts[0] > pts[1] ? 0 : pts[1] > pts[0] ? 1 : -1;
+}
+/* ══ FIN DEL MOTOR ══════════════════════════════════════════════════ */
+
+/* ── La baraja dibujada: cuatro palos en SVG, sin imágenes ni emoji ─── */
+const PIP = [
+  /* oros: moneda de aros concéntricos */
+  '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"></circle>' +
+  '<circle cx="12" cy="12" r="4.4" fill="none" stroke="currentColor" stroke-width="1.6"></circle>' +
+  '<circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>',
+  /* copas: copón, pie y base */
+  '<path d="M4.6 4.2h14.8v2.6a7.4 7.4 0 0 1-14.8 0z" fill="currentColor"></path>' +
+  '<rect x="10.8" y="13.4" width="2.4" height="5" fill="currentColor"></rect>' +
+  '<path d="M6.4 21.6c1-2.9 10.2-2.9 11.2 0z" fill="currentColor"></path>',
+  /* espadas: hoja recta, guarda y pomo */
+  '<path d="M12 2.2l2.1 3.7v9.1h-4.2V5.9z" fill="currentColor"></path>' +
+  '<rect x="4.6" y="15" width="14.8" height="2.2" rx="1.1" fill="currentColor"></rect>' +
+  '<rect x="10.9" y="17.2" width="2.2" height="2.7" fill="currentColor"></rect>' +
+  '<circle cx="12" cy="21" r="1.9" fill="currentColor"></circle>',
+  /* bastos: garrote en diagonal con dos nudos */
+  '<path d="M6.6 20.6L17.4 6.4" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" fill="none"></path>' +
+  '<path d="M11.3 14.9L7.4 12.5" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" fill="none"></path>' +
+  '<path d="M14.3 11.1l4 1.6" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" fill="none"></path>',
+];
+const PALO_N = ['oros', 'copas', 'espadas', 'bastos'];
+const FIG = { 8: 'S', 9: 'C', 10: 'R' };
+const FIG_N = { 8: 'sota', 9: 'caballo', 10: 'rey' };
+const nombreCarta = (c) => `${VAL(c) === 1 ? 'as' : FIG_N[VAL(c)] || VAL(c)} de ${PALO_N[PALO(c)]}`;
+
+function cartaHTML(c, w, clases, attrs, tag) {
+  const v = VAL(c), t = tag || 'button';
+  return `<${t} class="eb-c eb-p${PALO(c)} ${clases.join(' ')}" style="--w:${w}px" ${attrs || ''}` +
+    ` aria-label="${nombreCarta(c)}, vale ${v}"${t === 'button' ? ' type="button"' : ''}>` +
+    `<span class="eb-r">${v}</span>${FIG[v] ? `<span class="eb-fig">${FIG[v]}</span>` : ''}` +
+    `<svg class="eb-pip" viewBox="0 0 24 24" aria-hidden="true">${PIP[PALO(c)]}</svg></${t}>`;
+}
+
+/* ── Estado de pantalla ───────────────────────────────────────────── */
+const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+const YO = 0, APP = 1;
+const S = {
+  nivel: store.get('escoba.nivel', 'normal'),
+  R: null, pts: [0, 0], ronda: 1, da: APP,
+  sel: null, ghost: null, ghostCombo: null,
+  gen: 0, timers: [], jugando: false, esperando: null,
+};
+
+const REGLAS = `
+<p>Baraja española de 40 cartas: cada una vale su número y las figuras valen
+<b>sota 8, caballo 9 y rey 10</b>. En la carta ves el valor grande y la letra pequeña.</p>
+<p>Tres cartas para cada uno y cuatro a la mesa. En tu turno juegas una carta:
+si con ella y una o varias de la mesa <b>sumas 15</b>, te las llevas todas, y
+con una carta que puede capturar <b>capturar es obligatorio</b>. Si no suma con
+nada, se queda en la mesa. Cuando los dos se quedan sin cartas se reparten tres
+más, hasta agotar la baraja; lo que sobre en la mesa es para quien capturó al
+final. Vaciar la mesa con tu captura es <b>escoba</b>.</p>
+<p>Puntos al acabar cada ronda (el empate no da punto a nadie):</p>
+<table class="eb-tabla">
+  <tr><td>Más cartas (21 o más)</td><td>1</td></tr>
+  <tr><td>Más oros (6 o más)</td><td>1</td></tr>
+  <tr><td>El siete de oros (el velo)</td><td>1</td></tr>
+  <tr><td>Más sietes (3 o más)</td><td>1</td></tr>
+  <tr><td>Cada escoba</td><td>1</td></tr>
+</table>
+<p>Se juegan rondas hasta que alguien llega a <b>15 puntos</b>, turnándose el
+reparto. La app: <b>Fácil</b> juega al azar; <b>Normal</b> captura siempre que
+puede y va por los oros y los sietes; <b>Difícil</b> además cuida lo que te deja
+servido en la mesa; <b>Experto</b> cuenta las cartas ya vistas para calcular qué
+te queda por salir. Tus victorias se guardan por nivel.</p>`;
+
+const victorias = (n) => store.get('escoba.wins.' + n, 0);
+function anotaVictoria(nivel) {
+  const n = victorias(nivel) + 1;
+  store.set('escoba.wins.' + nivel, n);
+  let alto = null;
+  for (const v of NIVELES) if (victorias(v) > 0) alto = v;
+  if (alto) {
+    const k = victorias(alto);
+    store.set('esco.hub', `${DIFF_LABEL[alto]}: ${k} victoria${k === 1 ? '' : 's'}`);
+  }
+  return n;
+}
+
+function limpiar() {
+  S.gen++;
+  for (const t of S.timers) clearTimeout(t);
+  S.timers = [];
+  closeModal();
+  S.jugando = false; S.esperando = null;
+  S.sel = null; S.ghost = null; S.ghostCombo = null;
+}
+const espera = (ms) => new Promise((r) => { const t = setTimeout(r, ms); S.timers.push(t); });
+const vivo = (g) => g === S.gen && S.jugando && !!$('#eb-mesa');
+
+/* ── Pantalla de inicio ───────────────────────────────────────────── */
+function renderSetup() {
+  limpiar();
+  const bests = NIVELES.map((v) =>
+    `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
+  const esc = store.get('escoba.escobas', 0);
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Escoba del 15', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;">
+          <div class="row-title">Nivel de la app</div><div class="row-hint" id="d-hint"></div>
+        </div>
+        ${diffSegHTML('seg-d', S.nivel)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Partidas ganadas, por nivel</div>
+      <div class="bests">${bests}</div>
+      <div class="dato" style="text-align:center; margin-top:2px;">Escobas hechas en total: ${esc}</div>
+      <button class="btn btn-primary" style="margin-top:6px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const HINT = {
+    facil: 'juega al azar', normal: 'captura y busca oros',
+    dificil: 'no te deja la mesa servida', experto: 'cuenta las cartas vistas',
+  };
+  const hint = () => { const e = $('#d-hint'); if (e) e.textContent = HINT[S.nivel]; };
+  hint();
+  bindSeg('seg-d', (v) => { S.nivel = v; store.set('escoba.nivel', v); hint(); });
+  $('#new').onclick = nuevaPartida;
+  bindHowto(REGLAS);
+}
+
+/* ── Partida ──────────────────────────────────────────────────────── */
+function nuevaPartida() {
+  limpiar();
+  S.pts = [0, 0]; S.ronda = 1; S.da = APP;
+  S.jugando = true;
+  S.R = nuevaRonda(Math.random, 1 - S.da);
+  renderPlay();
+  turno();
+}
+
+function siguienteRonda() {
+  S.ronda++;
+  S.da = 1 - S.da;
+  S.sel = null; S.ghost = null; S.ghostCombo = null;
+  S.R = nuevaRonda(Math.random, 1 - S.da);
+  S.jugando = true;
+  pinta();
+  turno();
+}
+
+function renderPlay() {
+  const lado = (id, nombre) => `
+    <div class="eb-lado" id="eb-lado-${id}">
+      <div class="eb-cabeza"><span class="eb-quien">${nombre}</span><span class="eb-pts" id="eb-pts-${id}">0</span></div>
+      <div class="eb-caps">
+        <div><div class="eb-n" id="eb-ca-${id}">0</div><div class="eb-l">cartas</div></div>
+        <div><div class="eb-n" id="eb-or-${id}">0</div><div class="eb-l">oros</div></div>
+        <div><div class="eb-n" id="eb-si-${id}">0</div><div class="eb-l">sietes</div></div>
+        <div><div class="eb-n" id="eb-es-${id}">0</div><div class="eb-l">escobas</div></div>
+      </div>
+      <div class="eb-velo" id="eb-ve-${id}"></div>
+    </div>`;
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Escoba del 15', `<span class="chip">${DIFF_LABEL[S.nivel]}</span>`)}
+    <div class="eb-juego" id="eb-juego">
+      <div class="eb-tanteo">${lado(0, 'Tú')}${lado(1, 'App')}</div>
+      <div class="eb-zona">
+        <div class="eb-cab"><span>Mesa</span><span id="eb-mazo"></span></div>
+        <div class="eb-mesa" id="eb-mesa"></div>
+      </div>
+      <div class="eb-msg" id="eb-msg"></div>
+      <div class="eb-zona">
+        <div class="eb-cab"><span>Tu mano</span><span id="eb-rival"></span></div>
+        <div class="eb-mano" id="eb-mano"></div>
+        <div class="eb-accion" id="eb-accion"></div>
+      </div>
+      <div class="eb-flash" id="eb-flash"></div>
+    </div>
+    <div class="eb-tools">
+      <button class="eb-tool" id="t-nueva">Nueva partida</button>
+      <button class="eb-tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#eb-mesa').onclick = (e) => {
+    const b = e.target.closest('.eb-mesa-c');
+    if (b) tocaMesa(Number(b.dataset.m));
+  };
+  $('#eb-mano').onclick = (e) => {
+    const b = e.target.closest('.eb-mano-c');
+    if (b) tocaMano(Number(b.dataset.i));
+  };
+  $('#t-nueva').onclick = nuevaPartida;
+  $('#t-salir').onclick = renderSetup;
+  pinta();
+}
+
+/* ── Pintado ──────────────────────────────────────────────────────── */
+function calientes(sel) {
+  const s = new Set();
+  if (!sel) return s;
+  for (const c of sel.combos) {
+    if (!sel.elegidas.every((i) => c.includes(i))) continue;
+    for (const i of c) if (!sel.elegidas.includes(i)) s.add(i);
+  }
+  return s;
+}
+
+function pintaMesa() {
+  const cont = $('#eb-mesa');
+  if (!cont || !S.R) return;
+  const R = S.R;
+  // La carta encoge por tramos para que la mesa nunca pase de dos filas
+  // (medido: la mesa llegó a 11 cartas en 72.000 jugadas simuladas).
+  const n = R.mesa.length + (S.ghost != null ? 1 : 0);
+  const w = n <= 6 ? 55 : n <= 9 ? 48 : n <= 13 ? 41 : 35;
+  const hot = calientes(S.sel);
+  const eleg = new Set(S.sel ? S.sel.elegidas : []);
+  const marca = new Set(S.ghostCombo || []);
+  let html = R.mesa.map((c, i) => {
+    const cl = ['eb-mesa-c'];
+    if (eleg.has(i) || marca.has(i)) cl.push('eb-sel');
+    else if (hot.has(i)) cl.push('eb-hot');
+    else if (S.sel) cl.push('eb-off');
+    return cartaHTML(c, w, cl, `data-m="${i}"`);
+  }).join('');
+  if (S.ghost != null) html += cartaHTML(S.ghost, w, ['eb-ghost'], '', 'div');
+  cont.innerHTML = html || '<span class="eb-vacia">mesa vacía</span>';
+}
+
+function pintaMano() {
+  const cont = $('#eb-mano');
+  if (!cont || !S.R) return;
+  const mano = S.R.manos[YO];
+  cont.innerHTML = mano.map((c, i) =>
+    cartaHTML(c, 72, ['eb-mano-c', S.sel && S.sel.i === i ? 'eb-jug' : ''], `data-i="${i}"`)).join('')
+    || '<span class="eb-vacia">sin cartas</span>';
+}
+
+function pintaTanteo() {
+  if (!$('#eb-mesa') || !S.R) return;
+  const R = S.R;
+  for (const j of [0, 1]) {
+    const c = cuentas(R.cap[j]);
+    const set = (id, v) => { const e = $('#eb-' + id + '-' + j); if (e) e.textContent = v; };
+    set('pts', S.pts[j]); set('ca', c.cartas); set('or', c.oros); set('si', c.sietes); set('es', R.esc[j]);
+    const v = $('#eb-ve-' + j); if (v) v.textContent = c.velo ? '· 7 de oros ·' : '';
+    const l = $('#eb-lado-' + j);
+    if (l) l.classList.toggle('eb-turno', S.jugando && R.turno === j);
+  }
+  const m = $('#eb-mazo');
+  if (m) m.textContent = `Mazo ${R.mazo.length} · Ronda ${S.ronda} · a ${META}`;
+  const r = $('#eb-rival');
+  if (r) r.textContent = `App: ${R.manos[APP].length} cartas`;
+}
+
+function pintaAccion() {
+  const cont = $('#eb-accion');
+  if (!cont) return;
+  if (S.esperando !== 'tu') { cont.innerHTML = ''; return; }
+  if (!S.sel) { cont.innerHTML = ''; return; }
+  const carta = S.sel.carta;
+  if (!S.sel.combos.length) {
+    cont.innerHTML = `<button class="btn btn-primary btn-sm" id="eb-dejar" type="button">Dejar el ${nombreCarta(carta)}</button>` +
+      `<button class="btn btn-ghost btn-sm" id="eb-cancel" type="button">Cancelar</button>`;
+    $('#eb-dejar').onclick = () => { if (S.esperando === 'tu' && S.sel) jugada(YO, { carta: S.sel.carta, combo: null }); };
+  } else {
+    cont.innerHTML = `<button class="btn btn-ghost btn-sm" id="eb-cancel" type="button">Cancelar</button>`;
+  }
+  const c = $('#eb-cancel');
+  if (c) c.onclick = () => { S.sel = null; pinta(); msg('Tu turno: escoge una carta'); };
+}
+
+function pinta() { pintaTanteo(); pintaMesa(); pintaMano(); pintaAccion(); }
+
+function msg(t) { const e = $('#eb-msg'); if (e) e.textContent = t || ''; }
+
+function flashEscoba(j) {
+  const f = $('#eb-flash');
+  if (!f) return;
+  f.innerHTML = `<span>${j === YO ? '¡Escoba!' : 'Escoba de la app'}</span>`;
+  const t = setTimeout(() => { const e = $('#eb-flash'); if (e) e.innerHTML = ''; }, 1200);
+  S.timers.push(t);
+}
+
+/* ── Toques del jugador ───────────────────────────────────────────── */
+function tocaMano(i) {
+  if (S.esperando !== 'tu' || !S.R) return;
+  const mano = S.R.manos[YO];
+  if (i < 0 || i >= mano.length) return;
+  if (S.sel && S.sel.i === i) { S.sel = null; pinta(); msg('Tu turno: escoge una carta'); return; }
+  const carta = mano[i];
+  const cs = combos(S.R.mesa.map(VAL), 15 - VAL(carta));
+  S.sel = { i, carta, combos: cs, elegidas: [] };
+  pinta();
+  msg(cs.length ? 'Toca en la mesa las cartas que suman 15' : 'No suma 15 con nada: se queda en la mesa');
+}
+
+function tocaMesa(m) {
+  if (S.esperando !== 'tu' || !S.sel || !S.R) return;
+  const el = S.sel.elegidas;
+  const k = el.indexOf(m);
+  if (k >= 0) el.splice(k, 1);
+  else {
+    if (!calientes(S.sel).has(m)) { vibrate(4); return; }
+    el.push(m);
+  }
+  const total = VAL(S.sel.carta) + el.reduce((a, i) => a + VAL(S.R.mesa[i]), 0);
+  if (total === 15) {
+    const jug = { carta: S.sel.carta, combo: el.slice() };
+    S.sel = null;
+    return jugada(YO, jug);
+  }
+  pinta();
+  msg(`Llevas ${total} de 15`);
+}
+
+/* ── Turnos ───────────────────────────────────────────────────────── */
+async function turno() {
+  const g = S.gen;
+  if (!vivo(g)) return;
+  const R = S.R;
+  if (R.turno === YO) {
+    S.esperando = 'tu';
+    pinta();
+    msg('Tu turno: escoge una carta');
+    return;
+  }
+  S.esperando = null;
+  S.sel = null;
+  pinta();
+  msg('Piensa la app…');
+  await espera(520);
+  if (!vivo(g)) return;
+  const jug = elegirApp(R, APP, S.nivel, Math.random);
+  if (!jug) return;
+  S.ghost = jug.carta; S.ghostCombo = jug.combo;
+  pintaMesa();
+  msg(`La app juega el ${nombreCarta(jug.carta)}`);
+  await espera(820);
+  if (!vivo(g)) return;
+  S.ghost = null; S.ghostCombo = null;
+  jugada(APP, jug);
+}
+
+async function jugada(j, jug) {
+  const g = S.gen;
+  if (!vivo(g)) return;
+  // Se cierra la entrada antes de la primera espera: si no, un segundo toque
+  // durante la animación colaba una jugada de más.
+  S.esperando = null;
+  const R = S.R;
+  const res = aplicar(R, j, jug);
+  S.sel = null;
+  pinta();
+  if (res.escoba) { flashEscoba(j); vibrate([25, 55, 25]); }
+  else if (jug.combo) {
+    const n = res.tomadas.length + 1;
+    msg(j === YO ? `Te llevas ${n} cartas` : `La app se lleva ${n} cartas`);
+    if (j === YO) vibrate(10);
+  } else msg(j === YO ? 'Se queda en la mesa' : 'La app la deja en la mesa');
+  await espera(res.escoba ? 1150 : 480);
+  if (!vivo(g)) return;
+  const est = tras(R, j);
+  if (est === 'fin') return finRonda();
+  pinta();
+  if (est === 'reparto') {
+    msg('Tres cartas más para cada uno');
+    await espera(560);
+    if (!vivo(g)) return;
+  }
+  turno();
+}
+
+/* ── Fin de ronda y de partida ────────────────────────────────────── */
+async function finRonda() {
+  const g = S.gen;
+  if (!vivo(g)) return;
+  const R = S.R;
+  const t = tanteo(R);
+  S.pts[0] += t.p[0]; S.pts[1] += t.p[1];
+  S.esperando = null;
+  store.set('escoba.escobas', store.get('escoba.escobas', 0) + R.esc[0]);
+  pinta();
+  msg(R.restos ? `Las ${R.restos} de la mesa se las lleva ${R.ultima === YO ? 'tu montón' : 'la app'}` : 'Fin de la ronda');
+  await espera(900);
+  if (!vivo(g)) return;
+  const gana = (S.pts[0] >= META || S.pts[1] >= META) && S.pts[0] !== S.pts[1];
+  const filas = t.det.map(([n, a, b, q]) =>
+    `<tr><td>${n}</td><td class="${q === 0 ? 'eb-gana' : ''}">${a}</td><td class="${q === 1 ? 'eb-gana' : ''}">${b}</td></tr>`).join('');
+  const cabecera = (t) => `<table class="eb-tabla">
+    <tr><th>${t}</th><th>Tú</th><th>App</th></tr>
+    ${filas}
+    <tr class="eb-total"><td>Puntos de la ronda</td><td>+${t.p[0]}</td><td>+${t.p[1]}</td></tr>
+    <tr class="eb-total"><td>Partida</td><td>${S.pts[0]}</td><td>${S.pts[1]}</td></tr>
+  </table>`;
+  // En el modal de ronda el título ya dice cuál es; en el de fin, no.
+  const tabla = cabecera('');
+  const tablaFin = cabecera('Última ronda');
+  if (!gana) {
+    S.jugando = false;
+    openModal(`<h3>Ronda ${S.ronda}</h3>${tabla}
+      <p class="eb-nota">Se juega a ${META} puntos. ${S.da === YO ? 'La siguiente la reparte la app' : 'La siguiente la repartes tú'}, y empieza el otro.</p>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again" type="button">Siguiente ronda</button>
+        <button class="btn btn-ghost" id="m-out" type="button">Salir</button>
+      </div>`);
+    $('#m-again').onclick = () => { closeModal(); siguienteRonda(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+    return;
+  }
+  terminar(t, tablaFin);
+}
+
+function terminar(t, tabla) {
+  S.jugando = false;
+  S.esperando = null;
+  const gane = S.pts[0] > S.pts[1];
+  let extra = '';
+  if (gane) {
+    const n = anotaVictoria(S.nivel);
+    extra = `<p style="text-align:center;">Llevas <b>${n}</b> victoria${n === 1 ? '' : 's'} en <b>${DIFF_LABEL[S.nivel]}</b>.</p>`;
+    confetti(); vibrate([30, 60, 30]);
+  } else {
+    extra = `<p style="text-align:center;">La app llegó a ${META} antes. Otra ronda y cambia todo.</p>`;
+  }
+  const abrir = () => {
+    if (!$('#eb-mesa')) return;
+    openModal(`<h3>${gane ? '¡Ganaste la partida!' : 'Gana la app'}</h3>${tabla}${extra}
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again" type="button">Otra partida</button>
+        <button class="btn btn-ghost" id="m-out" type="button">Salir</button>
+      </div>`);
+    $('#m-again').onclick = () => { closeModal(); nuevaPartida(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  };
+  const tm = setTimeout(abrir, gane ? 500 : 200);
+  S.timers.push(tm);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

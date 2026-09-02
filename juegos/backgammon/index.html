@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Backgammon contra la app: mueve con los dados, come las fichas solas y saca tus quince antes que el rival." />
+<title>Backgammon</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='43' font-size='30' font-family='Georgia,serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EB%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Dos bandos, dos colores muy separados: terracota oscuro (el mismo matiz de
+     marca que ya usa el texto de acento, 4,9:1 contra el crema de los números
+     que van encima) y el azul de --tinta-2. Todo con prefijo bg- para no
+     pisar el estilo compartido. */
+  .bg-juego { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
+
+  /* ── Marcador ──────────────────────────────────────────────────── */
+  .bg-marca { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; padding: 0 12px; }
+  .bg-m { display: flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); }
+  .bg-m i { width: 9px; height: 9px; border-radius: 999px; flex-shrink: 0; }
+  .bg-m b { font-family: var(--font); font-weight: 500; font-size: 14px; color: var(--ink);
+    letter-spacing: 0; font-variant-numeric: tabular-nums; }
+
+  /* ── Tablero ───────────────────────────────────────────────────── */
+  .bg-wrap { display: flex; justify-content: center; padding: 0 6px; }
+  .bg-tab {
+    position: relative; background: var(--card);
+    border: var(--trazo) solid var(--linea-fuerte); border-radius: 12px;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none; overflow: hidden;
+  }
+  /* Los 24 triángulos. Cada punto es un botón alto y estrecho: el ancho lo
+     manda el tablero, pero el alto (más de 100 px) hace el objetivo cómodo. */
+  .bg-pt { position: absolute; padding: 0; border: none; background: transparent; cursor: pointer; }
+  .bg-tri { position: absolute; inset: 0; clip-path: polygon(50% 100%, 0 0, 100% 0); }
+  .bg-pt.bg-abajo .bg-tri { clip-path: polygon(50% 0, 0 100%, 100% 100%); }
+  .bg-tri.bg-a { background: var(--panel); }
+  .bg-tri.bg-b { background: color-mix(in srgb, var(--second) 26%, var(--card)); }
+  /* Barra central y bandeja de salida: dos columnas beige que se leen como
+     parte del tablero, no como puntos. */
+  .bg-barra, .bg-bandeja { position: absolute; top: 0; bottom: 0; background: var(--soft); padding: 0; border: none; cursor: default; }
+  .bg-barra { border-left: var(--trazo) solid var(--linea); border-right: var(--trazo) solid var(--linea); }
+  .bg-bandeja { border-left: var(--trazo) solid var(--linea); }
+  .bg-bandeja.bg-puede, .bg-barra.bg-puede { cursor: pointer; }
+  .bg-medio { position: absolute; left: 0; right: 0; background: var(--soft); }
+
+  /* ── Fichas ────────────────────────────────────────────────────── */
+  .bg-f {
+    position: absolute; left: 50%; border-radius: 999px;
+    border: var(--trazo) solid color-mix(in srgb, var(--ink) 34%, transparent);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font); font-weight: 500; color: var(--card);
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .bg-f.bg-yo { background: var(--accent-texto); }
+  .bg-f.bg-app { background: var(--tinta-2); }
+  /* Ficha que puede moverse: filete de tinta. Ficha elegida: aro terracota. */
+  .bg-f.bg-viva { border-color: var(--ink); border-width: 2px; }
+  .bg-f.bg-elegida { border-color: var(--accent-texto); border-width: 3px; }
+  .bg-f.bg-nueva { animation: bgLlega .34s var(--ease); }
+  @keyframes bgLlega { from { transform: translateX(-50%) scale(.55); opacity: .4; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+  /* Destino legal: un aro terracota de puntos donde caería la ficha */
+  .bg-bandeja.bg-ok { background: color-mix(in srgb, var(--accent-texto) 14%, var(--soft)); }
+  .bg-diana { position: absolute; left: 50%; border-radius: 999px; border: 2px dashed var(--accent-texto); background: color-mix(in srgb, var(--accent-texto) 12%, transparent); }
+  .bg-pt.bg-sel .bg-tri, .bg-barra.bg-sel { background: color-mix(in srgb, var(--accent-texto) 26%, var(--card)); }
+  /* Fichas ya sacadas: listones finos en la bandeja, como en un tablero real */
+  .bg-sal { position: absolute; left: 3px; right: 3px; border-radius: 3px; }
+  .bg-sal.bg-yo { background: var(--accent-texto); }
+  .bg-sal.bg-app { background: var(--tinta-2); }
+
+  /* ── Dados ─────────────────────────────────────────────────────── */
+  .bg-mesa { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 14px; }
+  .bg-dados { display: flex; gap: 8px; }
+  .bg-dado {
+    width: 46px; height: 46px; border-radius: 12px; background: var(--card);
+    border: var(--trazo) solid var(--linea-fuerte); padding: 8px;
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+    transition: opacity var(--dur) var(--ease);
+  }
+  .bg-dado i { border-radius: 999px; background: var(--ink); opacity: 0; }
+  .bg-dado i.bg-on { opacity: 1; }
+  .bg-dado.bg-gastado { opacity: .3; }
+  .bg-dado.bg-app { border-color: var(--tinta-2); }
+  .bg-tirar {
+    width: 100px; height: 46px; border-radius: var(--pastilla); border: none;
+    background: var(--accent-texto); color: var(--accent-ink);
+    font-family: var(--font); font-weight: 500; font-size: 15px; cursor: pointer;
+    transition: opacity var(--dur) var(--ease);
+  }
+  .bg-tirar:active { opacity: .8; }
+  .bg-tirar:disabled { background: var(--panel); color: var(--faint); cursor: default; }
+  .bg-aviso { text-align: center; font-family: var(--display); font-style: italic; font-size: 14px; color: var(--sub); min-height: 19px; padding: 0 16px; }
+
+  /* ── Mandos ────────────────────────────────────────────────────── */
+  .bg-mandos { display: flex; gap: 10px; padding: 0 16px; }
+  .bg-mandos .btn { flex: 1; padding: 13px 10px; font-size: 15px; }
+  .bg-tools { margin: 0 16px calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
+  .bg-tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
+  .bg-tool:active { opacity: .6; }
+  .bg-nota { font-size: 12.5px; color: var(--sub); padding: 8px 2px 2px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ══ Motor puro ═══════════════════════════════════════════════════════
+   Nada de aquí toca la pantalla: el mismo código juega tu partida y corre
+   las simulaciones con las que se midió la escalera de niveles.
+
+   Tablero: p[0..23]; p[i] > 0 son fichas tuyas, p[i] < 0 de la app.
+   Tú (YO) vas de 23 hacia 0 y sales por debajo de 0: tu casa es 0..5.
+   La app va de 0 hacia 23 y sale por encima de 23: su casa es 18..23.
+   BARRA y FUERA son los dos extremos especiales de un movimiento. */
+const YO = 0, APP = 1, BARRA = 24, FUERA = 25;
+
+function nuevoTablero() {
+  const p = new Array(24).fill(0);
+  p[23] = 2; p[12] = 5; p[7] = 3; p[5] = 5;        // tuyas
+  p[0] = -2; p[11] = -5; p[16] = -3; p[18] = -5;   // de la app (espejo exacto)
+  return { p, barra: [0, 0], fuera: [0, 0] };
+}
+const clona = (t) => ({ p: t.p.slice(), barra: t.barra.slice(), fuera: t.fuera.slice() });
+const mias = (t, j, i) => (j === YO ? Math.max(0, t.p[i]) : Math.max(0, -t.p[i]));
+const sentido = (j) => (j === YO ? -1 : 1);
+const pipDe = (j, i) => (j === YO ? i + 1 : 24 - i);      // pips que le faltan a esa ficha
+const entrada = (j, d) => (j === YO ? 24 - d : d - 1);     // punto donde reentra desde la barra
+const enCasa = (j, i) => (j === YO ? i <= 5 : i >= 18);
+const clave = (t) => t.p.join(',') + '|' + t.barra[0] + ',' + t.barra[1];
+
+function pips(t, j) {
+  let s = t.barra[j] * 25;
+  for (let i = 0; i < 24; i++) { const n = mias(t, j, i); if (n) s += n * pipDe(j, i); }
+  return s;
+}
+function todasEnCasa(t, j) {
+  if (t.barra[j] > 0) return false;
+  for (let i = 0; i < 24; i++) if (!enCasa(j, i) && mias(t, j, i)) return false;
+  return true;
+}
+/* ¿Queda alguna ficha propia más lejos de la meta que la del punto i?
+   (solo importa dentro de casa, para saber si vale sacar con un dado mayor) */
+function masAtras(t, j, i) {
+  if (j === YO) { for (let k = i + 1; k <= 5; k++) if (t.p[k] > 0) return true; }
+  else { for (let k = 18; k < i; k++) if (t.p[k] < 0) return true; }
+  return false;
+}
+
+/* Movimientos de UN dado. Con fichas en la barra solo cuenta la reentrada. */
+function movsSimples(t, j, d) {
+  const out = [];
+  if (t.barra[j] > 0) {
+    const a = entrada(j, d);
+    if (mias(t, 1 - j, a) <= 1) out.push({ de: BARRA, a, d });
+    return out;
+  }
+  const casa = todasEnCasa(t, j);
+  for (let i = 0; i < 24; i++) {
+    if (!mias(t, j, i)) continue;
+    const a = i + sentido(j) * d;
+    if (a >= 0 && a <= 23) { if (mias(t, 1 - j, a) <= 1) out.push({ de: i, a, d }); }
+    else if (casa) {
+      const pip = pipDe(j, i);
+      if (pip === d || (pip < d && !masAtras(t, j, i))) out.push({ de: i, a: FUERA, d });
+    }
+  }
+  return out;
+}
+function aplicaMov(t, j, m) {
+  const s = j === YO ? 1 : -1;
+  let comio = false;
+  if (m.de === BARRA) t.barra[j]--; else t.p[m.de] -= s;
+  if (m.a === FUERA) t.fuera[j]++;
+  else {
+    if (mias(t, 1 - j, m.a) === 1) { t.p[m.a] = 0; t.barra[1 - j]++; comio = true; }
+    t.p[m.a] += s;
+  }
+  return comio;
+}
+const dadosDe = (a, b) => (a === b ? [a, a, a, a] : [a, b]);
+
+/* Cuántos dados de `rest` se llegan a usar como mucho. Con salida temprana:
+   en cuanto encuentra un camino que los gasta todos deja de buscar, que es
+   el caso normal y el único que podría ser caro. */
+function maxUso(t, j, rest) {
+  if (!rest.length) return 0;
+  let mejor = 0;
+  const vistos = new Set();
+  for (let idx = 0; idx < rest.length; idx++) {
+    const d = rest[idx];
+    if (vistos.has(d)) continue;
+    vistos.add(d);
+    for (const m of movsSimples(t, j, d)) {
+      const t2 = clona(t); aplicaMov(t2, j, m);
+      const r2 = rest.slice(); r2.splice(idx, 1);
+      const v = 1 + maxUso(t2, j, r2);
+      if (v > mejor) mejor = v;
+      if (mejor === rest.length) return mejor;
+    }
+  }
+  return mejor;
+}
+
+/* Las dos obligaciones del backgammon: hay que gastar el mayor número de
+   dados posible y, si solo cabe uno de los dos, tiene que ser el más alto. */
+function permitidos(t, j, dados) {
+  const rest = dadosDe(dados[0], dados[1]);
+  const n = maxUso(t, j, rest);
+  let soloDado = 0;
+  if (n === 1 && dados[0] !== dados[1]) {
+    const alto = Math.max(dados[0], dados[1]);
+    if (movsSimples(t, j, alto).length) soloDado = alto;
+  }
+  return { rest, n, soloDado };
+}
+
+/* Movimientos sueltos que el jugador puede hacer AHORA sin quedarse sin
+   poder gastar el máximo de dados: se prueba cada uno y se comprueba que
+   el resto siga alcanzando el mismo total. */
+function siguientes(t, j, rest, soloDado) {
+  const n = maxUso(t, j, rest);
+  if (!n) return [];
+  const out = [];
+  const vistos = new Set();
+  for (let idx = 0; idx < rest.length; idx++) {
+    const d = rest[idx];
+    if (vistos.has(d)) continue;
+    vistos.add(d);
+    if (soloDado && d !== soloDado) continue;
+    for (const m of movsSimples(t, j, d)) {
+      const t2 = clona(t); aplicaMov(t2, j, m);
+      const r2 = rest.slice(); r2.splice(idx, 1);
+      if (1 + maxUso(t2, j, r2) === n) out.push(m);
+    }
+  }
+  return out;
+}
+
+/* Todas las jugadas completas distintas del turno (posiciones finales sin
+   repetir). Es lo que mira la app para elegir. Si no hay ninguna devuelve
+   una jugada vacía: el turno se pierde. */
+function jugadas(t, j, dados) {
+  const { rest, soloDado } = permitidos(t, j, dados);
+  const salida = new Map();
+  let mejorLen = -1;
+  const vistos = new Set();
+  (function dfs(tab, r, pasos) {
+    const k = clave(tab) + '#' + r.join('');
+    if (vistos.has(k)) return;
+    vistos.add(k);
+    let alguno = false;
+    const usados = new Set();
+    for (let idx = 0; idx < r.length; idx++) {
+      const d = r[idx];
+      if (usados.has(d)) continue;
+      usados.add(d);
+      if (soloDado && pasos.length === 0 && d !== soloDado) continue;
+      for (const m of movsSimples(tab, j, d)) {
+        alguno = true;
+        const t2 = clona(tab); aplicaMov(t2, j, m);
+        const r2 = r.slice(); r2.splice(idx, 1);
+        dfs(t2, r2, pasos.concat([m]));
+      }
+    }
+    if (!alguno) {
+      if (pasos.length > mejorLen) { mejorLen = pasos.length; salida.clear(); }
+      if (pasos.length === mejorLen && !salida.has(clave(tab))) salida.set(clave(tab), { pasos, t: tab });
+    }
+  })(t, rest, []);
+  return [...salida.values()];
+}
+
+/* ── Riesgo real de que te coman una ficha sola ───────────────────────
+   Cuenta, de las 36 tiradas, en cuántas el rival puede llegar al punto
+   `punto` con UNA ficha: directo con un dado, o encadenando dos (o hasta
+   cuatro con dobles) si los puntos de paso están libres. También mira la
+   barra: con fichas ahí el rival tiene que reentrar antes de golpear.
+   Es la cuenta clásica de «tiros»; se contrastó contra el generador de
+   jugadas completo (ver informe). */
+function golpes(t, j, punto) {
+  const o = 1 - j;
+  const paso = o === APP ? -1 : 1;
+  const atras = (k) => punto + paso * k;                       // k pips por detrás, en el sentido del rival
+  const bloq = (i) => (i < 0 || i > 23 ? true : mias(t, j, i) >= 2);
+  const hay = (k) => { const i = atras(k); return i >= 0 && i <= 23 && mias(t, o, i) > 0; };
+  const nb = t.barra[o];
+  const ent = (d) => entrada(o, d);
+  const distEnt = (d) => (o === APP ? punto - ent(d) : ent(d) - punto);
+  let n = 0;
+  for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) {
+    const dob = a === b;
+    let golpea = false;
+    if (nb === 0) {
+      if (hay(a) || hay(b)) golpea = true;
+      else if (!dob) golpea = hay(a + b) && (!bloq(atras(a)) || !bloq(atras(b)));
+      else {
+        for (let m = 2; m <= 4 && !golpea; m++) {
+          if (!hay(m * a)) continue;
+          let libre = true;
+          for (let k = 1; k < m; k++) if (bloq(atras(k * a))) { libre = false; break; }
+          golpea = libre;
+        }
+      }
+    } else if (!dob) {
+      if (nb >= 3) golpea = false;
+      else if (nb === 2) golpea = (ent(a) === punto || ent(b) === punto) && !bloq(ent(a)) && !bloq(ent(b));
+      else {                                                    // una en la barra: entra con un dado y golpea con el otro
+        const rama = (e, g) => {
+          if (bloq(ent(e))) return false;
+          if (ent(e) === punto) return true;
+          return hay(g) || distEnt(e) === g;
+        };
+        golpea = rama(a, b) || rama(b, a);
+      }
+    } else {                                                    // dobles con fichas en la barra
+      if (nb > 4 || bloq(ent(a))) golpea = false;
+      else if (ent(a) === punto) golpea = true;
+      else {
+        const r = 4 - nb;                                       // dados que sobran tras reentrar
+        const de = distEnt(a);
+        for (let m = 1; m <= r && !golpea; m++) {
+          if (!hay(m * a) && !(de === m * a)) continue;
+          let libre = true;
+          for (let k = 1; k < m; k++) if (bloq(atras(k * a))) { libre = false; break; }
+          golpea = libre;
+        }
+      }
+    }
+    if (golpea) n++;
+  }
+  return n;
+}
+
+/* ¿Queda contacto? Si ninguna ficha tiene que pasar por delante de otra,
+   la partida es una carrera y lo único que cuenta son los pips. */
+function hayContacto(t) {
+  if (t.barra[YO] || t.barra[APP]) return true;
+  let maxYo = -1, minApp = 24;
+  for (let i = 0; i < 24; i++) {
+    if (t.p[i] > 0 && i > maxYo) maxYo = i;
+    if (t.p[i] < 0 && i < minApp) minApp = i;
+  }
+  return maxYo > minApp;
+}
+
+/* ── Evaluación de la posición ────────────────────────────────────────
+   `lado` puntúa lo que vale la posición para un bando y `evalua` resta el
+   del otro: así la evaluación es antisimétrica por construcción
+   (evalua(t, YO) === -evalua(t, APP)), y eso se comprueba en la medición. */
+   `alTiro` es quién tira A CONTINUACIÓN, y hace falta: una ficha sola vale
+   mucho menos cuando el que tira es su dueño (aún puede taparla o huir) que
+   cuando tira el rival. Sin ese dato la evaluación mide la misma posición de
+   dos maneras según la profundidad, y entonces buscar un tiro más no sirve
+   de nada: es lo que se midió antes de añadirlo (52,5 %). */
+const W_DIF = { pip: 1, fuera: 14, barra: 9, punto: 2.0, casa: 3.4, prima: 0.55, ancla: 5, blot: 0.65, propio: 0.4 };
+const W_EXP = { pip: 1, fuera: 14, barra: 11, punto: 2.4, casa: 4.2, prima: 0.75, ancla: 6, blot: 0.95, propio: 0.4 };
+const W_CAR = { pip: 1, fuera: 10, cruce: 1.6 };
+
+function ladoCarrera(t, j, W) {
+  let s = -pips(t, j) * W.pip + t.fuera[j] * W.fuera;
+  let cruces = 0;                                  // fichas que aún tienen que entrar a casa
+  for (let i = 0; i < 24; i++) if (!enCasa(j, i)) cruces += mias(t, j, i);
+  return s - cruces * W.cruce;
+}
+function lado(t, j, W, alTiro) {
+  let s = -pips(t, j) * W.pip + t.fuera[j] * W.fuera - t.barra[j] * W.barra;
+  let hechos = 0, casa = 0, mejorPrima = 0, run = 0;
+  for (let i = 0; i < 24; i++) {
+    if (mias(t, j, i) >= 2) {
+      hechos++;
+      if (enCasa(j, i)) casa++;
+      run++;
+      if (run > mejorPrima) mejorPrima = run;
+    } else run = 0;
+  }
+  s += hechos * W.punto + casa * W.casa;
+  if (mejorPrima >= 2) s += W.prima * mejorPrima * mejorPrima;   // una prima larga vale mucho más que dos cortas
+  const ca = j === YO ? 18 : 0;
+  for (let i = ca; i <= ca + 5; i++) if (mias(t, j, i) >= 2) { s += W.ancla; break; }   // ancla en casa del rival
+  const riesgo = alTiro === j ? W.propio : 1;                     // si tiras tú, aún puedes taparla
+  for (let i = 0; i < 24; i++) if (mias(t, j, i) === 1) {
+    s -= W.blot * riesgo * (golpes(t, j, i) / 36) * (25 - pipDe(j, i));   // cuanto más cerca de casa, más caro que te la coman
+  }
+  return s;
+}
+function evalua(t, j, W, alTiro) {
+  if (t.fuera[j] === 15) return 1e6;
+  if (t.fuera[1 - j] === 15) return -1e6;
+  if (!hayContacto(t)) return ladoCarrera(t, j, W_CAR) - ladoCarrera(t, 1 - j, W_CAR);
+  const q = alTiro === undefined ? 1 - j : alTiro;
+  return lado(t, j, W, q) - lado(t, 1 - j, W, q);
+}
+
+/* Normal: mira solo lo que tiene delante, sin medir riesgos ni primas.
+   Come, no deja fichas sueltas si puede, hace puntos y avanza. */
+function puntuaNormal(antes, t, j) {
+  let s = (t.barra[1 - j] - antes.barra[1 - j]) * 34;
+  let blots = 0, puntos = 0;
+  for (let i = 0; i < 24; i++) {
+    const n = mias(t, j, i);
+    if (n === 1) blots++; else if (n >= 2) puntos++;
+  }
+  s -= blots * 6.5;
+  s += puntos * 3;
+  s += (pips(antes, j) - pips(t, j)) * 0.55;
+  s += t.fuera[j] * 9 - t.barra[j] * 10;
+  return s;
+}
+
+/* Las 21 tiradas distintas con su peso (los dobles salen la mitad). */
+const TIRADAS = (() => {
+  const out = [];
+  for (let a = 1; a <= 6; a++) for (let b = a; b <= 6; b++) out.push([a, b, a === b ? 1 / 36 : 2 / 36]);
+  return out;
+})();
+
+/* Experto: para cada jugada candidata promedia lo que quedaría tras la
+   MEJOR respuesta del rival en cada una de las 21 tiradas. Un solo tiro de
+   profundidad; se acota a las CAND_EXP mejores por evaluación estática
+   porque el coste crece con el número de candidatas (ver informe). */
+const CAND_EXP = 6;
+function trasRespuesta(t, j, W) {
+  const o = 1 - j;
+  if (t.fuera[j] === 15) return 1e6;
+  let tot = 0;
+  for (const [a, b, w] of TIRADAS) {
+    const rs = jugadas(t, o, [a, b]);
+    let peor = Infinity;
+    for (const r of rs) {
+      const v = evalua(r.t, j, W, j);        // tras la respuesta del rival, el que tira eres tú
+      if (v < peor) peor = v;
+    }
+    tot += w * (peor === Infinity ? evalua(t, j, W, j) : peor);
+  }
+  return tot;
+}
+
+function eligeApp(t, j, js, nivel, azar, pesos) {
+  const rnd = azar || Math.random;
+  if (js.length <= 1) return js[0];
+  if (nivel === 'facil') return js[Math.floor(rnd() * js.length)];
+  if (nivel === 'normal') {
+    let mejor = js[0], mejorS = -Infinity;
+    for (const x of js) {
+      const s = puntuaNormal(t, x.t, j) + rnd() * 0.01;
+      if (s > mejorS) { mejorS = s; mejor = x; }
+    }
+    return mejor;
+  }
+  const W = pesos || (nivel === 'experto' ? W_EXP : W_DIF);
+  const cand = js.map((x) => ({ x, s: evalua(x.t, j, W, 1 - j) + rnd() * 0.01 }));   // tras mover, tira el rival
+  cand.sort((p, q) => q.s - p.s);
+  if (nivel === 'dificil') return cand[0].x;
+  let mejor = cand[0].x, mejorS = -Infinity;
+  for (const c of cand.slice(0, CAND_EXP)) {
+    const s = trasRespuesta(c.x.t, j, W) + rnd() * 0.01;
+    if (s > mejorS) { mejorS = s; mejor = c.x; }
+  }
+  return mejor;
+}
+
+/* Cuánto vale la victoria: sencilla, gammon (doble) o backgammon (triple). */
+function valorFin(t, g) {
+  const p = 1 - g;
+  if (t.fuera[p] > 0) return 1;
+  if (t.barra[p] > 0) return 3;
+  const ca = g === YO ? 0 : 18;
+  for (let i = ca; i <= ca + 5; i++) if (mias(t, p, i)) return 3;
+  return 2;
+}
+
+/* Tirada de salida: un dado cada uno, empieza el más alto y juega esa
+   pareja. Se repite mientras salga empate, como en la mesa. */
+function tiradaSalida(rnd) {
+  const r = rnd || Math.random;
+  let a, b;
+  do { a = 1 + Math.floor(r() * 6); b = 1 + Math.floor(r() * 6); } while (a === b);
+  return { turno: a > b ? YO : APP, dados: [a, b] };
+}
+
+/* Una partida entera sin pantalla, para medir la escalera. */
+function partidaSimulada(nivYo, nivApp, rnd) {
+  const t = nuevoTablero();
+  let { turno, dados } = tiradaSalida(rnd);
+  for (let k = 0; k < 4000; k++) {
+    const js = jugadas(t, turno, dados);
+    const cfg = turno === YO ? nivYo : nivApp;                 // string, o {niv, W} al afinar pesos
+    const el = eligeApp(t, turno, js, cfg.niv || cfg, rnd, cfg.W);
+    if (el && el.pasos.length) { t.p = el.t.p; t.barra = el.t.barra; t.fuera = el.t.fuera; }
+    if (t.fuera[turno] === 15) return { gana: turno, puntos: valorFin(t, turno), turnos: k };
+    turno = 1 - turno;
+    dados = [1 + Math.floor(rnd() * 6), 1 + Math.floor(rnd() * 6)];
+  }
+  return { gana: -1, puntos: 0, turnos: 4000 };
+}
+/* ── Fin del motor ──────────────────────────────────────────────────── */
+
+/* ══ Pantalla ═════════════════════════════════════════════════════════ */
+const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+
+const REGLAS = `<p>Quince fichas cada uno sobre 24 triángulos. Tú corres del 24 al 1 y sacas por abajo a la derecha; la app va al revés. Tiras dos dados y mueves <b>una ficha ese número de puntos</b>, con la misma o con dos distintas; <b>si salen dobles juegas cuatro movimientos</b>.</p>
+<p>Solo puedes caer en un triángulo <b>libre, tuyo o con UNA sola ficha rival</b>: a esa la comes y va a la barra. Mientras tengas fichas en la barra lo primero es reentrarlas. Hay que gastar los dos dados siempre que se pueda y, si solo cabe uno, tiene que ser el más alto.</p>
+<p>Cuando tus quince estén en tu cuadrante final empiezas a <b>sacarlas</b>. Gana quien saca las quince: si el rival no sacó ninguna es <b>gammon</b> y vale doble, y si además le quedan fichas en la barra o en tu cuadrante es <b>backgammon</b> y vale triple. <b>Sin cubo de doblar.</b></p>
+<p>Toca una ficha para ver a dónde puede ir y toca el destino; puedes <b>deshacer</b> mientras no confirmes con «Listo». La app: <b>Fácil</b> elige al azar entre sus jugadas legales; <b>Normal</b> come, evita dejar fichas solas, hace puntos y avanza; <b>Difícil</b> valora la posición entera (pips, puntos hechos, primas y el riesgo real de que te coman cada ficha sola); <b>Experto</b> además promedia la mejor respuesta del rival en las 21 tiradas posibles.</p>`;
+
+const S = {
+  nivel: store.get('bak.nivel', 'normal'),
+  t: null, turno: YO, tirada: [], rest: [], soloDado: 0,
+  movs: [], hist: [], sel: -1, ultimo: -1, preDados: null,
+  G: null, gen: 0, timers: [], jugando: false, esperando: null,
+};
+
+const victorias = (n) => store.get('bak.wins.' + n, 0);
+const gammones = (n) => store.get('bak.gam.' + n, 0);
+function anotaVictoria(nivel, puntos) {
+  const n = victorias(nivel) + 1;
+  store.set('bak.wins.' + nivel, n);
+  if (puntos > 1) store.set('bak.gam.' + nivel, gammones(nivel) + 1);
+  let alto = null;
+  for (const v of NIVELES) if (victorias(v) > 0) alto = v;
+  if (alto) {
+    const k = victorias(alto), g = gammones(alto);
+    store.set('bak.hub', `${DIFF_LABEL[alto]}: ${k} victoria${k === 1 ? '' : 's'}` + (g ? ` · ${g} gammon${g === 1 ? '' : 'es'}` : ''));
+  }
+  return n;
+}
+function bestsHTML() {
+  return NIVELES.map((v) =>
+    `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
+}
+
+function limpiar() {
+  S.gen++;
+  for (const t of S.timers) clearTimeout(t);
+  S.timers = []; S.jugando = false; S.esperando = null;
+}
+const espera = (ms) => new Promise((r) => { const t = setTimeout(r, ms); S.timers.push(t); });
+const vivo = (g) => g === S.gen && S.jugando && !!$('#bg-tab');
+
+/* ── Pantalla de inicio ────────────────────────────────────────────── */
+function renderSetup() {
+  limpiar();
+  const g = NIVELES.reduce((s, v) => s + gammones(v), 0);
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Backgammon', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
+        ${diffSegHTML('seg-d', S.nivel)}
+        <div class="bg-nota" id="bg-hint"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Partidas ganadas, por nivel</div>
+      <div class="bests">${bestsHTML()}</div>
+      ${g ? `<div class="bg-nota" style="text-align:center;padding-top:2px;">Y ${g} ganada${g === 1 ? '' : 's'} por gammon o backgammon.</div>` : ''}
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const textos = {
+    facil: 'Mueve al azar entre sus jugadas legales. Para agarrarle el modo.',
+    normal: 'Come, evita dejar fichas solas, hace puntos y avanza.',
+    dificil: 'Valora la posición entera: pips, puntos, primas y el riesgo real de cada ficha sola.',
+    experto: 'Lo de Difícil y, además, promedia tu mejor respuesta en las 21 tiradas posibles.',
+  };
+  const hint = () => { const e = $('#bg-hint'); if (e) e.textContent = textos[S.nivel]; };
+  hint();
+  bindSeg('seg-d', (v) => { S.nivel = v; store.set('bak.nivel', v); hint(); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+/* ── Geometría del tablero ─────────────────────────────────────────────
+   12 columnas + barra + bandeja. El punto es estrecho por fuerza (el
+   tablero tiene 12 de ancho), pero mide más de 100 px de alto: el objetivo
+   táctil sale de sobra aunque el ancho sea el de una ficha. */
+function mideTablero() {
+  const anchoLibre = Math.min(430, innerWidth - 14);
+  const altoLibre = Math.max(190, innerHeight - 336);
+  let c = Math.floor(anchoLibre / 13.86);
+  c = Math.min(c, Math.floor((altoLibre + 26) / 9.65));
+  c = Math.max(17, c);
+  const bw = c, tw = Math.round(c * 0.86), fs = c - 4;
+  const paso = Math.round(fs * 0.86);
+  const ph = paso * 4 + fs + 4;
+  const gap = Math.round(c * 1.05);
+  return { c, bw, tw, fs, paso, ph, gap, W: c * 12 + bw + tw, H: ph * 2 + gap };
+}
+/* Punto 0 = abajo a la derecha (tu casa); 11 = abajo a la izquierda;
+   12 = arriba a la izquierda; 23 = arriba a la derecha. */
+const colDe = (i) => (i < 12 ? 11 - i : i - 12);
+function xPunto(i, G) {
+  const col = colDe(i);
+  return col < 6 ? col * G.c : 6 * G.c + G.bw + (col - 6) * G.c;
+}
+const arribaP = (i) => i >= 12;
+
+function tableroHTML(G) {
+  let h = '';
+  for (let i = 0; i < 24; i++) {
+    const col = colDe(i), arr = arribaP(i);
+    const tono = ((arr ? col + 1 : col) % 2 === 0) ? 'bg-a' : 'bg-b';
+    h += `<button class="bg-pt ${arr ? '' : 'bg-abajo'}" id="bg-pt-${i}" data-i="${i}" aria-label="Punto ${i + 1}"
+      style="left:${xPunto(i, G)}px;${arr ? 'top:0' : 'bottom:0'};width:${G.c}px;height:${G.ph}px"
+      ><span class="bg-tri ${tono}"></span></button>`;
+  }
+  h += `<div class="bg-medio" style="top:${G.ph}px;height:${G.gap}px"></div>`;
+  h += `<button class="bg-barra" id="bg-barra" data-i="${BARRA}" aria-label="Barra" style="left:${6 * G.c}px;width:${G.bw}px"></button>`;
+  h += `<button class="bg-bandeja" id="bg-bandeja" data-i="${FUERA}" aria-label="Bandeja de salida" style="left:${12 * G.c + G.bw}px;width:${G.tw}px"></button>`;
+  return h;
+}
+
+/* ── Pantalla de juego ─────────────────────────────────────────────── */
+function startGame() {
+  limpiar();
+  S.t = nuevoTablero();
+  const sal = tiradaSalida();
+  S.turno = sal.turno;
+  S.preDados = sal.dados;
+  S.tirada = []; S.rest = []; S.movs = []; S.hist = []; S.sel = -1; S.ultimo = -1;
+  S.jugando = true;
+  S.G = mideTablero();
+  renderPlay();
+  arranque(sal);
+}
+
+function renderPlay() {
+  const G = S.G;
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Backgammon', `<span class="chip">${DIFF_LABEL[S.nivel]}</span>`)}
+    <div class="bg-juego">
+      <div class="bg-marca">
+        <span class="bg-m"><i style="background:var(--accent-texto)"></i>Tú <b id="bg-p0">167</b>&nbsp;pips <b id="bg-o0">0</b>&nbsp;fuera</span>
+        <span class="bg-m"><i style="background:var(--tinta-2)"></i>App <b id="bg-p1">167</b>&nbsp;pips <b id="bg-o1">0</b>&nbsp;fuera</span>
+      </div>
+      <div class="bg-wrap">
+        <div class="bg-tab" id="bg-tab" style="width:${G.W}px;height:${G.H}px">${tableroHTML(G)}</div>
+      </div>
+      <div class="bg-aviso" id="bg-aviso"></div>
+      <div class="bg-mesa">
+        <div class="bg-dados" id="bg-dados"></div>
+        <button class="bg-tirar" id="bg-tirar" disabled>Tirar</button>
+      </div>
+      <div class="bg-mandos">
+        <button class="btn" id="bg-deshacer" disabled>Deshacer</button>
+        <button class="btn btn-primary" id="bg-listo" disabled>Listo</button>
+      </div>
+      <div class="bg-tools">
+        <button class="bg-tool" id="t-nueva">Nueva</button>
+        <button class="bg-tool" id="t-salir">Salir</button>
+      </div>
+    </div>
+  </div>`;
+  $('#bg-tab').onclick = (e) => {
+    const b = e.target.closest('[data-i]');
+    if (b) tocar(Number(b.dataset.i));
+  };
+  $('#bg-tirar').onclick = () => { if (S.esperando === 'tirar') tirar(); };
+  $('#bg-deshacer').onclick = deshacer;
+  $('#bg-listo').onclick = confirmar;
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+  pinta();
+}
+
+/* ── Pintado ───────────────────────────────────────────────────────── */
+const CARAS = { 1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+function dadoHTML(n, clases) {
+  const on = new Set(CARAS[n] || []);
+  let p = '';
+  for (let i = 0; i < 9; i++) p += `<i class="${on.has(i) ? 'bg-on' : ''}"></i>`;
+  return `<div class="bg-dado ${clases}">${p}</div>`;
+}
+function fichaHTML(j, k, texto, G, marca) {
+  const arr = marca.arriba;
+  const y = 2 + k * G.paso;
+  return `<span class="bg-f ${j === YO ? 'bg-yo' : 'bg-app'} ${marca.extra || ''}"
+    style="${arr ? 'top' : 'bottom'}:${y}px;width:${G.fs}px;height:${G.fs}px;margin-left:${-G.fs / 2}px;font-size:${Math.round(G.fs * 0.46)}px">${texto || ''}</span>`;
+}
+/* Hasta cinco fichas dibujadas; a partir de ahí, el número en la de arriba.
+   Las marcas (recién movida, puede moverse, elegida) van en la de arriba,
+   que es la que se toca. */
+function pilaHTML(j, n, G, arriba, extra) {
+  if (!n) return '';
+  const ver = Math.min(n, 5);
+  let h = '';
+  for (let k = 0; k < ver; k++) {
+    const ult = k === ver - 1;
+    h += fichaHTML(j, k, ult && n > 5 ? String(n) : '', G, { arriba, extra: ult ? extra : '' });
+  }
+  return h;
+}
+
+function pinta() {
+  if (!$('#bg-tab')) return;
+  const G = S.G, t = S.t;
+  const destinos = new Set(S.sel >= 0 ? S.movs.filter((m) => m.de === S.sel).map((m) => m.a) : []);
+  const origenes = new Set(S.movs.map((m) => m.de));
+  for (let i = 0; i < 24; i++) {
+    const el = $('#bg-pt-' + i);
+    if (!el) continue;
+    const tri = el.firstElementChild;
+    const nYo = mias(t, YO, i), nApp = mias(t, APP, i);
+    const j = nYo ? YO : APP, n = nYo || nApp;
+    let marca = i === S.ultimo ? 'bg-nueva ' : '';
+    if (S.sel === i) marca += 'bg-elegida';
+    else if (origenes.has(i) && S.sel < 0) marca += 'bg-viva';
+    let h = '';
+    if (n) h = pilaHTML(j, n, G, arribaP(i), marca);
+    if (destinos.has(i)) h += `<span class="bg-diana" style="${arribaP(i) ? 'top' : 'bottom'}:${2 + Math.min(n, 5) * G.paso}px;width:${G.fs}px;height:${G.fs}px;margin-left:${-G.fs / 2}px"></span>`;
+    el.innerHTML = '';
+    el.appendChild(tri);
+    el.insertAdjacentHTML('beforeend', h);
+    el.classList.toggle('bg-sel', S.sel === i);
+  }
+  // Barra: las del rival hacia arriba desde el centro, las tuyas hacia abajo
+  const barra = $('#bg-barra');
+  if (barra) {
+    let h = '';
+    for (let k = 0; k < t.barra[APP]; k++)
+      h += `<span class="bg-f bg-app" style="bottom:${G.ph + G.gap / 2 + 4 + k * G.paso}px;width:${G.fs}px;height:${G.fs}px;margin-left:${-G.fs / 2}px"></span>`;
+    for (let k = 0; k < t.barra[YO]; k++) {
+      const ult = k === t.barra[YO] - 1;
+      const marca = ult ? (S.sel === BARRA ? 'bg-elegida' : (origenes.has(BARRA) ? 'bg-viva' : '')) : '';
+      h += `<span class="bg-f bg-yo ${marca}" style="top:${G.ph + G.gap / 2 + 4 + k * G.paso}px;width:${G.fs}px;height:${G.fs}px;margin-left:${-G.fs / 2}px"></span>`;
+    }
+    barra.innerHTML = h;
+    barra.classList.toggle('bg-sel', S.sel === BARRA);
+    barra.classList.toggle('bg-puede', origenes.has(BARRA));
+  }
+  // Bandeja: listones finos, los tuyos desde abajo y los de la app desde arriba
+  const band = $('#bg-bandeja');
+  if (band) {
+    const hs = Math.max(4, Math.floor((G.ph - 8) / 15));
+    let h = '';
+    for (let k = 0; k < t.fuera[YO]; k++) h += `<span class="bg-sal bg-yo" style="bottom:${4 + k * (hs + 1)}px;height:${hs}px"></span>`;
+    for (let k = 0; k < t.fuera[APP]; k++) h += `<span class="bg-sal bg-app" style="top:${4 + k * (hs + 1)}px;height:${hs}px"></span>`;
+    if (destinos.has(FUERA)) h += `<span class="bg-diana" style="bottom:${4 + t.fuera[YO] * (hs + 1)}px;left:50%;width:${G.tw - 8}px;height:${hs + 6}px;margin-left:${-(G.tw - 8) / 2}px;border-radius:4px"></span>`;
+    band.innerHTML = h;
+    band.classList.toggle('bg-ok', destinos.has(FUERA));
+  }
+  // Marcador
+  $('#bg-p0').textContent = pips(t, YO);
+  $('#bg-p1').textContent = pips(t, APP);
+  $('#bg-o0').textContent = t.fuera[YO];
+  $('#bg-o1').textContent = t.fuera[APP];
+  pintaDados();
+  const d = $('#bg-deshacer'), l = $('#bg-listo'), tb = $('#bg-tirar');
+  if (d) d.disabled = !(S.turno === YO && S.hist.length > 0);
+  if (l) l.disabled = !(S.turno === YO && S.esperando === 'mover' && S.movs.length === 0);
+  if (tb) tb.disabled = S.esperando !== 'tirar';
+}
+
+function pintaDados(revuelto) {
+  const c = $('#bg-dados');
+  if (!c) return;
+  const lista = S.tirada || [];
+  c.className = 'bg-dados' + (lista.length > 2 ? ' bg-cuatro' : '');
+  const rest = S.rest.slice();
+  let h = '';
+  for (const d of lista) {
+    const k = rest.indexOf(d);
+    if (k >= 0) rest.splice(k, 1);
+    h += dadoHTML(d, (k < 0 && !revuelto ? 'bg-gastado ' : '') + (S.turno === APP ? 'bg-app' : ''));
+  }
+  c.innerHTML = h;
+}
+function avisa(txt) { const e = $('#bg-aviso'); if (e) e.innerHTML = txt || ''; }
+
+/* ── Flujo de turnos ───────────────────────────────────────────────────
+   Todo lo asíncrono lleva la guarda de generación: si el jugador toca
+   «Salir» o «Nueva» mientras la app piensa, el temporizador cae en una
+   pantalla que ya no existe y el repintado tiene que abortar. */
+async function arranque(sal) {
+  const g = S.gen;
+  avisa(`Tirada de salida <b>${sal.dados[0]}-${sal.dados[1]}</b>: ${sal.turno === YO ? 'empiezas tú' : 'empieza la app'}`);
+  await espera(1100);
+  if (!vivo(g)) return;
+  turno();
+}
+
+async function turno() {
+  const g = S.gen;
+  if (!vivo(g)) return;
+  S.sel = -1; S.hist = []; S.ultimo = -1; S.movs = [];
+  if (S.turno === YO) {
+    S.esperando = 'tirar';
+    avisa(S.preDados ? 'Te toca: juega la tirada de salida' : 'Tu turno: tira los dados');
+    pinta();
+    if (S.preDados) tirar();
+  } else {
+    S.esperando = null;
+    S.tirada = []; S.rest = [];
+    avisa('Turno de la app…');
+    pinta();
+    await espera(500);
+    if (!vivo(g)) return;
+    tirar();
+  }
+}
+
+async function tirar() {
+  const g = S.gen;
+  if (!vivo(g)) return;
+  S.esperando = null;
+  let a, b;
+  if (S.preDados) { a = S.preDados[0]; b = S.preDados[1]; S.preDados = null; }
+  else { a = 1 + randInt(6); b = 1 + randInt(6); }
+  S.tirada = [1 + randInt(6), 1 + randInt(6)];
+  S.rest = [];
+  for (let i = 0; i < 4; i++) {
+    S.tirada = [1 + randInt(6), 1 + randInt(6)];
+    pintaDados(true);
+    await espera(70);
+    if (!vivo(g)) return;
+  }
+  vibrate(6);
+  const perm = permitidos(S.t, S.turno, [a, b]);
+  S.tirada = dadosDe(a, b);
+  S.rest = perm.rest.slice();
+  S.soloDado = perm.soloDado;
+  S.hist = []; S.sel = -1; S.ultimo = -1;
+  if (perm.n === 0) {
+    S.movs = [];
+    avisa(S.turno === YO ? `Sacaste ${a}-${b}: <b>no tienes jugada</b>` : `La app sacó ${a}-${b} y no puede mover`);
+    pinta();
+    await espera(1200);
+    if (!vivo(g)) return;
+    return pasaTurno();
+  }
+  if (S.turno === YO) {
+    recalcula();
+    S.esperando = 'mover';
+    avisa(S.soloDado ? `Solo cabe un dado: hay que jugar el <b>${S.soloDado}</b>` : 'Mueve tus fichas');
+    pinta();
+  } else {
+    pinta();
+    await espera(340);
+    if (!vivo(g)) return;
+    juegaApp();
+  }
+}
+
+async function juegaApp() {
+  const g = S.gen;
+  if (!vivo(g)) return;
+  const js = jugadas(S.t, APP, [S.tirada[0], S.tirada[1]]);
+  const el = eligeApp(S.t, APP, js, S.nivel);
+  for (const m of (el ? el.pasos : [])) {
+    await espera(430);
+    if (!vivo(g)) return;
+    const comio = aplicaMov(S.t, APP, m);
+    const k = S.rest.indexOf(m.d);
+    if (k >= 0) S.rest.splice(k, 1);
+    S.ultimo = m.a;
+    if (comio) { vibrate([12, 40, 12]); avisa('La app te comió una ficha'); }
+    else if (m.a === FUERA) avisa('La app saca una ficha');
+    pinta();
+    if (S.t.fuera[APP] === 15) break;
+  }
+  await espera(600);
+  if (!vivo(g)) return;
+  S.ultimo = -1;
+  pasaTurno();
+}
+
+function pasaTurno() {
+  if (!vivo(S.gen)) return;
+  if (S.t.fuera[S.turno] === 15) return termina(S.turno);
+  S.turno = 1 - S.turno;
+  turno();
+}
+
+/* ── Tu jugada ─────────────────────────────────────────────────────── */
+function recalcula() {
+  S.movs = siguientes(S.t, YO, S.rest, S.hist.length === 0 ? S.soloDado : 0);
+  const origenes = [...new Set(S.movs.map((m) => m.de))];
+  S.sel = origenes.length === 1 ? origenes[0] : -1;   // sin dónde elegir, se elige solo
+}
+
+function tocar(i) {
+  if (S.turno !== YO || S.esperando !== 'mover' || !S.jugando) return;
+  if (S.sel >= 0) {
+    const m = S.movs.find((x) => x.de === S.sel && x.a === i);
+    if (m) return hacer(m);
+  }
+  if (S.movs.some((x) => x.de === i)) { S.sel = i; vibrate(4); pinta(); return; }
+  S.sel = -1;
+  pinta();
+}
+
+function hacer(m) {
+  S.hist.push({ t: clona(S.t), rest: S.rest.slice(), sel: S.sel });
+  const comio = aplicaMov(S.t, YO, m);
+  const k = S.rest.indexOf(m.d);
+  if (k >= 0) S.rest.splice(k, 1);
+  S.ultimo = m.a;
+  vibrate(comio ? [10, 30, 10] : 6);
+  recalcula();
+  if (comio) avisa('¡Le comiste una ficha!');
+  else if (m.a === FUERA) avisa('Sacas una ficha');
+  else if (!S.movs.length) avisa(S.rest.length ? 'Ya no hay más jugadas: toca «Listo»' : 'Tirada gastada: toca «Listo»');
+  else avisa('Mueve tus fichas');
+  pinta();
+}
+
+function deshacer() {
+  if (!S.hist.length) return;
+  const h = S.hist.pop();
+  S.t = h.t; S.rest = h.rest; S.ultimo = -1;
+  recalcula();
+  avisa('Movimiento deshecho');
+  pinta();
+}
+
+function confirmar() {
+  if (S.turno !== YO || S.movs.length) return;
+  S.esperando = null;
+  S.hist = []; S.sel = -1; S.ultimo = -1;
+  pinta();
+  pasaTurno();
+}
+
+/* ── Fin de partida ────────────────────────────────────────────────── */
+function termina(j) {
+  if (!$('#bg-tab')) return;
+  S.jugando = false;
+  S.esperando = null;
+  const puntos = valorFin(S.t, j);
+  const clase = puntos === 3 ? 'backgammon' : puntos === 2 ? 'gammon' : 'partida';
+  const gana = j === YO;
+  let sub;
+  if (gana) {
+    const n = anotaVictoria(S.nivel, puntos);
+    sub = `<p style="text-align:center;">${puntos > 1 ? `Le ganaste por <b>${clase}</b>: vale <b>${puntos} puntos</b>. ` : ''}Llevas <b>${n}</b> partida${n === 1 ? '' : 's'} ganada${n === 1 ? '' : 's'} en <b>${DIFF_LABEL[S.nivel]}</b>.</p>`;
+    confetti(); vibrate([30, 60, 30]);
+  } else {
+    sub = `<p style="text-align:center;">${puntos > 1 ? `Te ganó por <b>${clase}</b> (${puntos} puntos). ` : ''}Sacaste <b>${S.t.fuera[YO]}</b> de 15 fichas.</p>`;
+  }
+  avisa(gana ? '<b>¡Ganaste!</b>' : 'Ganó la app');
+  pinta();
+  const tm = setTimeout(() => {
+    if (!$('#bg-tab')) return;
+    openModal(`<h3>${gana ? (puntos === 3 ? '¡Backgammon!' : puntos === 2 ? '¡Gammon!' : '¡Ganaste!') : (puntos === 3 ? 'Backgammon en contra' : puntos === 2 ? 'Gammon en contra' : 'Ganó la app')}</h3>${sub}
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${S.t.fuera[YO]}</div><div class="l">tus fichas fuera</div></div>
+        <div class="stat"><div class="n">${S.t.fuera[APP]}</div><div class="l">de la app</div></div>
+        <div class="stat"><div class="n">${puntos}</div><div class="l">puntos</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>`);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 900);
+  S.timers.push(tm);
+}
+
+renderSetup();
+</script>
+</body>
+</html>
