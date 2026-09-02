@@ -136,6 +136,8 @@
   }
   .aj-coro button:active { background: var(--soft); }
   .aj-coro .aj-pz { width: 100%; height: 100%; }
+  #modal .aj-reglas { max-height: 58vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #modal .aj-reglas p:last-child { margin-bottom: 0; }
   #modal .aj-rot { font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
     text-transform: uppercase; color: var(--sub); text-align: center; margin-top: 8px; }
 </style>
@@ -985,10 +987,15 @@ const S = {
   worker: null, pid: 0, pendientes: new Map(),
 };
 
-const REGLAS = `<p>Ajedrez completo: las seis piezas con sus movimientos, <b>enroque</b> corto y largo (solo si ni el rey ni esa torre se han movido, con las casillas de en medio vacías y sin que el rey esté en jaque ni pase por casilla atacada), <b>captura al paso</b> y <b>coronación</b> con la pieza que elijas.</p>
-<p>Toca una pieza tuya y se marcan sus destinos legales; toca el destino para mover. La última jugada queda sombreada y el rey se pinta en rojo cuando está en jaque. <b>Deshacer</b> retrocede tu jugada y la respuesta de la app.</p>
-<p>Son <b>tablas</b> por ahogado, por material insuficiente (rey solo contra rey, contra rey y alfil o contra rey y caballo, y un alfil por bando en casillas del mismo color), por <b>repetición triple</b> de la posición y por la <b>regla de 50 jugadas</b> sin mover peón ni capturar.</p>
-<p><b>Fácil</b> juega casi al azar, con querencia por las capturas. <b>Normal</b> mira dos jugadas contando material. <b>Difícil</b> busca cuatro jugadas con tablas de posición. <b>Experto</b> profundiza mientras le dura el plazo y remata las capturas antes de juzgar. Tus victorias se guardan por nivel.</p>`;
+/* El texto va dentro de .aj-reglas: en una pantalla de 667 px la hoja del
+   modal crece hacia arriba hasta salirse, y con el tope y el desplazamiento
+   propio no se pierde ni el título ni el botón. */
+const REGLAS = `<div class="aj-reglas">
+<p>Ajedrez completo, con <b>enroque</b> corto y largo (solo si ni el rey ni esa torre se han movido, sin piezas en medio y sin que el rey esté en jaque ni cruce casilla atacada), <b>captura al paso</b> y <b>coronación</b> a la pieza que elijas.</p>
+<p>Toca una pieza tuya y se marcan sus destinos legales. La última jugada queda sombreada, el rey se pinta en rojo si está en jaque y <b>Deshacer</b> retrocede tu jugada y la respuesta de la app.</p>
+<p><b>Tablas</b> por ahogado, por material insuficiente (rey contra rey, o contra rey y una pieza menor, y un alfil por bando en casillas del mismo color), por <b>repetición triple</b> y por la <b>regla de 50 jugadas</b> sin mover peón ni capturar.</p>
+<p><b>Fácil</b> juega casi al azar. <b>Normal</b> mira dos jugadas y solo cuenta material. <b>Difícil</b> busca cuatro con tablas de posición. <b>Experto</b> profundiza mientras le dura el plazo y remata las capturas. Tus victorias se guardan por nivel.</p>
+</div>`;
 
 /* ── Marcas ────────────────────────────────────────────────────────── */
 const victorias = (n) => store.get('aje.wins.' + n, 0);
@@ -1150,7 +1157,7 @@ function renderPlay() {
         </div>
       </div>
       <div class="aj-twrap">
-        <div class="aj-tab" id="aj-tab" role="grid" aria-label="Tablero de ajedrez">${cas}</div>
+        <div class="aj-tab" id="aj-tab" aria-label="Tablero de ajedrez">${cas}</div>
       </div>
       <div class="aj-marc">
         <div class="aj-lado" id="lado-yo">
@@ -1412,7 +1419,8 @@ function revisaFin() {
   S.fin = { titulo, porque, gane };
   let pie = '';
   if (gane) {
-    pie = `<p style="text-align:center;">Llevas <b>${anotaVictoria(S.nivel)}</b> victoria(s) en <b>${DIFF_LABEL[S.nivel]}</b></p>`;
+    const n = anotaVictoria(S.nivel);
+    pie = `<p style="text-align:center;">Llevas <b>${n}</b> victoria${n === 1 ? '' : 's'} en <b>${DIFF_LABEL[S.nivel]}</b></p>`;
     confetti(); vibrate([30, 60, 30]);
   }
   pinta();

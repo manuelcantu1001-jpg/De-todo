@@ -367,20 +367,26 @@ function hayContacto(t) {
    cuando el que tira es su dueño (aún puede taparla o huir) que cuando tira
    el rival. Sin ese dato la hoja de la búsqueda se mediría con otra vara que
    la raíz, así que hace falta para que Experto tenga sentido. */
-/* Difícil mira exactamente lo que promete y nada más: pips, puntos hechos,
-   primas y fichas solas pesadas por el riesgo real de que se las coman.
-   Experto añade tres cosas que Difícil no ve —los puntos hechos DENTRO de su
-   casa, las fichas amontonadas de más de tres en un punto (no trabajan) y el
-   desperdicio al sacar— y sus pesos están afinados por ascenso de coordenadas
-   con 400 partidas pareadas por prueba, no puestos a ojo. El ancla en campo
-   rival y el castigo por fichas en la barra se probaron y el afinado los dejó
-   en cero: los pips ya cuentan las de la barra a 25, y el ancla se comía las
-   dos cosas. Se dejan los pesos a la vista para poder volver a medirlos. */
-const W_DIF = { pip: 1, fuera: 0, barra: 0, punto: 2.4, casa: 0, prima: 0.6, ancla: 0, blot: 0.75, apila: 0, desp: 0, propio: 0.4, escala: 90 };
-const W_EXP = { pip: 1, fuera: 2, barra: 0, punto: 1.4, casa: 1, prima: 0.3, ancla: 0, blot: 0.75, apila: 0.4, desp: 0.5, propio: 0.8, escala: 90 };
+/* Difícil mira exactamente lo que promete y NADA más: pips, puntos hechos,
+   primas y fichas solas pesadas por el riesgo real de que se las coman. Mide
+   siempre con esa misma vara, esté la partida como esté.
+   Experto ve cuatro cosas que Difícil no ve, y ninguna es un peso distinto:
+     · `carrera`: cuando ya no queda contacto la partida es una carrera y lo
+       único que cuenta son los pips y no desperdiciar dados al sacar. Difícil
+       sigue puntuando primas y puntos hechos, que ahí ya no significan nada.
+     · `desp`: el desperdicio al sacar (huecos en casa y montones de más de dos).
+     · `casa` y `apila`: los puntos hechos dentro de su propia casa y las fichas
+       amontonadas de más de tres, que no trabajan.
+     · `propio` < 1: una ficha sola vale menos cuando el que tira es su dueño.
+   Y encima de todo eso mira un tiro por delante. Los pesos NO se afinaron por
+   simulación: se probó (ascenso de coordenadas, 400 partidas pareadas por
+   prueba) y el 62 % que salía se caía a 52,5 % con semillas nuevas — era ruido
+   ajustado, no juego. Lo que separa a los dos niveles es lo que mide cada uno. */
+const W_DIF = { pip: 1, fuera: 0, barra: 0, punto: 2.4, casa: 0, prima: 0.6, ancla: 0, blot: 0.75, apila: 0, desp: 0, clave: 0, atras: 0, propio: 1, carrera: 0, escala: 90 };
+const W_EXP = { pip: 1, fuera: 6, barra: 0, punto: 2.4, casa: 2, prima: 0.6, ancla: 0, blot: 0.75, apila: 0, desp: 1.5, clave: 0, atras: 0, propio: 1, carrera: 1, escala: 90 };
 const W_CAR = { pip: 1, fuera: 10, cruce: 1.6 };
 
-const puntoPip = (j, k) => (j === YO ? k - 1 : 24 - k);   // el punto que está a k pips de salir
+const puntoPip = (j, k) => (j === YO ? k - 1 : 24 - k);   // el punto que está a k pips de salir (k = 1..24)
 function ladoCarrera(t, j, W) {
   let s = -pips(t, j) * W_CAR.pip + t.fuera[j] * W_CAR.fuera;
   let cruces = 0;                                  // fichas que aún tienen que entrar a casa
@@ -417,6 +423,15 @@ function lado(t, j, W, alTiro) {
   if (mejorPrima >= 2) s += W.prima * mejorPrima * mejorPrima;   // una prima larga vale mucho más que dos cortas
   const ca = j === YO ? 18 : 0;
   for (let i = ca; i <= ca + 5; i++) if (mias(t, j, i) >= 2) { s += W.ancla; break; }   // ancla en casa del rival
+  // Puntos clave: no todos valen lo mismo. Los de 4, 5, 6 y 7 pips (el de 5 y
+  // el del bar) son los que de verdad estorban al rival.
+  if (W.clave) for (let k = 4; k <= 7; k++) if (mias(t, j, puntoPip(j, k)) >= 2) s += W.clave;
+  // Fichas rezagadas en el cuadrante del rival: más de dos ahí es quedarse atrás.
+  if (W.atras) {
+    let rez = 0;
+    for (let k = 19; k <= 24; k++) rez += mias(t, j, puntoPip(j, k));
+    s -= W.atras * Math.max(0, rez - 2);
+  }
   const riesgo = alTiro === j ? W.propio : 1;                     // si tiras tú, aún puedes taparla
   for (let i = 0; i < 24; i++) if (mias(t, j, i) === 1) {
     s -= W.blot * riesgo * (golpes(t, j, i) / 36) * (25 - pipDe(j, i));   // cuanto más cerca de casa, más caro que te la coman
@@ -426,7 +441,7 @@ function lado(t, j, W, alTiro) {
 function evalua(t, j, W, alTiro) {
   if (t.fuera[j] === 15) return 1e6;
   if (t.fuera[1 - j] === 15) return -1e6;
-  if (!hayContacto(t)) return ladoCarrera(t, j, W) - ladoCarrera(t, 1 - j, W);
+  if (W.carrera && !hayContacto(t)) return ladoCarrera(t, j, W) - ladoCarrera(t, 1 - j, W);
   const q = alTiro === undefined ? 1 - j : alTiro;
   return lado(t, j, W, q) - lado(t, 1 - j, W, q);
 }
@@ -861,9 +876,8 @@ async function tirar() {
   let a, b;
   if (S.preDados) { a = S.preDados[0]; b = S.preDados[1]; S.preDados = null; }
   else { a = 1 + randInt(6); b = 1 + randInt(6); }
-  S.tirada = [1 + randInt(6), 1 + randInt(6)];
   S.rest = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 4; i++) {                      // los dados dan vueltas antes de parar
     S.tirada = [1 + randInt(6), 1 + randInt(6)];
     pintaDados(true);
     await espera(70);
