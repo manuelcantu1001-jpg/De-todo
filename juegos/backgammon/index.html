@@ -355,29 +355,49 @@ function hayContacto(t) {
 /* ── Evaluación de la posición ────────────────────────────────────────
    `lado` puntúa lo que vale la posición para un bando y `evalua` resta el
    del otro: así la evaluación es antisimétrica por construcción
-   (evalua(t, YO) === -evalua(t, APP)), y eso se comprueba en la medición. */
+   (evalua(t, YO) === -evalua(t, APP)), y eso se comprueba en la medición.
    `alTiro` es quién tira A CONTINUACIÓN, y hace falta: una ficha sola vale
    mucho menos cuando el que tira es su dueño (aún puede taparla o huir) que
    cuando tira el rival. Sin ese dato la evaluación mide la misma posición de
    dos maneras según la profundidad, y entonces buscar un tiro más no sirve
    de nada: es lo que se midió antes de añadirlo (52,5 %). */
-const W_DIF = { pip: 1, fuera: 14, barra: 9, punto: 2.0, casa: 3.4, prima: 0.55, ancla: 5, blot: 0.65, propio: 0.4 };
-const W_EXP = { pip: 1, fuera: 14, barra: 11, punto: 2.4, casa: 4.2, prima: 0.75, ancla: 6, blot: 0.95, propio: 0.4 };
+/* Difícil mira exactamente lo que promete: pips, puntos hechos, primas y
+   fichas solas pesadas por el riesgo real. Experto mira además la casa
+   hecha, el ancla en campo rival, las fichas amontonadas (las de más de
+   tres en un punto no trabajan) y las que están en la barra. */
+const W_DIF = { pip: 1, fuera: 0, barra: 0, punto: 2.4, casa: 0, prima: 0.6, ancla: 0, blot: 0.75, apila: 0, desp: 0, propio: 0.4, escala: 90 };
+const W_EXP = { pip: 1, fuera: 6, barra: 8, punto: 2.4, casa: 4.2, prima: 0.75, ancla: 6, blot: 0.95, apila: 1.3, desp: 2, propio: 0.4, escala: 90 };
 const W_CAR = { pip: 1, fuera: 10, cruce: 1.6 };
 
+const puntoPip = (j, k) => (j === YO ? k - 1 : 24 - k);   // el punto que está a k pips de salir
 function ladoCarrera(t, j, W) {
-  let s = -pips(t, j) * W.pip + t.fuera[j] * W.fuera;
+  let s = -pips(t, j) * W_CAR.pip + t.fuera[j] * W_CAR.fuera;
   let cruces = 0;                                  // fichas que aún tienen que entrar a casa
   for (let i = 0; i < 24; i++) if (!enCasa(j, i)) cruces += mias(t, j, i);
-  return s - cruces * W.cruce;
+  s -= cruces * W_CAR.cruce;
+  // Desperdicio al sacar: un punto vacío con fichas más atrás obliga a tirar
+  // dados a la basura, y amontonar cuatro en un punto es lo mismo al revés.
+  // Solo lo mira Experto (Difícil lleva desp = 0).
+  if (W.desp) {
+    let visto = false, malo = 0;
+    for (let k = 6; k >= 1; k--) {
+      const n = mias(t, j, puntoPip(j, k));
+      if (n) { visto = true; if (n > 2) malo += n - 2; }
+      else if (visto) malo++;
+    }
+    s -= W.desp * malo;
+  }
+  return s;
 }
 function lado(t, j, W, alTiro) {
   let s = -pips(t, j) * W.pip + t.fuera[j] * W.fuera - t.barra[j] * W.barra;
   let hechos = 0, casa = 0, mejorPrima = 0, run = 0;
   for (let i = 0; i < 24; i++) {
-    if (mias(t, j, i) >= 2) {
+    const n = mias(t, j, i);
+    if (n >= 2) {
       hechos++;
       if (enCasa(j, i)) casa++;
+      if (n > 3) s -= W.apila * (n - 3);      // más de tres en un punto no trabajan
       run++;
       if (run > mejorPrima) mejorPrima = run;
     } else run = 0;
@@ -395,7 +415,7 @@ function lado(t, j, W, alTiro) {
 function evalua(t, j, W, alTiro) {
   if (t.fuera[j] === 15) return 1e6;
   if (t.fuera[1 - j] === 15) return -1e6;
-  if (!hayContacto(t)) return ladoCarrera(t, j, W_CAR) - ladoCarrera(t, 1 - j, W_CAR);
+  if (!hayContacto(t)) return ladoCarrera(t, j, W) - ladoCarrera(t, 1 - j, W);
   const q = alTiro === undefined ? 1 - j : alTiro;
   return lado(t, j, W, q) - lado(t, 1 - j, W, q);
 }
@@ -426,20 +446,26 @@ const TIRADAS = (() => {
 /* Experto: para cada jugada candidata promedia lo que quedaría tras la
    MEJOR respuesta del rival en cada una de las 21 tiradas. Un solo tiro de
    profundidad; se acota a las CAND_EXP mejores por evaluación estática
-   porque el coste crece con el número de candidatas (ver informe). */
+   porque el coste crece con el número de candidatas (ver informe).
+   La puntuación de la hoja se aplasta con una tangente hiperbólica antes de
+   promediar: sin eso, una tirada catastrófica (la evaluación llega a −340
+   cuando la de al lado vale −40) se comía la media de las otras veinte y la
+   búsqueda no aportaba nada. Sumar valores ordinales no da una esperanza;
+   sumar algo parecido a una equity, sí. */
 const CAND_EXP = 6;
 function trasRespuesta(t, j, W) {
   const o = 1 - j;
-  if (t.fuera[j] === 15) return 1e6;
+  if (t.fuera[j] === 15) return 1;
+  const eq = (v) => Math.tanh(v / W.escala);
   let tot = 0;
   for (const [a, b, w] of TIRADAS) {
     const rs = jugadas(t, o, [a, b]);
     let peor = Infinity;
     for (const r of rs) {
-      const v = evalua(r.t, j, W, j);        // tras la respuesta del rival, el que tira eres tú
+      const v = eq(evalua(r.t, j, W, j));    // tras la respuesta del rival, el que tira eres tú
       if (v < peor) peor = v;
     }
-    tot += w * (peor === Infinity ? evalua(t, j, W, j) : peor);
+    tot += w * (peor === Infinity ? eq(evalua(t, j, W, j)) : peor);
   }
   return tot;
 }
@@ -462,7 +488,7 @@ function eligeApp(t, j, js, nivel, azar, pesos) {
   if (nivel === 'dificil') return cand[0].x;
   let mejor = cand[0].x, mejorS = -Infinity;
   for (const c of cand.slice(0, CAND_EXP)) {
-    const s = trasRespuesta(c.x.t, j, W) + rnd() * 0.01;
+    const s = trasRespuesta(c.x.t, j, W) + rnd() * 0.0001;
     if (s > mejorS) { mejorS = s; mejor = c.x; }
   }
   return mejor;
@@ -585,15 +611,19 @@ function renderSetup() {
    táctil sale de sobra aunque el ancho sea el de una ficha. */
 function mideTablero() {
   const anchoLibre = Math.min(430, innerWidth - 14);
-  const altoLibre = Math.max(190, innerHeight - 336);
-  let c = Math.floor(anchoLibre / 13.86);
-  c = Math.min(c, Math.floor((altoLibre + 26) / 9.65));
-  c = Math.max(17, c);
-  const bw = c, tw = Math.round(c * 0.86), fs = c - 4;
-  const paso = Math.round(fs * 0.86);
-  const ph = paso * 4 + fs + 4;
-  const gap = Math.round(c * 1.05);
-  return { c, bw, tw, fs, paso, ph, gap, W: c * 12 + bw + tw, H: ph * 2 + gap };
+  const presupuesto = Math.max(180, innerHeight - 300);   // alto que le queda al tablero
+  const fsDe = (c) => c - 4;
+  const pasoDe = (c) => Math.round((c - 4) * 0.86);
+  const altoNat = (c) => 2 * (pasoDe(c) * 4 + fsDe(c) + 4) + Math.round(c * 1.05);
+  let c = Math.max(17, Math.floor(anchoLibre / 13.86));
+  while (c > 17 && altoNat(c) > presupuesto) c--;
+  const fs = fsDe(c), paso = pasoDe(c), gap = Math.round(c * 1.05);
+  let ph = paso * 4 + fs + 4;
+  // Si sobra alto, los triángulos se alargan (como en un tablero de verdad)
+  // en vez de dejar media pantalla vacía debajo de los mandos.
+  const sobra = presupuesto - (2 * ph + gap);
+  if (sobra > 20) ph += Math.min(Math.floor(sobra / 2), Math.round(fs * 1.7));
+  return { c, bw: c, tw: Math.round(c * 0.86), fs, paso, ph, gap, W: c * 13 + Math.round(c * 0.86), H: ph * 2 + gap };
 }
 /* Punto 0 = abajo a la derecha (tu casa); 11 = abajo a la izquierda;
    12 = arriba a la izquierda; 23 = arriba a la derecha. */

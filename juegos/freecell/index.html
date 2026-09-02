@@ -81,6 +81,10 @@
   .fc-tool:active { opacity: .6; }
   .fc-tool:disabled { color: var(--faint); border-color: var(--linea); cursor: default; }
   .fc-sacude { animation: shake .34s var(--ease); }
+  /* Las reglas de este juego son seis párrafos y en una pantalla de 667 px la
+     hoja se salía por arriba: los primeros no se podían leer ni empujando.
+     Solo afecta a esta página. */
+  #modal .sheet { max-height: 88dvh; overflow-y: auto; }
 </style>
 </head>
 <body>
@@ -339,7 +343,10 @@ function resolverDesde(st0, celdas, tope, topeProf) {
    Semillas en base 36. Cada una pasó por el resolutor CON LAS CELDAS DE SU
    NIVEL y ganó; el reparto que no se resolvió dentro del tope no entró.
    La banda de nodos de cada nivel no se solapa con la de los demás:
-     Fácil    4 celdas ·      32 –    100 nodos
+     Fácil    4 celdas ·      32 –     100 nodos
+     Normal   4 celdas ·     402 –   2 996 nodos
+     Difícil  3 celdas ·  10 027 –  89 380 nodos
+     Experto  2 celdas · 150 276 – 589 998 nodos
      Normal   4 celdas ·     402 –  2 996 nodos
      Difícil  3 celdas ·  10 025 – 89 949 nodos
      Experto  2 celdas · 150 069 – 599 122 nodos
@@ -348,7 +355,7 @@ const SEMILLAS = {
   facil: '1,2,8,9,b,d,g,j,p,q,s,v,w,x,z,10,13,15,17,18,1e,1g,1i,1j,1m,1o,1q,1r,1s,1u,1x,21,24,25,28,2a,2b,2e,2f,2i,2j,2l,2p,2q,2r,2s,2t,2u,2w,2y,33,36,3a,3b,3d,3e,3f,3g,3k,3l,3n,3o,3t,3u,3w,3x,3y,3z,40,41,42,4b,4e,4f,4g,4k,4l,4m,4u,4v,4x,50,54,55,5a,5c,5f,5h,5i,5j,5l,5m,5o,5p,5q,5s,5t,5u,5v,5w,5x,5y,5z,62,63,66,67,68,69,6a,6e,6i,6k,6m,6o,6p,6q,6r,6u,6v,6w,6x,6y,6z,76,77,78,7b,7e,7f,7k,7n,7q,7r,7t,7v,7w,83,85,87,8b,8d,8h,8j,8k,8l,8q,8t,8u,8v,8w,94,95,98,9d,9e,9i,9m,9n,9o,9p,9t,9x,a1,a2,a3,a6,a8,a9,af,ai,ap,aq,ar,at,av,aw,ax,b5,b7,b8,ba,bd,be,bf,bg,bh,bi,bs,bt,bv,bx,by,bz,c1,c5,c9,cb,cf,cg,ch,ci,cj,ck,cl,cm,cp,d0,d1,d5,db,dd,de,dl,dp,dq,dt,e2,e6,ed,ee,ei,ep,et,eu,ex,ey,f2,f9,fe,fp,fq,fy,g9,ga,gd,ge,gi,gm,gt,gy,h1,h5,h9,ha,hu,i6,ia,ii,iy,ja,je,jq,jy,ka,ki,km,kq,ku,ky,l2,l6,la,lu,ma,mm,mq,mu,my,n2,nm,nq,nu,oe,oi,om,oq,pa,pq,pu,qi,qm,qu,r6,re,ri,rm,rq,ru,ry,s2,s6,sa,sq,su,t6,ta,te,ti,tq',
   normal: 'lflt,lflz,lfm3,lfm4,lfm8,lfml,lfms,lfmz,lfn0,lfn1,lfn5,lfno,lfnp,lfnz,lfo1,lfo3,lfoc,lfoq,lfp7,lfpn,lfps,lfpx,lfq0,lfq1,lfq2,lfqi,lfqk,lfr7,lfri,lfrm,lfrt,lfru,lfrw,lfry,lfs4,lfsc,lfse,lfsl,lft6,lft9,lfte,lftn,lftq,lfu0,lful,lfuo,lfuq,lfux,lfva,lfvf,lfvk,lfvr,lfw0,lfw3,lfw6,lfws,lfwu,lfww,lfxb,lfxe,lfxf,lfxh,lfxi,lfxr,lfxs,lfxv,lfxy,lfy4,lfyc,lfyg,lfz0,lfza,lfzo,lfzv,lg05,lg0d,lg0e,lg0k,lg0m,lg0y,lg10,lg12,lg15,lg17,lg18,lg1e,lg1j,lg1p,lg1t,lg22,lg2a,lg2k,lg2r,lg3c,lg3n,lg3q,lg3r,lg3x,lg42,lg46,lg4b,lg4h,lg4i,lg4n,lg4t,lg4x,lg54,lg5c,lg5d,lg5e,lg5v,lg5x,lg6q,lg6u,lg6z,lg70,lg76,lg7h,lg7l,lg7t,lg7u,lg7x,lg7y,lg7z,lg81,lg84,lg88,lg8o,lg8s,lg8w,lg8z,lg91,lg95,lg96,lg9a,lg9e,lgab,lgac,lgad,lgaf,lgam,lgar,lgax,lgbn,lgbq,lgbu,lgbw,lgbx,lgby,lgc2,lgcb,lgcd,lgch,lgco,lgcy,lgcz,lgd1,lgd3,lgdf,lgdn,lgds,lgdz,lge3,lge5,lge7,lgeg,lgej,lgek,lgel,lgeu,lgex,lgf4,lgf7,lgfa,lgff,lgfk,lgfr,lgft,lggg,lggm,lggr,lggx,lgh2,lgh8,lghf,lghj,lghy,lgi0,lgi3,lgia,lgio,lgir,lgiy,lgjc,lgjd,lgjq,lgk1,lgk4,lgk6,lgks,lgku,lgkx,lgl4,lgl6,lglb,lgld,lglh,lglr,lglv,lglw,lgly,lgm0,lgm3,lgmc,lgmk,lgmn,lgmu,lgn8,lgni,lgnq,lgnr,lgns,lgo0,lgo5,lgo6,lgod,lgoi,lgok,lgp3,lgp6,lgp9,lgpa,lgpg,lgph,lgpi,lgpu,lgpv,lgq7,lgqe,lgqn,lgqs,lgr3,lgrb,lgrf,lgrg,lgrm,lgrs,lgry,lgs4,lgs8,lgse,lgso,lgsv,lgt4,lgto,lgts,lgu7,lgue,lgvf,lgvj,lgvq,lgvr,lgwq,lgwu,lgx7,lgxv,lgyn,lgza,lgze,lgzm,lgzr,lgzu,lgzy,lgzz,lh06,lh0f,lh0m,lh0n,lh16,lh1b,lh1f,lh1r,lh2m,lh2r,lh2y,lh2z,lh32,lh36,lh3a,lh4q,lh5m,lh5q,lh5y,lh62,lh6y,lh86,lh8q,lh9e,lh9q,lhaa',
   dificil: '16v7w,16v7x,16v8c,16v8i,16v8n,16v8x,16v8y,16v95,16v98,16v99,16v9g,16v9i,16v9t,16v9x,16va9,16vae,16vah,16var,16vax,16vb0,16vb8,16vbf,16vbi,16vbv,16vcb,16vcf,16vcn,16vcv,16vd1,16vde,16vdf,16vdg,16vdn,16vdv,16veq,16vet,16vf4,16vf7,16vfx,16vge,16vgk,16vgl,16vgo,16vgy,16vgz,16vha,16vhi,16vhl,16vhr,16vhu,16vhx,16vi0,16vim,16viq,16vjj,16vjz,16vk5,16vkr,16vky,16vkz,16vl4,16vla,16vli,16vlo,16vm4,16vm5,16vmh,16vmr,16vms,16vn0,16vn8,16vnb,16vnr,16vnv,16vnz,16vo1,16vok,16vos,16voy,16vp2,16vpd,16vpw,16vq2,16vqg,16vqk,16vqs,16vr0,16vr2,16vr4,16vra,16vrg,16vro,16vs6,16vsb,16vsk,16vsl,16vss,16vt0,16vt3,16vtm,16vtv,16vu0,16vu7,16vui,16vuj,16vur,16vuy,16vvb,16vvh,16vvq,16vw3,16vw5,16vwa,16vwb,16vwd,16vwo,16vxd,16vxp,16vxr,16vxt,16vxx,16vyb,16vyk,16vyp,16vyx,16vz4,16vz6,16vzd,16vzl,16w07,16w0r,16w15,16w1g,16w1t,16w1u,16w28,16w2h,16w35,16w36,16w3j,16w3t,16w4e,16w4f,16w4i,16w4p,16w4s,16w4u,16w4z,16w53,16w59,16w5m,16w5u,16w5w,16w61,16w6d,16w6g,16w6w,16w6z,16w72,16w7d,16w7m,16w85,16w8y,16w9e,16waf,16wag,16wah,16wam,16wao,16wat,16wav,16wbb,16wbi,16wbj,16wbl,16wc2,16wc8,16wcg,16wch,16wct,16wcz,16wd1,16wdk,16wdr,16we6,16wet,16wew,16wfg,16wfj,16wfl,16wfo,16wfs,16wfw,16wg5,16wh3,16whb,16whw,16wi2,16wi5,16wif,16wik,16wiq,16wiu,16wj3,16wjj,16wjv,16wk2,16wk6,16wkb,16wkc,16wkh,16wkq,16wks,16wkt,16wl1,16wl2,16wl7,16wl8,16wl9,16wlb,16wlh,16wlp,16wlw,16wm1,16wm7,16wmg,16wmm,16wmu,16wmz,16wn3,16wn8,16wn9,16wnj,16wnl,16wnp,16wo3,16wo5,16wo7,16wo9,16woj,16woq,16wor,16wov,16wpi,16wpo,16wps,16wpx,16wq5,16wqg,16wql,16wqp,16wqt,16wr5,16wrp,16wru,16ws0,16ws2,16ws8,16wsa,16wsg,16wsp,16wsr,16wsz,16wt2,16wt3,16wtf,16wtg,16wth,16wts,16wuy,16wv0,16wv2,16wv3,16wvt,16wwp,16wwy,16wxj,16wxq,16wxr,16wyw,16wzc,16wzw,16x04,16x0k,16x10,16x1g,16x1s,16x2q,16x3a,16x3i,16x3q,16x4y,16x52,16x5i,16x6q,16x76,16xa2,16xby,16xda,16xey',
-  experto: '',
+  experto: '1sau6,1sau7,1saud,1save,1savg,1sayh,1sazg,1sb07,1sb10,1sb1l,1sb1t,1sb23,1sb28,1sb4a,1sb6c,1sb6s,1sb7d,1sb7v,1sb88,1sb8y,1sb93,1sb95,1sba9,1sbb3,1sbbu,1sbci,1sbcz,1sbd1,1sbd9,1sbdl,1sbdy,1sbfy,1sbh1,1sbjo,1sbjw,1sbk6,1sbkf,1sbky,1sbm6,1sbma,1sbmz,1sboa,1sbog,1sbp1,1sbp6,1sbpe,1sbpy,1sbq3,1sbq8,1sbs3,1sbs6,1sbsa,1sbsr,1sbsy,1sbth,1sbts,1sbuk,1sbwc,1sbx7,1sby7,1sbyl,1sbzj,1sbzs,1sc08,1sc0n,1sc0p,1sc3c,1sc4w,1sc4z,1sc5e,1sc5r,1sc6o,1sc6s,1sc7k,1sc7l,1sc7u,1sc84,1sc8c,1sc8o,1sc91,1sc99,1sc9q,1sca1,1sca2,1sca7,1scaz,1scc9,1sccd,1sccj,1sccw,1sceg,1sceh,1scen,1scex,1scf1,1scf6,1scg6,1scg9,1scgk,1sci1,1scil,1sciu,1scjo,1sck2,1sckd,1scm2,1scn0,1scn1,1scp8,1scq4,1scqi,1scrg,1scrs,1scrv,1scsu,1scto,1sctp,1scu3,1scv6,1scvd,1scw3,1scw8,1scwo,1scwq,1scx6,1scxa,1scxc,1scxf,1scy3,1scyc,1scyp,1scz8,1sczw,1sd06,1sd46,1sd50,1sd5m,1sd6w,1sd76,1sd84,1sd8v,1sd9c,1sda9,1sdas,1sdbf,1sdbz,1sdcl,1sdcn,1sdd1,1sddg,1sddm,1sddn,1sde1,1sde6,1sdej,1sdes,1sdev,1sdf8,1sdfw,1sdg5,1sdgp,1sdhy,1sdi5,1sdj8,1sdjl,1sdjs,1sdk8,1sdka,1sdkj,1sdkk,1sdl3,1sdlg,1sdlx,1sdm6,1sdma,1sdmk,1sdml,1sdn0,1sdnr,1sdo4,1sdok,1sdov,1sdp5,1sdq7,1sdr9,1sdru,1sds9,1sdsm,1sdtc,1sdtu,1sduk,1sdut,1sduv,1sduw,1sdw5,1sdw9,1sdwk,1sdwp,1sdwu,1sdxi,1sdxr,1sdxt,1sdxu,1sdxx,1sdyc,1sdye,1sdyg,1sdyw,1sdzr,1sdzs,1se07,1se0m,1se0z,1se13,1se14,1se1b,1se1c,1se1d,1se1t,1se1u,1se2d,1se3j,1se4u,1se55,1se5a,1se5b,1se5c,1se5q,1se5w,1se6p,1se7x,1se7z,1se84,1se8y,1se95,1seas,1seb0,1seb7,1sebu,1sec0,1secg,1secp,1sed1,1see7,1seem,1seeu,1sefj,1sefy,1seh2,1seh7,1seic,1seif,1seij,1sein,1seiz,1sejd,1sejw,1sek0,1sek2,1sekb,1sekp,1sel2,1sems,1senb,1senc,1senh,1seol,1sep0,1ser0,1sesf,1seul,1seup,1sev3,1sevp,1sezh,1sf2f,1sf2v,1sf4n,1sf6d,1sf75,1sf79,1sf8l,1sf8r,1sf91,1sf99,1sf9n,1sfav,1sfc3,1sfeb,1sffb,1sfhb,1sfj7,1sfjr,1sfk3,1sfk7,1sflr,1sfmf,1sfnz,1sfo3,1sfov',
 };
 
 const CFG = {
@@ -379,19 +386,19 @@ const S = {
 };
 const reloj = makeClock(() => $('#reloj'));
 
-const REGLAS = `<p>Las <b>52 cartas</b> se reparten boca arriba en 8 columnas: no hay nada tapado ni nada que robar, todo está a la vista desde el principio. Arriba tienes las <b>celdas</b> (guardan una carta cada una) y las <b>cuatro bases</b>, que se llenan por palo del as al rey. Ganas cuando suben las 52.</p>
-<p>En las columnas se apila en <b>descendente y alternando color</b>: un 7 rojo va sobre un 8 negro. Una <b>columna vacía</b> acepta cualquier carta.</p>
-<p><b>Cuántas cartas puedes mover de golpe:</b> (celdas libres + 1), y eso se <b>duplica por cada columna vacía</b>. Con 2 celdas libres y 1 columna vacía son 6. Si el destino es una columna vacía, esa no cuenta. El marcador lo dice en cada momento: mover un grupo es en realidad mover carta por carta usando los huecos, y el juego lo hace por ti.</p>
-<p>Toca una carta para tomarla y toca a dónde va; los destinos legales se marcan. <b>Doble toque</b> (o volver a tocar la carta ya tomada) la manda sola a su base. <b>Deshacer</b> no tiene límite y no cuenta como movimiento.</p>
-<p><b>Ningún reparto está perdido de salida</b>: los 300 de cada nivel los ganó el resolutor del juego con las celdas de ese nivel antes de entrar a la lista. Pero sí te puedes atorar tú: el botón <b>¿Queda salida?</b> busca desde donde estás y te dice si aún se puede.</p>
-<p>Fácil y Normal dan <b>4 celdas</b>; Difícil, <b>3</b>; Experto, <b>2</b>. Menos celdas es menos sitio donde dejar cartas y grupos más cortos.</p>
-<p>Tu marca es el <b>número de movimientos</b>: menos es mejor. El mínimo posible es 52 (uno por carta que sube) y cada carta que guardas en una celda son dos más.</p>`;
+const REGLAS = `<p>Las <b>52 cartas</b> están a la vista en 8 columnas. Arriba: las <b>celdas</b>, que guardan una carta cada una, y las <b>4 bases</b>, que se llenan por palo del as al rey. Ganas cuando suben las 52.</p>
+<p>En las columnas se apila <b>descendente y alternando color</b> (un 7 rojo sobre un 8 negro). Una columna vacía acepta cualquier carta.</p>
+<p>De golpe mueves <b>(celdas libres + 1)</b>, y eso se <b>duplica por cada columna vacía</b>; si el destino es una columna vacía, esa no cuenta. El marcador «Mueves» lo dice en cada momento.</p>
+<p>Toca la carta y toca a dónde va: los destinos legales se marcan. <b>Doble toque</b> la manda a su base. <b>Deshacer</b> es ilimitado y no cuenta como movimiento.</p>
+<p>Los <b>300 repartos de cada nivel se pueden ganar</b> con las celdas de ese nivel (4, 4, 3 y 2): los ganó antes el resolutor del juego. Atorarte sí puedes: <b>¿Queda salida?</b> busca desde donde estás y te dice si aún hay.</p>
+<p>Tu marca son los <b>movimientos</b>: menos es mejor. El mínimo posible son 52, uno por carta que sube.</p>`;
 
 /* ═══ Dibujo de las cartas ════════════════════════════════════════════
    Cada carta es un SVG hecho aquí: el valor va en la esquina, dentro del
    cuarto de arriba, que es lo único que se ve cuando la tapa la siguiente.
    El palo grande solo se dibuja en las cartas destapadas (la última de cada
-   columna, celdas y bases): así el tablero baja de ~470 nodos a ~350. */
+   columna, celdas y bases): así la pantalla de juego se queda en 380 nodos
+   del DOM en vez de pasar de 500. */
 const RATIO = 1.48;
 const ALTO = (w) => Math.round(w * RATIO);
 const cacheCarta = new Map();
@@ -530,8 +537,6 @@ function renderPlay() {
     const el = e.target.closest('[data-c]');
     if (el) tocaColumna(Number(el.dataset.c), Number(el.dataset.k));
   };
-  // El alto libre de la mesa se mide una vez por pantalla, nunca dentro de
-  // un bucle de dibujo; con él se decide cuánto se solapan las cartas.
   // Tope de alto de la mesa: se mide una vez por pantalla, nunca dentro de un
   // bucle de dibujo. Con él se estira o encoge el solapamiento de las
   // columnas para llenar la pantalla sin dejar un hueco muerto abajo.
@@ -623,6 +628,7 @@ function pintar() {
 
   $('#mv').textContent = S.mov;
   $('#cap').textContent = capacidad(st, S.celdas, false);
+  if ($('#t-undo')) $('#t-undo').disabled = !S.hist.length;
 }
 
 function aviso(txt, mal) {
@@ -652,7 +658,6 @@ function deshacer() {
   vibrate(8);
   pintar();
   aviso(S.hist.length ? '' : 'Vuelves al reparto de salida');
-  if ($('#t-undo')) $('#t-undo').disabled = !S.hist.length;
 }
 
 function trasJugada() {
@@ -660,7 +665,6 @@ function trasJugada() {
   S.mov++;
   vibrate(10);
   pintar();
-  if ($('#t-undo')) $('#t-undo').disabled = false;
   if (subidas(S.est) === 52) return ganar();
   // ¿Ya solo queda subirlas? Entonces se terminan solas, contando cada una.
   const prueba = clonar(S.est);

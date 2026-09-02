@@ -95,16 +95,18 @@
   }
   .eb-tool:active { opacity: .6; }
   .eb-flash { position: absolute; left: 0; right: 0; top: 42%; text-align: center; pointer-events: none; z-index: 4; }
+  /* El aviso lo QUITA el temporizador de JS, no la animación: si el remate
+     del fotograma final fuera «opacity: 0», con prefers-reduced-motion (que
+     recorta la duración a .01ms) el cartel de escoba no se vería nunca. La
+     animación es solo la entrada; el estado final es visible. */
   .eb-flash span {
     display: inline-block; font-family: var(--display); font-size: 33px; color: var(--accent-texto);
     background: var(--card); border: 1px solid var(--accent); border-radius: var(--pastilla);
-    padding: 8px 26px; animation: ebFlash 1.1s var(--ease) forwards;
+    padding: 8px 26px; opacity: 1; animation: ebFlash .34s var(--ease);
   }
   @keyframes ebFlash {
-    0% { opacity: 0; transform: scale(.9); }
-    18% { opacity: 1; transform: scale(1); }
-    78% { opacity: 1; transform: scale(1); }
-    100% { opacity: 0; transform: scale(1.02); }
+    0% { opacity: 0; transform: scale(.92); }
+    100% { opacity: 1; transform: scale(1); }
   }
 
   /* ── Tabla de puntos (reglas y fin de ronda) ──────────────────────── */
@@ -144,6 +146,9 @@ const ES_ORO = (c) => c < 10;
 const ES_7 = (c) => c % 10 === 6;
 const VELO = 6;                       // el siete de oros
 const META = 15;                      // puntos para ganar la partida
+/* Tope de seguridad al enumerar capturas. Medido sobre 144.000 jugadas: la
+   mesa nunca pasó de 11 cartas y una sola carta llegó como mucho a 30
+   combinaciones, así que el tope no llega a tocarse nunca. */
 const MAX_COMBOS = 120;
 
 const sumaV = (cs) => cs.reduce((a, c) => a + VAL(c), 0);
@@ -160,7 +165,9 @@ function barajado(rnd) {
 
 /* Todos los subconjuntos de la mesa que suman «objetivo». Devuelve arreglos
    de índices de mesa. Va en profundidad de mayor a menor con poda por suma
-   restante, así que en una mesa normal (3–7 cartas) son unos pocos nodos. */
+   restante; la mesa se queda casi siempre entre 1 y 5 cartas (el 90 % de las
+   jugadas medidas), así que son unos pocos nodos y se puede llamar dentro
+   del bucle de la IA sin que se note. */
 function combos(vals, objetivo) {
   const out = [];
   if (objetivo < 1) return out;
@@ -519,6 +526,8 @@ const PALO_N = ['oros', 'copas', 'espadas', 'bastos'];
 const FIG = { 8: 'S', 9: 'C', 10: 'R' };
 const FIG_N = { 8: 'sota', 9: 'caballo', 10: 'rey' };
 const nombreCarta = (c) => `${VAL(c) === 1 ? 'as' : FIG_N[VAL(c)] || VAL(c)} de ${PALO_N[PALO(c)]}`;
+/* La sota es la única femenina de la baraja: «el sota de copas» chirriaba. */
+const conArticulo = (c) => `${VAL(c) === 8 ? 'la' : 'el'} ${nombreCarta(c)}`;
 
 function cartaHTML(c, w, clases, attrs, tag) {
   const v = VAL(c), t = tag || 'button';
@@ -532,7 +541,7 @@ function cartaHTML(c, w, clases, attrs, tag) {
 const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
 const YO = 0, APP = 1;
 const S = {
-  nivel: store.get('escoba.nivel', 'normal'),
+  nivel: store.get('esco.nivel', 'normal'),
   R: null, pts: [0, 0], ronda: 1, da: APP,
   sel: null, ghost: null, ghostCombo: null,
   gen: 0, timers: [], jugando: false, esperando: null,
@@ -561,10 +570,10 @@ puede y va por los oros y los sietes; <b>Difícil</b> además cuida lo que te de
 servido en la mesa; <b>Experto</b> cuenta las cartas ya vistas para calcular qué
 te queda por salir. Tus victorias se guardan por nivel.</p>`;
 
-const victorias = (n) => store.get('escoba.wins.' + n, 0);
+const victorias = (n) => store.get('esco.wins.' + n, 0);
 function anotaVictoria(nivel) {
   const n = victorias(nivel) + 1;
-  store.set('escoba.wins.' + nivel, n);
+  store.set('esco.wins.' + nivel, n);
   let alto = null;
   for (const v of NIVELES) if (victorias(v) > 0) alto = v;
   if (alto) {
@@ -590,7 +599,8 @@ function renderSetup() {
   limpiar();
   const bests = NIVELES.map((v) =>
     `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
-  const esc = store.get('escoba.escobas', 0);
+  // Ojo con el nombre: `esc` es la función de escape de nucleo.js.
+  const escTot = store.get('esco.escobas', 0);
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Escoba del 15', '')}
@@ -603,7 +613,7 @@ function renderSetup() {
       </div>
       <div class="label-sm" style="margin-top:4px;">Partidas ganadas, por nivel</div>
       <div class="bests">${bests}</div>
-      <div class="dato" style="text-align:center; margin-top:2px;">Escobas hechas en total: ${esc}</div>
+      <div class="dato" style="text-align:center; margin-top:2px;">Escobas hechas en total: ${escTot}</div>
       <button class="btn btn-primary" style="margin-top:6px;" id="new">Jugar</button>
       <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
@@ -614,7 +624,7 @@ function renderSetup() {
   };
   const hint = () => { const e = $('#d-hint'); if (e) e.textContent = HINT[S.nivel]; };
   hint();
-  bindSeg('seg-d', (v) => { S.nivel = v; store.set('escoba.nivel', v); hint(); });
+  bindSeg('seg-d', (v) => { S.nivel = v; store.set('esco.nivel', v); hint(); });
   $('#new').onclick = nuevaPartida;
   bindHowto(REGLAS);
 }
@@ -752,7 +762,7 @@ function pintaAccion() {
   if (!S.sel) { cont.innerHTML = ''; return; }
   const carta = S.sel.carta;
   if (!S.sel.combos.length) {
-    cont.innerHTML = `<button class="btn btn-primary btn-sm" id="eb-dejar" type="button">Dejar el ${nombreCarta(carta)}</button>` +
+    cont.innerHTML = `<button class="btn btn-primary btn-sm" id="eb-dejar" type="button">Dejar ${conArticulo(carta)}</button>` +
       `<button class="btn btn-ghost btn-sm" id="eb-cancel" type="button">Cancelar</button>`;
     $('#eb-dejar').onclick = () => { if (S.esperando === 'tu' && S.sel) jugada(YO, { carta: S.sel.carta, combo: null }); };
   } else {
@@ -827,7 +837,7 @@ async function turno() {
   if (!jug) return;
   S.ghost = jug.carta; S.ghostCombo = jug.combo;
   pintaMesa();
-  msg(`La app juega el ${nombreCarta(jug.carta)}`);
+  msg(`La app juega ${conArticulo(jug.carta)}`);
   await espera(820);
   if (!vivo(g)) return;
   S.ghost = null; S.ghostCombo = null;
@@ -871,16 +881,19 @@ async function finRonda() {
   const t = tanteo(R);
   S.pts[0] += t.p[0]; S.pts[1] += t.p[1];
   S.esperando = null;
-  store.set('escoba.escobas', store.get('escoba.escobas', 0) + R.esc[0]);
+  store.set('esco.escobas', store.get('esco.escobas', 0) + R.esc[0]);
   pinta();
-  msg(R.restos ? `Las ${R.restos} de la mesa se las lleva ${R.ultima === YO ? 'tu montón' : 'la app'}` : 'Fin de la ronda');
+  const resto = R.restos === 1 ? 'La última carta de la mesa' : `Las ${R.restos} cartas de la mesa`;
+  msg(R.restos ? `${resto} ${R.ultima === YO ? 'son para ti' : 'son para la app'}` : 'Fin de la ronda');
   await espera(900);
   if (!vivo(g)) return;
   const gana = (S.pts[0] >= META || S.pts[1] >= META) && S.pts[0] !== S.pts[1];
   const filas = t.det.map(([n, a, b, q]) =>
     `<tr><td>${n}</td><td class="${q === 0 ? 'eb-gana' : ''}">${a}</td><td class="${q === 1 ? 'eb-gana' : ''}">${b}</td></tr>`).join('');
-  const cabecera = (t) => `<table class="eb-tabla">
-    <tr><th>${t}</th><th>Tú</th><th>App</th></tr>
+  // El parámetro NO se llama `t`: eso tapaba el tanteo de arriba y reventaba
+  // el cierre de toda ronda (`t.p[0]` sobre una cadena).
+  const cabecera = (titulo) => `<table class="eb-tabla">
+    <tr><th>${titulo}</th><th>Tú</th><th>App</th></tr>
     ${filas}
     <tr class="eb-total"><td>Puntos de la ronda</td><td>+${t.p[0]}</td><td>+${t.p[1]}</td></tr>
     <tr class="eb-total"><td>Partida</td><td>${S.pts[0]}</td><td>${S.pts[1]}</td></tr>

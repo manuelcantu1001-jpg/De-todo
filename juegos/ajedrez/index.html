@@ -24,19 +24,25 @@
   .aj-twrap { display: flex; justify-content: center; padding: 0 6px; }
   .aj-tab {
     width: min(96vw, 420px, calc(100dvh - 300px));
-    aspect-ratio: 1; display: grid; grid-template-columns: repeat(8, 1fr);
+    aspect-ratio: 1; display: grid;
+    /* Las OCHO filas explícitas, no solo las columnas: con filas automáticas
+       el alto de la casilla salía del contenido (el 86 % del SVG no tiene
+       contra qué medirse), la casilla acababa en 46×67 y los puntos de
+       destino salían ovalados. min-height: 0 evita que el mínimo automático
+       del contenido vuelva a estirar la fila. */
+    grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
     border: var(--trazo) solid var(--linea-fuerte); border-radius: 6px; overflow: hidden;
     touch-action: manipulation; user-select: none; -webkit-user-select: none;
   }
   .aj-cas {
-    position: relative; border: none; padding: 0; margin: 0; cursor: pointer;
+    position: relative; border: none; padding: 0; margin: 0; cursor: pointer; min-width: 0; min-height: 0;
     background: var(--card); display: flex; align-items: center; justify-content: center;
     -webkit-tap-highlight-color: transparent;
   }
   .aj-cas.osc { background: color-mix(in srgb, var(--soft) 72%, var(--sub)); }
   .aj-cas .aj-co {
     position: absolute; font-family: var(--mono); font-size: 8px; letter-spacing: .04em;
-    color: var(--ink); opacity: .62; pointer-events: none;
+    color: var(--ink); opacity: .8; pointer-events: none;
   }
   .aj-cas .aj-co.f { left: 2px; top: 1px; }
   .aj-cas .aj-co.c { right: 2px; bottom: 0; }
@@ -45,25 +51,34 @@
   .aj-pz.n { fill: var(--ink); stroke: var(--card); stroke-width: 1.3; }
   .aj-pz.vacia { display: none; }
 
-  /* Marcas del tablero: última jugada, selección, destinos y jaque. */
+  /* Marcas del tablero. Tres estados distintos tienen que distinguirse ENTRE
+     SÍ, no solo del damero: con terracota para la casilla elegida y rojo para
+     el jaque salían a ΔE 3,6 (el mismo tropiezo que ya dejó dos colores
+     iguales en Simón y en Bloques). Ahora van en tres familias: azul la
+     elegida, ocre la última jugada y rojo el jaque, con ΔE ≥ 17 entre
+     cualquier par y ≥ 18 contra la casilla sin marcar. */
   .aj-cas.ult::before {
-    content: ''; position: absolute; inset: 0; background: var(--warn); opacity: .38;
+    content: ''; position: absolute; inset: 0; background: var(--warn); opacity: .55;
   }
-  .aj-cas.sel::before { content: ''; position: absolute; inset: 0; background: var(--accent); opacity: .34; }
+  .aj-cas.sel::before { content: ''; position: absolute; inset: 0; background: var(--tinta-2); opacity: .34; }
   /* `inset` en vez de ancho y alto: el porcentaje sale del cuadro de la
      casilla en los dos ejes y el punto sale redondo, no aplastado. */
+  /* Punto (destino libre) y aro (destino con captura): mismo color, distinta
+     forma, como en cualquier tablero. El tono es terracota rebajado con tinta
+     hasta que aguanta 3:1 en el peor fondo posible, que es la casilla oscura
+     ya teñida de última jugada (3,3:1 medido). */
   .aj-cas .aj-marca {
     position: absolute; inset: 37%; border-radius: 999px;
-    background: var(--accent-texto); opacity: 0; pointer-events: none;
-    transition: opacity var(--dur) var(--ease);
+    background: color-mix(in srgb, var(--accent-texto) 38%, var(--ink));
+    opacity: 0; pointer-events: none; transition: opacity var(--dur) var(--ease);
   }
   .aj-cas.dest .aj-marca { opacity: 1; }
   .aj-cas.come .aj-marca {
-    inset: 4%; background: none; opacity: 1;
-    border: 3px solid var(--bad); border-radius: 999px;
+    inset: 4%; background: none; opacity: 1; border-radius: 999px;
+    border: 3px solid color-mix(in srgb, var(--accent-texto) 38%, var(--ink));
   }
   .aj-cas.jaque::before {
-    content: ''; position: absolute; inset: 0; background: var(--bad); opacity: .34;
+    content: ''; position: absolute; inset: 0; background: var(--bad); opacity: .45;
   }
 
   /* ── Marcador: quién juega, piezas comidas y ventaja de material ── */
@@ -79,7 +94,7 @@
   .aj-comidas { display: flex; align-items: center; gap: 0; flex: 1; min-width: 0; overflow: hidden; }
   .aj-comidas .aj-pz { width: 17px; height: 17px; margin-right: -3px; flex-shrink: 0; stroke-width: 2.4; }
   .aj-comidas .aj-pz.n { stroke-width: 1.8; }
-  .aj-vent { font-size: 12.5px; font-weight: 500; color: var(--sub); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .aj-vent { font-size: 12.5px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; flex-shrink: 0; }
 
   .aj-estado { text-align: center; padding: 0 14px; font-family: var(--display); font-style: italic;
     font-size: 15.5px; color: var(--bg-ink); min-height: 21px; }
@@ -96,7 +111,12 @@
   .aj-lista .aj-num { font-family: var(--mono); font-size: 10.5px; color: var(--sub); margin-right: 4px; }
   .aj-lista .aj-vacia { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
     text-transform: uppercase; color: var(--sub); }
-  .aj-lista .aj-ultima { font-weight: 600; color: var(--accent-texto); }
+  /* La jugada de ahora, en píldora clara: el terracota sobre el beige del
+     bloque se quedaba en 4,07:1 y sobre la tarjeta llega a 4,91:1. */
+  .aj-lista .aj-ultima {
+    font-weight: 600; color: var(--accent-texto);
+    background: var(--card); border-radius: var(--pastilla); padding: 1px 6px;
+  }
 
   /* ── Mandos ──────────────────────────────────────────────────────── */
   .aj-tools { margin: 0 14px calc(6px + env(safe-area-inset-bottom)); display: flex; gap: 8px; justify-content: center; }
@@ -742,7 +762,7 @@ function crearMotor() {
 
   function seAcabo() {
     if (limiteNodos && nodos >= limiteNodos) return true;
-    if (plazo && (nodos & 511) === 0 && Date.now() > plazo) return true;
+    if (plazo && (nodos & 127) === 0 && Date.now() > plazo) return true;
     return false;
   }
 
@@ -1024,11 +1044,15 @@ function crearWorker() {
     return w;
   } catch (e) { return null; }
 }
+// Difícil y Experto piensan en el worker: son los que cuestan (105 y 900 ms
+// medidos aquí). Fácil y Normal tardan un milisegundo y no vale la pena
+// mandarlos fuera. Sin worker, el respaldo síncrono lleva plazo corto.
+const EN_WORKER = { facil: false, normal: false, dificil: true, experto: true };
 const PLAZO = { facil: 0, normal: 0, dificil: 0, experto: 900 };
 const PLAZO_SINC = { facil: 0, normal: 0, dificil: 0, experto: 260 };
 function pedirJugada(G, nivel) {
   const sinc = () => M.elegir(G, nivel, Math.random, { plazo: PLAZO_SINC[nivel] });
-  if (!S.worker || !PLAZO[nivel]) return Promise.resolve(sinc());
+  if (!S.worker || !EN_WORKER[nivel]) return Promise.resolve(sinc());
   return new Promise((res) => {
     const id = ++S.pid;
     S.pendientes.set(id, (m) => res(m == null ? sinc() : m));
@@ -1180,36 +1204,51 @@ function pinta() {
   pintaMarcador();
   pintaLista();
   const un = $('#t-deshacer');
-  if (un) un.disabled = S.pensando || !S.jugando || S.fotos.length < 1;
+  // Solo se puede deshacer si al retroceder se llega a un turno tuyo: jugando
+  // con negras, la primera foto es la jugada de apertura de la app y volver
+  // ahí dejaría la partida parada esperando a nadie.
+  if (un) un.disabled = S.pensando || !S.jugando || !hayVuelta();
 }
 
 function pintaMarcador() {
-  const G = S.G, cuenta = [{}, {}];
-  const INICIAL = { 1: 8, 2: 2, 3: 2, 4: 2, 5: 1 };
-  for (const c of [0, 1]) for (const t of [1, 2, 3, 4, 5]) cuenta[c][t] = INICIAL[t];
+  const G = S.G;
+  const INICIAL = [0, 8, 2, 2, 2, 1];
+  const enTablero = [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]];
+  const mat = [0, 0];
   for (let s = 0; s < 128; s++) {
     if (s & 0x88) continue;
     const p = G.b[s];
     if (!p) continue;
-    const t = M.tipo(p);
-    if (t !== M.REY) cuenta[M.colorDe(p)][t]--;
+    const t = M.tipo(p), c = M.colorDe(p);
+    if (t === M.REY) continue;
+    enTablero[c][t]++;
+    mat[c] += M.VALOR[t];
   }
-  // Lo que le falta a un color son las piezas que se comió el otro.
+  /* Lo que le falta a un color son las piezas que se comió el otro. Ojo con la
+     coronación: deja un peón de menos y una pieza de más, y sin descontarlo el
+     marcador enseñaría un peón comido que nadie comió. La ventaja se saca
+     directamente del material que hay en el tablero, no de los huecos. */
+  const faltan = [[], []];
+  for (const c of [0, 1]) {
+    let coronadas = 0;
+    for (let t = 2; t <= 5; t++) coronadas += Math.max(0, enTablero[c][t] - INICIAL[t]);
+    for (let t = 1; t <= 5; t++) {
+      faltan[c][t] = Math.max(0, INICIAL[t] - enTablero[c][t] - (t === 1 ? coronadas : 0));
+    }
+  }
   const tira = (colorComido) => {
     let h = '';
     for (const t of [5, 4, 3, 2, 1]) {
-      for (let k = 0; k < Math.max(0, cuenta[colorComido][t]); k++) {
+      for (let k = 0; k < faltan[colorComido][t]; k++) {
         h += `<svg class="aj-pz${colorComido === M.NEGRO ? ' n' : ''}" viewBox="0 0 45 45"><use href="#pz-${t}"></use></svg>`;
       }
     }
     return h;
   };
-  const puntos = (c) => [1, 2, 3, 4, 5].reduce((a, t) => a + Math.max(0, cuenta[c][t]) * M.VALOR[t], 0);
-  const yoComio = puntos(1 - S.miColor), appComio = puntos(S.miColor);
   const set = (id, html) => { const el = $(id); if (el) el.innerHTML = html; };
   set('#com-yo', tira(1 - S.miColor));
   set('#com-app', tira(S.miColor));
-  const dif = Math.round((yoComio - appComio) / 100);
+  const dif = Math.round((mat[S.miColor] - mat[1 - S.miColor]) / 100);
   const vy = $('#vent-yo'), va = $('#vent-app');
   if (vy) vy.textContent = dif > 0 ? '+' + dif : '';
   if (va) va.textContent = dif < 0 ? '+' + (-dif) : '';
@@ -1244,7 +1283,7 @@ function estado(html, aviso) {
 function pintaEstado() {
   const G = S.G;
   if (S.fin) return;
-  if (G.turno !== S.miColor) return estado('La app piensa…');
+  if (G.turno !== S.miColor) return estado(M.enJaque(G, G.turno) ? '<b>Jaque</b> · la app piensa…' : 'La app piensa…');
   if (M.enJaque(G, S.miColor)) return estado('<b>Estás en jaque</b>', true);
   return estado(S.sel >= 0 ? 'Elige el destino' : '<b>Te toca</b>');
 }
@@ -1294,9 +1333,11 @@ function pideCorona(cands) {
     return `<button data-m="${m}" aria-label="${NOM[t]}">` +
       `<svg class="aj-pz${negras ? ' n' : ''}" viewBox="0 0 45 45"><use href="#pz-${t}"></use></svg></button>`;
   }).join('');
+  // Tocar fuera cancela: la jugada aún no está hecha y nadie debería quedarse
+  // atrapado en el selector por haberlo abierto sin querer.
   openModal(`<h3>Coronas</h3><p>Elige en qué se convierte el peón.</p>
     <div class="aj-coro">${botones}</div>
-    <div class="aj-rot">Dama · Torre · Alfil · Caballo</div>`);
+    <div class="aj-rot">Dama · Torre · Alfil · Caballo</div>`, closeModal);
   $$('.aj-coro button').forEach((b) => b.onclick = () => {
     closeModal();
     juegaMia(Number(b.dataset.m));
@@ -1316,12 +1357,11 @@ function juegaMia(m) {
   turnoApp();
 }
 
+const hayVuelta = () => S.fotos.some((f) => f.pos.turno === S.miColor);
 function deshacerJugada() {
-  if (S.pensando || !S.jugando || !S.fotos.length) return;
+  if (S.pensando || !S.jugando || !hayVuelta()) return;
   // Retrocede hasta que vuelva a ser tu turno: tu jugada y la respuesta.
-  let f = S.fotos.pop();
-  restaura(f);
-  while (S.G.turno !== S.miColor && S.fotos.length) { f = S.fotos.pop(); restaura(f); }
+  do { restaura(S.fotos.pop()); } while (S.G.turno !== S.miColor);
   S.sel = -1; S.destinos = []; S.fin = null; S.jugando = true;
   vibrate(6);
   pinta(); pintaEstado();
@@ -1332,7 +1372,7 @@ async function turnoApp() {
   const g = S.gen;
   if (!vivo(g) || !S.jugando) return;
   S.pensando = true;
-  estado('La app piensa…');
+  estado(M.enJaque(S.G, S.G.turno) ? '<b>Jaque</b> · la app piensa…' : 'La app piensa…');
   pinta();
   const t0 = Date.now();
   const m = await pedirJugada(S.G, S.nivel);
