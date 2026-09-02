@@ -88,10 +88,15 @@
   /* ── Aviso, mandos y escoba ───────────────────────────────────────── */
   .eb-msg { text-align: center; padding: 0 18px; min-height: 20px; font-family: var(--display); font-style: italic; font-size: 15px; color: var(--ink); }
   .eb-accion { display: flex; gap: 9px; justify-content: center; align-items: center; min-height: 46px; padding-top: 10px; flex-wrap: wrap; }
+  /* .btn-sm compartido deja 38px de alto; aquí se juega con el pulgar y el
+     objetivo tiene que llegar a 40. Solo dentro de esta fila. */
+  .eb-accion .btn-sm { padding: 11px 16px; }
   .eb-tools { margin: 0 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 8px; }
+  /* 11px de relleno, no 10: con 10 la pastilla medía 39px de alto y el
+     objetivo táctil se quedaba a un píxel de los 40. */
   .eb-tool {
     border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
-    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    font-size: 13px; padding: 11px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
   }
   .eb-tool:active { opacity: .6; }
   .eb-flash { position: absolute; left: 0; right: 0; top: 42%; text-align: center; pointer-events: none; z-index: 4; }
@@ -714,7 +719,7 @@ function pintaMesa() {
   // La carta encoge por tramos para que la mesa nunca pase de dos filas
   // (medido: la mesa llegó a 11 cartas en 72.000 jugadas simuladas).
   const n = R.mesa.length + (S.ghost != null ? 1 : 0);
-  const w = n <= 6 ? 55 : n <= 9 ? 48 : n <= 13 ? 41 : 35;
+  const w = n <= 6 ? 55 : n <= 9 ? 48 : n <= 13 ? 41 : 38;
   const hot = calientes(S.sel);
   const eleg = new Set(S.sel ? S.sel.elegidas : []);
   const marca = new Set(S.ghostCombo || []);
