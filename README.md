@@ -2,7 +2,7 @@
 
 Colección propia de juegos de pasatiempos, al estilo de las apps de «mil juegos»
 pero hecha en casa. Se llama **Sobremesa** por el rato para el que es: el de después
-de comer, con la mesa recogida, dominó, cartas y plática. Son **49 juegos sin anuncios, sin conexión y con el mismo lenguaje
+de comer, con la mesa recogida, dominó, cartas y plática. Son **55 juegos sin anuncios, sin conexión y con el mismo lenguaje
 de diseño** en todos. Auditados uno por uno: si un juego no tenía juego dentro, se
 fue; si prometía algo que no cumplía, se arregló.
 
@@ -17,7 +17,9 @@ con racha) · Ahorcado · Anagramas · Acomoda-palabras · Buscapalabras (tipo B
 con el léxico completo) · Ordena la frase (banco propio de 144 refranes,
 con pista) · Sílabas encadenadas (con silabeador propio) · Panal (siete letras,
 una obligatoria; cada panal esconde de 20 a 100 palabras y siempre un pangrama) ·
-Criptograma (un refrán cifrado por sustitución; se puntúa, no se cronometra).
+Criptograma (un refrán cifrado por sustitución; se puntúa, no se cronometra) ·
+Escalera de palabras (cambia una letra por paso; el camino mínimo se calcula con
+búsqueda en anchura y la marca son las escaleras clavadas).
 
 **Números y lógica**: Sudoku (solución única) · Cifras (objetivo siempre alcanzable) ·
 Nonograma (38 dibujos de verdad; única y sin adivinar) · Kakuro (solución única) ·
@@ -26,7 +28,11 @@ Buscaminas (nunca hay que adivinar) · Batalla naval
 Binario/Takuzu (única y deducible entera) · Puentes (Hashiwokakero, con el grafo
 a la vista) · Hitori (solución única) · Luces fuera (marca sobre el mínimo real) · Picas y fijas
 (media de cinco partidas) ·
-Punteros (tableros 100 % despejables) · Inunda (límite calibrado con resolutor).
+Punteros (tableros 100 % despejables) · Inunda (límite calibrado con resolutor) ·
+Futoshiki (solución única y sin adivinar) · Rascacielos (cuántos edificios se ven;
+única y sin adivinar) · Calcudoku (jaulas con operación; única, con banda de coste
+por nivel) · Tiendas y árboles (una tienda por árbol; única y sin adivinar) ·
+Atasco (saca el coche rojo; el mínimo de movimientos se calcula y se enseña).
 
 **Mesa y clásicos**: Memorama · Gato (minimax; el nivel Normal sí se deja ganar) ·
 Conecta 4 (minimax α-β) · Damas (capturas obligatorias, multisalto y tablas) ·
@@ -60,7 +66,7 @@ banco-es.js           Banco curado: 7.800 palabras y 14 listas temáticas
 vocab-es.js           Vocabulario amplio (17.100 formas) para los juegos de cadena
 lexico-es.txt.gz      Léxico de validación (~635.000 formas normalizadas)
 scripts/              auditar-con-codex.sh (segunda opinión) y las dos pruebas
-                      de robustez que se pasan a los 49 juegos con Playwright
+                      de robustez que se pasan a los 55 juegos con Playwright
 manifest.webmanifest  PWA instalable · sw.js: cache para jugar sin conexión
 .github/workflows/    Deploy automático a GitHub Pages (rama gh-pages) en cada push
 ```

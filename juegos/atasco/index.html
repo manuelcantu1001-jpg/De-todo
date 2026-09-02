@@ -561,6 +561,7 @@ function gana() {
   const record = best == null || sobra < best;
   if (record) {
     store.set(k, sobra);
+    if ($('#mj')) $('#mj').textContent = '+' + sobra;
     let alto = null;
     for (const d of ORDEN) if (store.get('ata.best.' + d, null) != null) alto = d;
     const v = store.get('ata.best.' + alto, 0);

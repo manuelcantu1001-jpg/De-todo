@@ -6,7 +6,7 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
 
 ## Lo que ya existe y funciona
 
-- **Hub + 49 juegos** (eran 44: se retiraron «La definición» y «Póker 3 cartas» por
+- **Hub + 55 juegos** (eran 44: se retiraron «La definición» y «Póker 3 cartas» por
   relleno, ver auditoría abajo), todos vanilla JS sin build, con dificultades, marcas y
   «¿Cómo se juega?»: Palabras (Encadena, Sopa, Crucigrama con banco propio de ~390
   pistas, La palabra del día con modo diario, Ahorcado, Anagramas, Acomoda-palabras,
@@ -14,7 +14,8 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
   encadenadas con silabeador propio),
   Números y lógica (Sudoku, Cifras, Nonograma, Kakuro, Buscaminas, Batalla naval,
   2048, Binario/Takuzu, Puentes/Hashi, Hitori, Luces fuera, Picas y fijas,
-  Punteros —el de las flechas que pidió Manuel—, Inunda),
+  Punteros —el de las flechas que pidió Manuel—, Inunda, Futoshiki, Rascacielos,
+  Calcudoku, Tiendas y árboles, Atasco),
   Mesa (Memorama, Gato, Conecta 4, Damas, Solitario, Reversi, Dominó, Deslizante,
   Come solo, Hanoi, Ludo, Timbiriche, Generala, Molino, Mancala,
   Blackjack con división y reto de banca, Texas Hold'em con
@@ -24,7 +25,7 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
   inunda (límite = resolutor voraz + margen).
 - **Sistema compartido** en `comun/`: `estilo.css` (TODA la identidad visual vive ahí,
   tokens en `:root`) y `nucleo.js` (utilidades + diccionario). Cada juego enlaza ambos.
-- **PWA instalable** (manifest «Sobremesa», `sw.js` cache `sobremesa-v14`).
+- **PWA instalable** (manifest «Sobremesa», `sw.js` cache `sobremesa-v15`).
   Al añadir/cambiar assets: bump de versión del cache.
 - **Publicación automática**: push a esta rama → workflow construye `_site` → rama
   `gh-pages` → **https://manuelcantu1001-jpg.github.io/De-todo/**
@@ -33,7 +34,8 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
   ids: enc, sopa, cru, pal, ahorcado, ana, aco, sud, cif, nono, kak, mina, naval,
   m2048, memo, gato, c4, damas, sol, serp, simon, lab, bus, fra, sil, bin,
   pue, hit, luz, pic, pun, inu, rev, dom, des, come, han, bj, hold, blo,
-  lad, topo, ludo, tim, gen, mol, man, pan, crip. (Carpeta ≠ id en varios:
+  lad, topo, ludo, tim, gen, mol, man, pan, crip, fut, ras, cal, tie, ata, esc.
+  (Carpeta ≠ id en varios:
   buscapalabras→bus, frase→fra, criptograma→crip, timbiriche→tim, etc.)
   Los juegos con rival guardan la marca por nivel (`<juego>.wins.<nivel>`) y al hub
   mandan la del nivel más alto ganado.
@@ -136,6 +138,14 @@ en la política de red del entorno; el script lo detecta y avisa en vez de colga
   frecuencias de subtítulos y metía nombres propios ingleses («jeff», «randy») como
   respuestas. NO volver a usar frecuencias crudas para preguntar.
 - `norm()`: minúsculas, sin tildes, conserva la ñ.
+- **Verifica el verificador.** En la tanda de lógica cada generador traía su
+  propio contador de soluciones, y un contador con un fallo «demuestra» lo que
+  quieras. Para auditarlos se escribió un segundo contador por juego, con otra
+  técnica: por permutaciones de fila en Futoshiki, Rascacielos y Calcudoku, y
+  por columnas con emparejamiento por máscaras en Tiendas. Coincidieron con los
+  del juego en los 1.005 tableros probados. Si haces un juego de rejilla, esta
+  comprobación cruzada es barata y es la única que vale.
+
 - **Un porcentaje de relleno se mide contra el CONTENEDOR, no contra el elemento.**
   Los dados de la Generala llevaban `padding: 15%` y `width: var(--dado)` (60px);
   con `box-sizing: border-box` la caja no puede ser menor que su propio relleno,
