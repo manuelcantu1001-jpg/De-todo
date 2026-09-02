@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Timbiriche contra la app: traza lados entre puntos, cierra cajas y quédate con más que ella." />
+<title>Timbiriche</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Tú siempre llevas la terracota; la app, el azul (tinta-2). */
+  :root { --tb-yo: var(--tinta-1); --tb-app: var(--tinta-2); }
+
+  /* La zona de juego reparte el alto que sobra entre tablero, marcador y
+     mandos: sin media pantalla vacía. Solo en la pantalla de juego. */
+  .tb-juego { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
+  .tb-wrap { display: flex; justify-content: center; padding: 4px 8px 0; }
+  .tb-tablero {
+    display: block; width: min(96vw, 420px); height: auto;
+    background: var(--card); border: var(--trazo) solid var(--linea); border-radius: var(--mano-1);
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  }
+  /* Lados: un susurro los libres, filete fuerte los trazados. El último del
+     rival va en su azul para que se vea qué acaba de hacer. */
+  .tb-lado { stroke: var(--linea); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+  .tb-lado.hecho { stroke: var(--linea-fuerte); stroke-width: 6; }
+  .tb-lado.app-ult { stroke: var(--tb-app); stroke-width: 7; }
+  .tb-lado.yo-ult { stroke: color-mix(in srgb, var(--tb-yo) 55%, var(--linea-fuerte)); stroke-width: 6; }
+  /* Zona de toque de cada lado: el rombo entre sus dos puntos y los centros
+     de las cajas vecinas. Invisible, pero recibe el toque. */
+  .tb-zona { fill: transparent; stroke: none; pointer-events: all; cursor: pointer; }
+  .tb-zona:active { fill: var(--panel); }
+  .tb-punto { fill: var(--ink); }
+  .tb-caja { rx: 9; ry: 9; opacity: 0; transition: opacity var(--dur) var(--ease); }
+  .tb-caja.yo { fill: color-mix(in srgb, var(--tb-yo) 30%, var(--card)); opacity: 1; }
+  .tb-caja.app { fill: color-mix(in srgb, var(--tb-app) 30%, var(--card)); opacity: 1; }
+  .tb-marca { opacity: 0; transition: opacity var(--dur) var(--ease); }
+  .tb-marca.yo { fill: var(--tb-yo); opacity: 1; }
+  .tb-marca.app { fill: var(--tb-app); opacity: 1; }
+  .tb-tablero.fin .tb-zona { cursor: default; }
+
+  /* Marcador: etiqueta técnica en monoespaciada, número en sans a peso medio. */
+  .tb-marcador { display: flex; justify-content: center; align-items: center; gap: 22px; padding: 6px 16px 0; }
+  .tb-marcador .lado { display: flex; align-items: center; gap: 8px; }
+  .tb-marcador .lado i { width: 10px; height: 10px; border-radius: 999px; display: inline-block; }
+  .tb-marcador .lado.yo i { background: var(--tb-yo); }
+  .tb-marcador .lado.app i { background: var(--tb-app); }
+  .tb-marcador .lado b { font-family: var(--font); font-size: 22px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+  .tb-marcador .sep { color: var(--faint); font-size: 18px; }
+  .tb-quien { text-align: center; padding: 8px 16px 0; font-family: var(--display); font-style: italic; font-size: 15px; color: var(--sub); min-height: 20px; }
+  .tb-quien b { font-style: normal; font-weight: 500; color: var(--ink); }
+  .tb-tools { margin: 0 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 10px; }
+  .tb-tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
+  .tb-tool:active { opacity: .6; }
+  .tb-hint { font-size: 12.5px; color: var(--sub); padding: 8px 2px 4px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ── Motor puro ────────────────────────────────────────────────────────
+   Trabaja sobre un objeto G sin tocar la pantalla: sirve para jugar y para
+   simular miles de partidas y medir las IAs. Lados: primero los horizontales
+   (fila r de puntos, columna c) y luego los verticales. Cajas por fila. */
+const YO = 0, APP = 1;
+const GEOM = new Map();
+function geometria(n) {
+  if (GEOM.has(n)) return GEOM.get(n);
+  const nH = n * (n - 1), nE = 2 * nH, nB = (n - 1) * (n - 1);
+  const H = (r, c) => r * (n - 1) + c;
+  const V = (r, c) => nH + r * n + c;
+  const cajaLados = [], ladoCajas = Array.from({ length: nE }, () => []);
+  for (let r = 0; r < n - 1; r++) for (let c = 0; c < n - 1; c++) {
+    const b = r * (n - 1) + c;
+    const l = [H(r, c), H(r + 1, c), V(r, c), V(r, c + 1)];
+    cajaLados.push(l);
+    for (const e of l) ladoCajas[e].push(b);
+  }
+  const g = { n, nE, nB, nH, cajaLados, ladoCajas };
+  GEOM.set(n, g);
+  return g;
+}
+function nuevaPartida(n, empieza) {
+  const g = geometria(n);
+  return {
+    n, g, e: new Uint8Array(g.nE), lados: new Uint8Array(g.nB), dueno: new Int8Array(g.nB).fill(-1),
+    pts: [0, 0], turno: empieza, restantes: g.nE, k0: 0, k1: 0,
+  };
+}
+/* Traza un lado. Devuelve cuántas cajas cerró; si ninguna, pasa el turno. */
+function aplicar(G, id) {
+  G.e[id] = 1; G.restantes--;
+  if (id < 30) G.k0 |= 1 << id; else G.k1 |= 1 << (id - 30);
+  let cerradas = 0;
+  for (const b of G.g.ladoCajas[id]) if (++G.lados[b] === 4) { G.dueno[b] = G.turno; G.pts[G.turno]++; cerradas++; }
+  if (!cerradas) G.turno ^= 1;
+  return cerradas;
+}
+function deshacer(G, id, cerradas) {
+  if (!cerradas) G.turno ^= 1;
+  for (const b of G.g.ladoCajas[id]) {
+    if (G.lados[b] === 4) { G.dueno[b] = -1; G.pts[G.turno]--; }
+    G.lados[b]--;
+  }
+  G.e[id] = 0; G.restantes++;
+  if (id < 30) G.k0 &= ~(1 << id); else G.k1 &= ~(1 << (id - 30));
+}
+
+/* Clasifica los lados libres: los que cierran caja (cap), los seguros (ninguna
+   caja vecina pasa de 2 lados) y los que regalan un tercer lado (ins). */
+function clasifica(G) {
+  const cap = [], seg = [], ins = [];
+  const { nE, ladoCajas } = G.g;
+  for (let id = 0; id < nE; id++) {
+    if (G.e[id]) continue;
+    let max = 0;
+    for (const b of ladoCajas[id]) if (G.lados[b] > max) max = G.lados[b];
+    if (max === 3) cap.push(id); else if (max <= 1) seg.push(id); else ins.push(id);
+  }
+  return { cap, seg, ins };
+}
+function primeraCaptura(G) {
+  const { nE, ladoCajas } = G.g;
+  for (let id = 0; id < nE; id++) {
+    if (G.e[id]) continue;
+    for (const b of ladoCajas[id]) if (G.lados[b] === 3) return id;
+  }
+  return -1;
+}
+/* Cuántas cajas se lleva el rival (tomando todo, voraz) si trazo f. */
+function regalo(G, f) {
+  const pila = [];
+  const c0 = aplicar(G, f); pila.push([f, c0]);
+  let tot = 0;
+  if (c0 === 0) {
+    for (;;) {
+      const cap = primeraCaptura(G); if (cap < 0) break;
+      const c = aplicar(G, cap); pila.push([cap, c]); tot += c;
+    }
+  }
+  while (pila.length) { const [id, c] = pila.pop(); deshacer(G, id, c); }
+  return tot;
+}
+/* Cuántas cajas puedo tomar ahora mismo, voraz. */
+function tomables(G) {
+  const pila = []; let tot = 0;
+  for (;;) {
+    const cap = primeraCaptura(G); if (cap < 0) break;
+    const c = aplicar(G, cap); pila.push([cap, c]); tot += c;
+  }
+  while (pila.length) { const [id, c] = pila.pop(); deshacer(G, id, c); }
+  return tot;
+}
+/* Candidatas a doble cruz: lados libres que no cierran caja pero dejan a una
+   caja de 2 lados con 3, pegada por un lado libre a otra que ya tiene 3. */
+function dobles(G, ins) {
+  const out = [];
+  const { ladoCajas, cajaLados } = G.g;
+  for (const f of ins) {
+    let ok = false;
+    for (const y of ladoCajas[f]) {
+      if (G.lados[y] !== 2) continue;
+      for (const g of cajaLados[y]) {
+        if (g === f || G.e[g]) continue;
+        for (const x of ladoCajas[g]) if (x !== y && G.lados[x] === 3) ok = true;
+      }
+    }
+    if (ok) out.push(f);
+  }
+  return out;
+}
+function cajasCon3(G) { let k = 0; for (let b = 0; b < G.g.nB; b++) if (G.lados[b] === 3) k++; return k; }
+
+/* Componentes del final: grupos de cajas libres unidas por lados libres.
+   Devuelve tamaño y si es un bucle (cerrado sobre sí mismo). */
+function componentes(G) {
+  const { nB, cajaLados, ladoCajas } = G.g;
+  const visto = new Uint8Array(nB), out = [];
+  for (let b0 = 0; b0 < nB; b0++) {
+    if (visto[b0] || G.dueno[b0] >= 0) continue;
+    const pila = [b0]; visto[b0] = 1;
+    let tam = 0, libresInt = 0, abiertos = 0;
+    while (pila.length) {
+      const b = pila.pop(); tam++;
+      for (const e of cajaLados[b]) {
+        if (G.e[e]) continue;
+        const otros = ladoCajas[e].filter((x) => x !== b);
+        if (!otros.length) { abiertos++; continue; }
+        const o = otros[0];
+        if (G.dueno[o] >= 0) { abiertos++; continue; }
+        libresInt++;
+        if (!visto[o]) { visto[o] = 1; pila.push(o); }
+      }
+    }
+    // cada lado interior se cuenta desde sus dos cajas
+    const bucle = abiertos === 0 && libresInt / 2 === tam && tam >= 4;
+    out.push({ tam, bucle });
+  }
+  return out;
+}
+
+/* ── Búsqueda exacta del final (Experto) ──
+   Negamax con poda y tabla de transposición sobre el neto de cajas para quien
+   mueve. Reducción clásica: si hay caja para tomar, o se toma (una basta: el
+   orden no cambia el total) o se hace doble cruz; si no, cualquier lado. */
+const ABORTO = {};
+const BUS = { nodos: 0, limite: 0, tt: null, pila: [] };
+function jugadasBusqueda(G) {
+  const { cap, seg, ins } = clasifica(G);
+  if (cap.length) return [cap[0]].concat(dobles(G, ins));
+  if (!ins.length) return seg;
+  const sac = ins.map((f) => [regalo(G, f), f]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+  return seg.concat(sac);
+}
+function negamax(G, alpha, beta) {
+  if (G.restantes === 0) return 0;
+  if (++BUS.nodos > BUS.limite) throw ABORTO;
+  let m1 = BUS.tt.get(G.k0);
+  const ent = m1 && m1.get(G.k1);
+  if (ent) {
+    if (ent.f === 0) return ent.v;
+    if (ent.f === 1 && ent.v >= beta) return ent.v;
+    if (ent.f === 2 && ent.v <= alpha) return ent.v;
+  }
+  const a0 = alpha;
+  let best = -Infinity;
+  for (const m of jugadasBusqueda(G)) {
+    const c = aplicar(G, m); BUS.pila.push(m, c);
+    const v = c ? c + negamax(G, alpha - c, beta - c) : -negamax(G, -beta, -alpha);
+    BUS.pila.length -= 2; deshacer(G, m, c);
+    if (v > best) best = v;
+    if (best > alpha) alpha = best;
+    if (alpha >= beta) break;
+  }
+  const f = best <= a0 ? 2 : best >= beta ? 1 : 0;
+  if (!m1) { m1 = new Map(); BUS.tt.set(G.k0, m1); }
+  m1.set(G.k1, { v: best, f });
+  return best;
+}
+/* Mejor jugada por búsqueda, o null si se pasó del presupuesto de nodos. */
+function buscarMejor(G, limite) {
+  BUS.nodos = 0; BUS.limite = limite; BUS.tt = new Map(); BUS.pila = [];
+  const jug = jugadasBusqueda(G);
+  let mejor = null, mejorV = -Infinity;
+  try {
+    for (const m of jug) {
+      const c = aplicar(G, m); BUS.pila.push(m, c);
+      const v = c ? c + negamax(G, -Infinity, Infinity) : -negamax(G, -Infinity, Infinity);
+      BUS.pila.length -= 2; deshacer(G, m, c);
+      if (v > mejorV) { mejorV = v; mejor = m; }
+    }
+  } catch (err) {
+    if (err !== ABORTO) throw err;
+    while (BUS.pila.length) { const c = BUS.pila.pop(), m = BUS.pila.pop(); deshacer(G, m, c); }
+    mejor = null;
+  }
+  BUS.tt = null;
+  return mejor == null ? null : { id: mejor, v: mejorV, nodos: BUS.nodos };
+}
+
+/* ── Las IAs ──
+   facil: toma caja si la ve; si no, un lado al azar.
+   normal: toma caja; si no, un lado seguro al azar; si no queda, uno al azar.
+   dificil: además, en el final cuenta las cadenas: regala la más corta (y a
+   una de 2 le da el lado del medio, para que no se la devuelvan), hace doble
+   cruz cuando mantener el control vale más que dos cajas y, mientras hay lados
+   seguros, intenta que al rival se le acaben primero (paridad).
+   experto: lo mismo, pero cuando quedan pocos lados seguros resuelve el final
+   con búsqueda exacta. */
+const CFG = {
+  facil:   { n: 4, texto: '4×4 puntos · toma cajas si las ve, el resto al azar' },
+  normal:  { n: 5, texto: '5×5 puntos · codiciosa y no regala terceros lados' },
+  dificil: { n: 6, texto: '6×6 puntos · cuenta cadenas y juega la paridad' },
+  experto: { n: 6, texto: '6×6 puntos · además resuelve el final con búsqueda' },
+};
+const EXPERTO = { seguros: 8, nodos: 250000 };
+
+function elegirApp(G, nivel, rnd) {
+  const azar = (arr) => arr[Math.floor(rnd() * arr.length)];
+  if (nivel === 'azar') { const { cap, seg, ins } = clasifica(G); return azar(cap.concat(seg, ins)); }
+  const { cap, seg, ins } = clasifica(G);
+  if (nivel === 'facil') return cap.length ? azar(cap) : azar(seg.concat(ins));
+  if (nivel === 'normal') return cap.length ? azar(cap) : seg.length ? azar(seg) : azar(ins);
+  if (nivel === 'experto' && seg.length <= EXPERTO.seguros) {
+    const r = buscarMejor(G, EXPERTO.nodos);
+    if (r) return r.id;
+  }
+  return elegirDificil(G, cap, seg, ins, rnd);
+}
+
+function elegirDificil(G, cap, seg, ins, rnd) {
+  const azar = (arr) => arr[Math.floor(rnd() * arr.length)];
+  if (cap.length) {
+    if (seg.length) return cap[0];                 // aún hay lados seguros: toma y sigue
+    const T = tomables(G);
+    if (T === 2 || T === 4) {
+      // ¿Doble cruz? Deja las dos últimas de la cadena (o las cuatro del bucle)
+      const dd = dobles(G, ins).filter((f) => {
+        if (regalo(G, f) !== T) return false;
+        const c = aplicar(G, f); const k = cajasCon3(G); deshacer(G, f, c);
+        return k === T;
+      });
+      if (dd.length && valeControl(G, T) > 2) return dd[0];
+    }
+    return cap[0];
+  }
+  if (seg.length) {
+    // Paridad: que tras mi lado queden pares de lados seguros, y que la
+    // jugada mate los menos posibles (para no cerrar opciones antes de hora).
+    let mejor = [], mejorS = -Infinity;
+    for (const m of seg) {
+      const c = aplicar(G, m);
+      const s = clasifica(G).seg.length;
+      deshacer(G, m, c);
+      const punt = (s % 2 === 0 ? 10 : 0) + s * 0.1;
+      if (punt > mejorS + 1e-9) { mejorS = punt; mejor = [m]; }
+      else if (Math.abs(punt - mejorS) < 1e-9) mejor.push(m);
+    }
+    return azar(mejor);
+  }
+  // Hay que regalar: la cadena más corta; a la de 2, por el medio.
+  let mejor = [], mejorR = Infinity;
+  for (const f of ins) {
+    const r = regalo(G, f);
+    let punt = r;
+    if (r === 2) {
+      const cajas = G.g.ladoCajas[f];
+      const medio = cajas.length === 2 && G.lados[cajas[0]] === 2 && G.lados[cajas[1]] === 2;
+      if (medio) punt -= 0.5;
+    }
+    if (punt < mejorR - 1e-9) { mejorR = punt; mejor = [f]; }
+    else if (Math.abs(punt - mejorR) < 1e-9) mejor.push(f);
+  }
+  return azar(mejor);
+}
+/* Estimación de lo que vale quedarse con el control tras regalar T cajas:
+   de cada cadena larga que el rival tenga que abrir me quedo con todas menos
+   dos (cuatro en un bucle) y la última entera; las cortas cambian el turno. */
+function valeControl(G, T) {
+  const comps = componentes(G).filter((c) => c.tam > 0);
+  // la componente abierta ahora mismo (las T cajas) no cuenta
+  let abiertaQuitada = false;
+  let v = 0, mayor = 0, cortas = 0;
+  for (const c of comps) {
+    if (!abiertaQuitada && c.tam === T) { abiertaQuitada = true; continue; }
+    if (c.tam <= 2) { cortas++; continue; }
+    const coste = c.bucle ? 8 : 4;
+    v += c.tam - coste;
+    if (c.tam + (c.bucle ? 0 : 4) > mayor) mayor = c.tam + (c.bucle ? 0 : 4);
+  }
+  // la última cadena se toma entera: devuelve el coste de la mayor
+  if (mayor) v += Math.min(mayor, 8);
+  return v - cortas;
+}
+
+/* Un turno entero sin pantalla. Devuelve true si el jugador repite. */
+function turnoSimulado(G, nivel, rnd) {
+  const id = elegirApp(G, nivel, rnd);
+  return aplicar(G, id) > 0;
+}
+/* ── Fin del motor ─────────────────────────────────────────────────── */
+
+/* ── Estado de pantalla ────────────────────────────────────────────── */
+const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+const S = {
+  nivel: store.get('tim.nivel', 'normal'),
+  G: null, gen: 0, timers: [], jugando: false, empieza: YO, ultimo: { [YO]: -1, [APP]: -1 },
+};
+
+const REGLAS = `<p>Una rejilla de puntos. Por turno trazas <b>un lado</b> entre dos puntos vecinos (toca cerca de la línea tenue). Quien cierra la <b>cuarta pared</b> de una caja se la anota y <b>vuelve a tirar</b>.</p>
+<p>Cuando no quedan lados, gana quien tenga más cajas. Tú llevas la terracota; la app, el azul, y su último lado se marca en azul para que veas qué hizo.</p>
+<p>El truco: cuando ya no quedan lados «seguros», cada lado que traces regala una cadena entera. Regala la más corta y, si te dan una larga, a veces conviene dejar las dos últimas cajas para que sea el rival quien tenga que abrir la siguiente.</p>
+<p><b>Fácil</b> juega en 4×4 y solo toma cajas si las ve; <b>Normal</b>, en 5×5, no regala terceros lados; <b>Difícil</b>, en 6×6, cuenta cadenas y juega la paridad; <b>Experto</b> además resuelve el final con búsqueda exacta. Tus victorias se guardan por nivel.</p>`;
+
+const victorias = (n) => store.get('tim.wins.' + n, 0);
+function anotaVictoria(nivel) {
+  const n = victorias(nivel) + 1;
+  store.set('tim.wins.' + nivel, n);
+  let alto = null;
+  for (const v of NIVELES) if (victorias(v) > 0) alto = v;
+  if (alto) {
+    const k = victorias(alto);
+    store.set('tim.hub', `${DIFF_LABEL[alto]}: ${k} victoria${k === 1 ? '' : 's'}`);
+  }
+  return n;
+}
+function bestsHTML() {
+  return NIVELES.map((v) =>
+    `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
+}
+
+function limpiar() {
+  S.gen++;
+  for (const t of S.timers) clearTimeout(t);
+  S.timers = []; S.jugando = false;
+}
+const espera = (ms) => new Promise((r) => { const t = setTimeout(r, ms); S.timers.push(t); });
+const vivo = (g) => g === S.gen && S.jugando && !!$('#tablero');
+
+function renderSetup() {
+  limpiar();
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Timbiriche', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
+        ${diffSegHTML('seg-d', S.nivel)}
+        <div class="tb-hint" id="d-hint"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Victorias, por nivel</div>
+      <div class="bests">${bestsHTML()}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => { $('#d-hint').textContent = CFG[S.nivel].texto; };
+  hint();
+  bindSeg('seg-d', (v) => { S.nivel = v; store.set('tim.nivel', v); hint(); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  limpiar();
+  S.G = nuevaPartida(CFG[S.nivel].n, S.empieza);
+  S.ultimo = { [YO]: -1, [APP]: -1 };
+  S.jugando = true;
+  renderPlay();
+  if (S.G.turno === APP) turnoApp(); else quien('<b>Empiezas tú</b>');
+  S.empieza ^= 1;                                // la próxima sale el otro
+}
+
+/* ── Pantalla de juego ─────────────────────────────────────────────── */
+const P = 100, M = 40;                            // paso entre puntos y margen, en unidades del SVG
+function tableroSVG(G) {
+  const { n, g } = G;
+  const W = (n - 1) * P + 2 * M;
+  const X = (c) => M + c * P, Y = (r) => M + r * P;
+  let cajas = '', zonas = '', lados = '', puntos = '';
+  for (let r = 0; r < n - 1; r++) for (let c = 0; c < n - 1; c++) {
+    const b = r * (n - 1) + c;
+    cajas += `<rect class="tb-caja" id="cj-${b}" x="${X(c) + 7}" y="${Y(r) + 7}" width="${P - 14}" height="${P - 14}"></rect>` +
+      `<circle class="tb-marca" id="mk-${b}" cx="${X(c) + P / 2}" cy="${Y(r) + P / 2}" r="11"></circle>`;
+  }
+  for (let id = 0; id < g.nE; id++) {
+    let x1, y1, x2, y2, ax, ay, bx, by;
+    if (id < g.nH) {                               // horizontal
+      const r = Math.floor(id / (n - 1)), c = id % (n - 1);
+      x1 = X(c); y1 = Y(r); x2 = X(c + 1); y2 = Y(r);
+      ax = X(c) + P / 2; ay = r === 0 ? Y(r) - M : Y(r) - P / 2;
+      bx = ax; by = r === n - 1 ? Y(r) + M : Y(r) + P / 2;
+    } else {
+      const k = id - g.nH, r = Math.floor(k / n), c = k % n;
+      x1 = X(c); y1 = Y(r); x2 = X(c); y2 = Y(r + 1);
+      ay = Y(r) + P / 2; ax = c === 0 ? X(c) - M : X(c) - P / 2;
+      by = ay; bx = c === n - 1 ? X(c) + M : X(c) + P / 2;
+    }
+    lados += `<line class="tb-lado" id="ld-${id}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"></line>`;
+    zonas += `<polygon class="tb-zona" data-i="${id}" points="${x1},${y1} ${ax},${ay} ${x2},${y2} ${bx},${by}"></polygon>`;
+  }
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) puntos += `<circle class="tb-punto" cx="${X(c)}" cy="${Y(r)}" r="6"></circle>`;
+  return `<svg class="tb-tablero" id="tablero" viewBox="0 0 ${W} ${W}" role="img" aria-label="Tablero de ${n} por ${n} puntos">${cajas}${zonas}${lados}${puntos}</svg>`;
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Timbiriche', `<span class="chip">${DIFF_LABEL[S.nivel]}</span>`)}
+    <div class="tb-juego">
+      <div class="tb-wrap">${tableroSVG(S.G)}</div>
+      <div>
+        <div class="tb-marcador">
+          <span class="lado yo"><i></i><span class="dato">Tú</span><b id="p-yo">0</b></span>
+          <span class="sep">·</span>
+          <span class="lado app"><b id="p-app">0</b><span class="dato">App</span><i></i></span>
+        </div>
+        <div class="tb-quien" id="quien"></div>
+      </div>
+      <div class="tb-tools">
+        <button class="tb-tool" id="t-nueva">Nueva</button>
+        <button class="tb-tool" id="t-salir">Salir</button>
+      </div>
+    </div>
+  </div>`;
+  $('#tablero').onclick = (e) => {
+    const z = e.target.closest('.tb-zona');
+    if (z) tocar(Number(z.dataset.i));
+  };
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+  paint();
+}
+
+function paint() {
+  if (!$('#tablero')) return;                   // el jugador ya se fue de la pantalla
+  const G = S.G;
+  for (let id = 0; id < G.g.nE; id++) {
+    const el = $('#ld-' + id); if (!el) continue;
+    el.classList.toggle('hecho', !!G.e[id]);
+    el.classList.toggle('app-ult', id === S.ultimo[APP]);
+    el.classList.toggle('yo-ult', id === S.ultimo[YO]);
+  }
+  for (let b = 0; b < G.g.nB; b++) {
+    const d = G.dueno[b];
+    const cl = d === YO ? 'yo' : d === APP ? 'app' : '';
+    const cj = $('#cj-' + b), mk = $('#mk-' + b);
+    if (cj) cj.setAttribute('class', 'tb-caja ' + cl);
+    if (mk) mk.setAttribute('class', 'tb-marca ' + cl);
+  }
+  $('#p-yo').textContent = G.pts[YO];
+  $('#p-app').textContent = G.pts[APP];
+  $('#tablero').classList.toggle('fin', !S.jugando);
+}
+function quien(html) { const el = $('#quien'); if (el) el.innerHTML = html; }
+
+function tocar(id) {
+  const G = S.G;
+  if (!S.jugando || G.turno !== YO || G.e[id]) return;
+  const c = aplicar(G, id);
+  S.ultimo[YO] = id;
+  vibrate(c ? [10, 30, 10] : 6);
+  paint();
+  if (G.restantes === 0) return terminar();
+  if (c) { quien(`<b>Caja tuya</b> · tiras otra vez`); return; }
+  turnoApp();
+}
+
+async function turnoApp() {
+  const g = S.gen; if (!vivo(g)) return;
+  const G = S.G;
+  quien('Piensa la app…');
+  const t0 = performance.now();
+  const id = elegirApp(G, S.nivel, Math.random);
+  // Piensa entre 300 y 600 ms contando lo que tardó en decidir
+  await espera(Math.max(60, 300 + randInt(300) - (performance.now() - t0))); if (!vivo(g)) return;
+  const c = aplicar(G, id);
+  S.ultimo[APP] = id;
+  paint();
+  if (G.restantes === 0) return terminar();
+  if (c) { quien('<b>Caja de la app</b> · repite'); return turnoApp(); }
+  quien('<b>Tu turno</b>');
+}
+
+function terminar() {
+  if (!$('#tablero')) return;
+  S.jugando = false;
+  paint();
+  const G = S.G;
+  const gana = G.pts[YO] > G.pts[APP], empate = G.pts[YO] === G.pts[APP];
+  let titulo, sub;
+  if (gana) {
+    titulo = '¡Ganaste!';
+    sub = `<p style="text-align:center;">Llevas <b>${anotaVictoria(S.nivel)}</b> victoria(s) en <b>${DIFF_LABEL[S.nivel]}</b></p>`;
+    confetti(); vibrate([30, 60, 30]);
+  } else if (empate) {
+    titulo = 'Empate';
+    sub = `<p style="text-align:center;">Mitad y mitad: <b>${G.pts[YO]}</b> cajas cada uno.</p>`;
+  } else {
+    titulo = 'Ganó la app';
+    sub = `<p style="text-align:center;">Te quedaste con <b>${G.pts[YO]}</b> de ${G.g.nB} cajas.</p>`;
+  }
+  quien(`<b>${titulo}</b> · ${G.pts[YO]}–${G.pts[APP]}`);
+  const t = setTimeout(() => {
+    if (!$('#tablero')) return;
+    openModal(`<h3>${titulo}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${G.pts[YO]}</div><div class="l">tú</div></div>
+        <div class="stat"><div class="n">${G.pts[APP]}</div><div class="l">app</div></div>
+      </div>${sub}
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>`);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 900);
+  S.timers.push(t);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Mancala (reglas Kalah) contra la app: siembra tus semillas hoyo a hoyo, repite turno al caer en tu almacén y captura las de enfrente." />
+<title>Mancala</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* La zona de juego reparte el alto que sobra entre estado, tablero e info:
+     el tablero es apaisado y bajo, así que en pantallas altas sobra mucho. */
+  .mk-juego { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
+  .mk-estado { text-align: center; padding: 6px 16px 0; font-family: var(--display); font-style: italic; font-size: 16px; font-weight: 400; color: var(--bg-ink); min-height: 24px; }
+  .mk-info { display: flex; justify-content: center; align-items: baseline; gap: 6px 16px; padding-top: 4px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--bg-sub); }
+  .mk-info b { font-family: var(--font); font-size: 15px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--bg-ink); font-variant-numeric: tabular-nums; }
+
+  /* El tablero: un bloque beige apaisado con dos filas de seis hoyos y un
+     almacén a cada lado que abarca las dos filas. A 375 px de ancho cada hoyo
+     mide 40 px; la altura (62 px) la da el hoyo, no el ancho. */
+  .mk-wrap { display: flex; justify-content: center; padding: 0 6px; }
+  .mk-tablero {
+    width: 100%; max-width: 470px; background: var(--panel); border-radius: 22px; padding: 6px;
+    display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: 1fr 1fr; gap: 4px;
+    user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+  .mk-hoyo, .mk-alm {
+    position: relative; margin: 0; padding: 6px 2px 4px; border: var(--trazo) solid var(--linea); border-radius: 16px;
+    background: var(--card); color: var(--ink); font-family: var(--font); cursor: default;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 2px;
+    transition: border-color .18s var(--ease), background .18s var(--ease), transform .18s var(--ease);
+  }
+  .mk-hoyo { min-height: 62px; }
+  .mk-alm { grid-row: 1 / 3; padding-top: 7px; justify-content: flex-start; gap: 5px; }
+  .mk-alm.app { grid-column: 1; }
+  .mk-alm.yo { grid-column: 8; }
+  .mk-alm .mk-quien { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); }
+  /* Semillas: puntos terracota (3,85:1 sobre la tarjeta) hasta 12; el número
+     va siempre, en sans a peso medio y tinta. */
+  .mk-puntos { display: grid; grid-template-columns: repeat(3, 6px); gap: 3px; min-height: 6px; justify-content: center; }
+  .mk-puntos i { width: 6px; height: 6px; border-radius: 999px; background: var(--accent); display: block; }
+  .mk-alm .mk-puntos { grid-template-columns: repeat(3, 7px); gap: 3px; margin-top: 2px; }
+  .mk-alm .mk-puntos i { width: 7px; height: 7px; }
+  .mk-n { font-size: 15px; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .mk-alm .mk-n { font-size: 24px; margin-top: auto; padding-bottom: 6px; }
+  .mk-hoyo.vacio .mk-n { color: var(--faint); }
+  /* Hoyos tuyos que puedes tocar: filete terracota y fondo tibio. */
+  .mk-hoyo.puede { cursor: pointer; border-color: var(--accent); background: var(--accent-soft); }
+  .mk-hoyo.puede:active { transform: scale(.94); }
+  /* De donde se recogen las semillas y donde cae cada una al sembrar. */
+  .mk-hoyo.origen { border-color: var(--linea-fuerte); background: var(--soft); }
+  .mk-hoyo.cae, .mk-alm.cae { border-color: var(--accent); transform: scale(1.06); }
+  .mk-hoyo.captura { background: var(--good-soft); border-color: var(--good); }
+
+  .mk-tools { margin: 0 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 12px; }
+  .mk-tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); min-height: 40px; }
+  .mk-tool:active { opacity: .6; }
+  .mk-hint { font-size: 12.5px; color: var(--sub); margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ── Motor puro ────────────────────────────────────────────────────────
+   Trabaja sobre un tablero B de 14 casillas sin tocar la pantalla, así que
+   sirve igual para jugar y para simular miles de partidas y medir las IAs.
+   0..5 son tus hoyos (de izquierda a derecha), 6 tu almacén; 7..12 los de la
+   app y 13 su almacén. La siembra va en sentido antihorario: 0→1→…→6→7→…→12→
+   13→0, saltando el almacén ajeno. El hoyo de enfrente de i es 12 − i. */
+const YO = 0, APP = 1;
+const ALM = [6, 13];
+const HOYOS = [[0, 1, 2, 3, 4, 5], [7, 8, 9, 10, 11, 12]];
+const inicial = () => { const B = new Array(14).fill(4); B[6] = 0; B[13] = 0; return B; };
+const esMio = (p, i) => p === YO ? i <= 5 : (i >= 7 && i <= 12);
+function legales(B, p) {
+  const out = [];
+  for (const i of HOYOS[p]) if (B[i] > 0) out.push(i);
+  return out;
+}
+
+/* Siembra desde «hoyo» para el jugador p. Devuelve el tablero resultante (el
+   de entrada no se toca), el camino de las semillas, si repite turno, la
+   captura y si la partida terminó. Con «rapido» se ahorra el camino, que solo
+   lo usa la animación. */
+function sembrar(B, p, hoyo, rapido) {
+  const N = B.slice();
+  let s = N[hoyo]; N[hoyo] = 0;
+  const camino = rapido ? null : [];
+  const ajeno = ALM[1 - p];
+  let i = hoyo;
+  while (s > 0) {
+    i = (i + 1) % 14;
+    if (i === ajeno) continue;
+    N[i]++; s--;
+    if (camino) camino.push(i);
+  }
+  const res = { B: N, camino, extra: false, captura: null, fin: false };
+  if (i === ALM[p]) res.extra = true;
+  else if (esMio(p, i) && N[i] === 1 && N[12 - i] > 0) {
+    const n = N[12 - i] + 1;
+    N[ALM[p]] += n; N[i] = 0; N[12 - i] = 0;
+    res.captura = { hoyo: i, enfrente: 12 - i, n };
+  }
+  // Un lado vacío: el otro recoge lo que le queda y se acabó.
+  let v0 = 0, v1 = 0;
+  for (let k = 0; k <= 5; k++) v0 += N[k];
+  for (let k = 7; k <= 12; k++) v1 += N[k];
+  if (v0 === 0 || v1 === 0) {
+    N[6] += v0; N[13] += v1;
+    for (let k = 0; k <= 5; k++) N[k] = 0;
+    for (let k = 7; k <= 12; k++) N[k] = 0;
+    res.fin = true;
+  }
+  return res;
+}
+
+/* ── Las IAs ──
+   facil: al azar. normal: codicioso, repetir turno > captura > el hoyo con
+   más semillas. dificil: minimax alfa-beta a 5 jugadas mirando solo la
+   diferencia de almacenes. experto: profundización iterativa hasta 11 jugadas
+   (con tope de nodos para que el peor caso no pase de un tercio de segundo)
+   y una evaluación que además cuenta las semillas en juego de cada lado y los
+   turnos extra que tiene cada uno a mano. */
+const evalDif = (B, p) => B[ALM[p]] - B[ALM[1 - p]];
+function extrasAMano(B, p) {
+  let n = 0;
+  for (const i of HOYOS[p]) if (B[i] > 0 && (B[i] === ALM[p] - i || B[i] === ALM[p] - i + 13)) n++;
+  return n;
+}
+function evalExp(B, p) {
+  let mios = 0, suyos = 0;
+  for (const i of HOYOS[p]) mios += B[i];
+  for (const i of HOYOS[1 - p]) suyos += B[i];
+  return (B[ALM[p]] - B[ALM[1 - p]]) * 10 + (mios - suyos) * 2 + (extrasAMano(B, p) - extrasAMano(B, 1 - p)) * 6;
+}
+const FINAL = 1000;   // un final decidido pesa más que cualquier evaluación
+
+function negamax(B, p, prof, alfa, beta, ev, ctx) {
+  if (++ctx.nodos > ctx.tope) { ctx.corte = true; return 0; }
+  if (prof === 0) return ev(B, p);
+  const alm = ALM[p];
+  // Primero los hoyos que repiten turno: podan mucho más.
+  const movs = [];
+  for (const i of HOYOS[p]) if (B[i] > 0 && B[i] === alm - i) movs.push(i);
+  for (let i = HOYOS[p][5]; i >= HOYOS[p][0]; i--) if (B[i] > 0 && B[i] !== alm - i) movs.push(i);
+  let mejor = -Infinity;
+  for (const m of movs) {
+    const r = sembrar(B, p, m, true);
+    let v;
+    if (r.fin) v = (r.B[alm] - r.B[ALM[1 - p]]) * FINAL;
+    else if (r.extra) v = negamax(r.B, p, prof - 1, alfa, beta, ev, ctx);
+    else v = -negamax(r.B, 1 - p, prof - 1, -beta, -alfa, ev, ctx);
+    if (ctx.corte) return 0;
+    if (v > mejor) mejor = v;
+    if (mejor > alfa) alfa = mejor;
+    if (alfa >= beta) break;
+  }
+  return mejor;
+}
+
+/* Profundización iterativa con tope de nodos. Si el tope corta a media
+   profundidad se queda con la jugada de la última profundidad completa.
+   Entre jugadas de igual valor elige al azar (rnd), para no repetir siempre
+   la misma partida. */
+function buscar(B, p, profMax, ev, tope, rnd) {
+  const ctx = { nodos: 0, tope, corte: false };
+  let movs = legales(B, p);
+  let elegido = movs[Math.floor(rnd() * movs.length)], profOk = 0, valor = 0;
+  for (let d = 1; d <= profMax; d++) {
+    let mejor = -Infinity, cand = [];
+    const vals = [];
+    for (const m of movs) {
+      const r = sembrar(B, p, m, true);
+      let v;
+      if (r.fin) v = (r.B[ALM[p]] - r.B[ALM[1 - p]]) * FINAL;
+      else if (r.extra) v = negamax(r.B, p, d - 1, mejor - 0.5, Infinity, ev, ctx);
+      else v = -negamax(r.B, 1 - p, d - 1, -Infinity, -(mejor - 0.5), ev, ctx);
+      if (ctx.corte) break;
+      vals.push([m, v]);
+      if (v > mejor) { mejor = v; cand = [m]; } else if (v === mejor) cand.push(m);
+    }
+    if (ctx.corte) break;
+    elegido = cand[Math.floor(rnd() * cand.length)]; profOk = d; valor = mejor;
+    vals.sort((a, b) => b[1] - a[1]);
+    movs = vals.map((x) => x[0]);           // la mejor primero en la siguiente vuelta
+    if (Math.abs(mejor) >= FINAL) break;    // final decidido: no hace falta mirar más
+  }
+  return { hoyo: elegido, prof: profOk, nodos: ctx.nodos, valor };
+}
+
+const TOPE_EXPERTO = 700000;   // nodos; ver medición en el informe (peor caso en Node)
+function elegirApp(B, p, nivel, rnd) {
+  const movs = legales(B, p);
+  if (nivel === 'facil') return movs[Math.floor(rnd() * movs.length)];
+  if (nivel === 'normal') {
+    let mejor = -1, cand = [];
+    for (const m of movs) {
+      const r = sembrar(B, p, m, true);
+      const s = r.extra ? 300 + m : r.captura ? 200 + r.captura.n : B[m];
+      if (s > mejor) { mejor = s; cand = [m]; } else if (s === mejor) cand.push(m);
+    }
+    return cand[Math.floor(rnd() * cand.length)];
+  }
+  if (nivel === 'dificil') return buscar(B, p, 5, evalDif, Infinity, rnd).hoyo;
+  return buscar(B, p, 11, evalExp, TOPE_EXPERTO, rnd).hoyo;
+}
+
+/* Un turno completo de simulación (con sus repeticiones). Devuelve true si la
+   partida terminó. Lo usa la medición de la escalera. */
+function turnoSimulado(G, nivel, rnd) {
+  for (;;) {
+    const m = elegirApp(G.B, G.turno, nivel, rnd);
+    const r = sembrar(G.B, G.turno, m, true);
+    G.B = r.B;
+    if (r.fin) return true;
+    if (!r.extra) { G.turno = 1 - G.turno; return false; }
+  }
+}
+/* ── Fin del motor ─────────────────────────────────────────────────── */
+
+const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+const S = {
+  nivel: store.get('man.nivel', 'normal'),
+  empieza: store.get('man.empieza', 'yo'),
+  B: null, turno: YO, gen: 0, timers: [], esperando: null, jugando: false,
+  rapido: !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches),
+};
+
+const REGLAS = `<p>Seis hoyos por lado con <b>cuatro semillas</b> cada uno y un almacén a la derecha de cada jugador: el tuyo es el de la derecha, el de la app el de la izquierda.</p>
+<p>Toca un hoyo tuyo: recoges todas sus semillas y <b>siembras una en cada hoyo siguiente</b>, en sentido antihorario, contando tu almacén y saltando el del rival. Si la <b>última cae en tu almacén, repites turno</b>. Si cae en un hoyo tuyo <b>vacío</b> y el de enfrente tiene semillas, <b>capturas</b> esas y la tuya.</p>
+<p>Cuando un lado se queda sin semillas, el otro recoge las que le quedan. <b>Gana quien tenga más en su almacén.</b></p>
+<p>La app <b>Fácil</b> juega al azar; <b>Normal</b> va a lo que tiene delante: repetir turno, capturar o mover el hoyo más lleno; <b>Difícil</b> calcula 5 jugadas por delante; <b>Experto</b> calcula hasta 11 y valora también las semillas en juego y los turnos extra. Tus victorias se guardan por nivel.</p>`;
+
+const victorias = (n) => store.get('man.wins.' + n, 0);
+function anotaVictoria(nivel) {
+  const n = victorias(nivel) + 1;
+  store.set('man.wins.' + nivel, n);
+  let alto = null;
+  for (const v of NIVELES) if (victorias(v) > 0) alto = v;
+  if (alto) {
+    const k = victorias(alto);
+    store.set('man.hub', `${DIFF_LABEL[alto]}: ${k} victoria${k === 1 ? '' : 's'}`);
+  }
+  return n;
+}
+function bestsHTML() {
+  return NIVELES.map((v) =>
+    `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
+}
+
+function limpiar() {
+  S.gen++;
+  for (const t of S.timers) clearTimeout(t);
+  S.timers = []; S.esperando = null; S.jugando = false;
+}
+/* Espera cancelable: si limpiar() corta el temporizador, la promesa nunca
+   resuelve y el flujo que esperaba muere en paz. */
+const espera = (ms) => new Promise((r) => { const t = setTimeout(r, ms); S.timers.push(t); });
+
+function renderSetup() {
+  limpiar();
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Mancala', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
+        ${diffSegHTML('seg-d', S.nivel)}
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Empieza</div></div>
+        <div class="seg" id="seg-e">
+          <button data-v="yo" class="${S.empieza === 'yo' ? 'sel' : ''}">Tú</button>
+          <button data-v="app" class="${S.empieza === 'app' ? 'sel' : ''}">La app</button>
+          <button data-v="azar" class="${S.empieza === 'azar' ? 'sel' : ''}">Al azar</button>
+        </div>
+        <div class="mk-hint">48 semillas en juego. Quien empieza lleva ventaja: a la app se la puedes dar.</div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Victorias, por nivel</div>
+      <div class="bests">${bestsHTML()}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-d', (v) => { S.nivel = v; store.set('man.nivel', v); });
+  bindSeg('seg-e', (v) => { S.empieza = v; store.set('man.empieza', v); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  limpiar();
+  S.B = inicial();
+  S.turno = S.empieza === 'yo' ? YO : S.empieza === 'app' ? APP : randInt(2);
+  S.jugando = true;
+  renderPlay();
+  siguiente(false);
+}
+
+function hoyoHTML(i, cl) {
+  return `<button class="mk-hoyo ${cl}" data-i="${i}" aria-label="Hoyo ${i}"><span class="mk-puntos"></span><span class="mk-n">0</span></button>`;
+}
+function renderPlay() {
+  const arriba = [12, 11, 10, 9, 8, 7].map((i) => hoyoHTML(i, 'app')).join('');
+  const abajo = [0, 1, 2, 3, 4, 5].map((i) => hoyoHTML(i, 'yo')).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Mancala', `<span class="chip">${DIFF_LABEL[S.nivel]}</span>`)}
+    <div class="mk-juego">
+      <div class="mk-estado" id="mk-estado"></div>
+      <div class="mk-wrap">
+        <div class="mk-tablero" id="mk-tablero">
+          <div class="mk-alm app" data-i="13"><span class="mk-quien">App</span><span class="mk-puntos"></span><span class="mk-n">0</span></div>
+          ${arriba}
+          <div class="mk-alm yo" data-i="6"><span class="mk-quien">Tú</span><span class="mk-puntos"></span><span class="mk-n">0</span></div>
+          ${abajo}
+        </div>
+      </div>
+      <div class="mk-info"><span>En juego <b id="mk-juego-n">48</b></span><span>Tú <b id="mk-yo-n">0</b></span><span>App <b id="mk-app-n">0</b></span></div>
+    </div>
+    <div class="mk-tools">
+      <button class="mk-tool" id="t-nueva">Otra partida</button>
+      <button class="mk-tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#mk-tablero').onclick = (e) => {
+    const h = e.target.closest('.mk-hoyo.puede');
+    if (h && S.esperando === 'hoyo') mover(YO, Number(h.dataset.i));
+  };
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+  paint();
+}
+
+/* Pinta una casilla con n semillas: puntos hasta 12 y el número siempre. */
+function pintaCasilla(i, n) {
+  const el = $(`#mk-tablero [data-i="${i}"]`);
+  if (!el) return;
+  $('.mk-puntos', el).innerHTML = n <= 12 ? '<i></i>'.repeat(n) : '';
+  $('.mk-n', el).textContent = n;
+  el.classList.toggle('vacio', n === 0);
+}
+function paint() {
+  if (!$('#mk-tablero')) return;
+  const B = S.B;
+  for (let i = 0; i < 14; i++) pintaCasilla(i, B[i]);
+  let enJuego = 0;
+  for (let i = 0; i < 14; i++) if (i !== 6 && i !== 13) enJuego += B[i];
+  $('#mk-juego-n').textContent = enJuego;
+  $('#mk-yo-n').textContent = B[6];
+  $('#mk-app-n').textContent = B[13];
+  const puedo = S.esperando === 'hoyo';
+  $$('#mk-tablero .mk-hoyo').forEach((el) => {
+    const i = Number(el.dataset.i);
+    el.classList.toggle('puede', puedo && i <= 5 && B[i] > 0);
+  });
+}
+function estado(html) { const el = $('#mk-estado'); if (el) el.innerHTML = html; }
+function marca(i, cl, on) { const el = $(`#mk-tablero [data-i="${i}"]`); if (el) el.classList.toggle(cl, on); }
+
+/* Da el turno a quien toque: a ti te abre los hoyos, a la app la pone a
+   pensar en un temporizador (y el cálculo llega después del repintado). */
+async function siguiente(repite) {
+  if (!$('#mk-tablero')) return;
+  const gen = S.gen;
+  if (S.turno === YO) {
+    S.esperando = 'hoyo';
+    estado(repite ? '<b>¡Otra vez tú!</b> La última cayó en tu almacén' : 'Tu turno: toca un hoyo tuyo');
+    paint();
+    return;
+  }
+  S.esperando = 'app';
+  estado(repite ? 'La app repite turno…' : 'La app piensa…');
+  paint();
+  await espera(S.rapido ? 200 : 520);
+  if (gen !== S.gen || !$('#mk-tablero')) return;
+  const hoyo = elegirApp(S.B, APP, S.nivel, Math.random);
+  mover(APP, hoyo);
+}
+
+/* Aplica una jugada con su siembra animada, hoyo a hoyo. Todo lo que espera
+   pasa por espera(), así que salir o reiniciar a media siembra la corta. */
+async function mover(p, hoyo) {
+  if (!$('#mk-tablero')) return;
+  const gen = S.gen;
+  S.esperando = null;
+  paint();                                   // apaga los resaltes
+  const r = sembrar(S.B, p, hoyo, false);
+  const V = S.B.slice();                     // lo que se ve mientras siembra
+  const ms = S.rapido ? 0 : 90;
+  V[hoyo] = 0; pintaCasilla(hoyo, 0); marca(hoyo, 'origen', true);
+  if (p === YO) vibrate(8);
+  let ult = -1;
+  for (const i of r.camino) {
+    if (ms) { await espera(ms); if (gen !== S.gen || !$('#mk-tablero')) return; }
+    if (ult >= 0) marca(ult, 'cae', false);
+    V[i]++; pintaCasilla(i, V[i]); marca(i, 'cae', true); ult = i;
+  }
+  if (ms) { await espera(220); if (gen !== S.gen || !$('#mk-tablero')) return; }
+  if (ult >= 0) marca(ult, 'cae', false);
+  marca(hoyo, 'origen', false);
+  if (r.captura) {
+    marca(r.captura.hoyo, 'captura', true); marca(r.captura.enfrente, 'captura', true);
+    estado(p === YO ? `<b>¡Captura!</b> Te llevas ${r.captura.n} semillas` : `La app captura ${r.captura.n} semillas`);
+    if (p === YO) vibrate([12, 40, 12]);
+    if (ms) { await espera(560); if (gen !== S.gen || !$('#mk-tablero')) return; }
+    marca(r.captura.hoyo, 'captura', false); marca(r.captura.enfrente, 'captura', false);
+  }
+  S.B = r.B;
+  if (!r.extra) S.turno = 1 - p;
+  paint();
+  if (r.fin) return terminar();
+  siguiente(r.extra);
+}
+
+function terminar() {
+  S.jugando = false; S.esperando = null;
+  const mias = S.B[6], suyas = S.B[13];
+  let titulo, sub;
+  if (mias > suyas) {
+    titulo = '¡Ganaste!';
+    sub = `<p style="text-align:center;">Llevas <b>${anotaVictoria(S.nivel)}</b> victoria(s) en <b>${DIFF_LABEL[S.nivel]}</b></p>`;
+    confetti(); vibrate([30, 60, 30]);
+  } else if (mias < suyas) {
+    titulo = 'Ganó la app';
+    sub = `<p style="text-align:center;">Te faltaron <b>${suyas - mias}</b> semillas.</p>`;
+  } else {
+    titulo = 'Empate';
+    sub = `<p style="text-align:center;">Las 48 semillas quedaron a medias.</p>`;
+  }
+  estado(`<b>${titulo}</b> · ${mias} a ${suyas}`);
+  const t = setTimeout(() => {
+    if (!$('#mk-tablero')) return;
+    openModal(`<h3>${titulo}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${mias}</div><div class="l">tuyas</div></div>
+        <div class="stat"><div class="n">${suyas}</div><div class="l">de la app</div></div>
+      </div>${sub}
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>`);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, S.rapido ? 200 : 800);
+  S.timers.push(t);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Generala contra la app: cinco dados, tres tiradas por turno y once casillas que llenar." />
+<title>Generala</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EG%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* La zona de juego reparte el alto sobrante entre estado, tabla, dados y mandos. */
+  .gn-zona { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; padding: 0 14px; --fila: 30px; --dado: 60px; }
+  @media (max-height: 720px) { .gn-zona { --fila: 25px; --dado: 50px; } }
+
+  .gn-estado { text-align: center; font-family: var(--display); font-style: italic; font-size: 15px; color: var(--sub); min-height: 20px; padding: 2px 0; }
+  .gn-estado b { font-style: normal; font-weight: 500; color: var(--ink); }
+
+  /* Tabla de casillas: filetes finos entre filas; las anotadas se rellenan de
+     beige y las libres muestran, en tinta secundaria, lo que darían los dados. */
+  .gn-tabla { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .gn-tabla th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--sub); font-weight: 400; padding: 0 0 4px; text-align: center; }
+  .gn-tabla th:first-child { text-align: left; padding-left: 8px; }
+  .gn-tabla td { padding: 0; height: var(--fila); border-top: 1px solid var(--linea); }
+  .gn-tabla td.gn-nom { font-size: 14px; color: var(--ink); padding-left: 8px; white-space: nowrap; }
+  .gn-tabla td.gn-nom small { font-family: var(--mono); font-size: 9.5px; letter-spacing: .04em; color: var(--sub); margin-left: 6px; }
+  .gn-tabla td.gn-num { width: 27%; text-align: center; }
+  .gn-tabla tr.gn-total td { border-top: 2px solid var(--linea-fuerte); }
+  .gn-total .gn-t { font-weight: 500; color: var(--ink); font-size: 16px; text-align: center; }
+  .gn-total .gn-nom { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--sub); }
+  .gn-celda {
+    display: block; width: 100%; height: var(--fila); border: none; background: transparent; padding: 0; margin: 0;
+    color: var(--sub); font-family: var(--font); font-size: 15px; font-weight: 400; font-variant-numeric: tabular-nums;
+    cursor: default; transition: background var(--dur) var(--ease);
+  }
+  .gn-celda.hecha { background: var(--panel); color: var(--ink); font-weight: 500; }
+  .gn-celda.libre { cursor: pointer; }
+  .gn-celda.libre:active { background: var(--soft); }
+  .gn-celda.mejor { color: var(--ink); }
+  .gn-celda.flash { animation: gnFlash .9s var(--ease); }
+  @keyframes gnFlash { 0% { background: var(--accent-soft); } 100% { background: var(--panel); } }
+
+  /* Dados: tarjeta clara con pips de tinta; el guardado baja un poco y se
+     tiñe de terracota suave para que se vea sin leer nada. */
+  .gn-dados { display: flex; justify-content: center; gap: 9px; padding: 8px 0 4px; }
+  .gn-dado {
+    width: var(--dado); height: var(--dado); border-radius: 15px; background: var(--card);
+    border: var(--trazo) solid var(--linea-fuerte); display: grid; grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr); padding: 15%; gap: 0; cursor: pointer;
+    transition: transform var(--dur) var(--ease), background var(--dur) var(--ease), border-color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+  }
+  .gn-dado i { border-radius: 999px; background: var(--ink); opacity: 0; transform: scale(.82); }
+  .gn-dado i.on { opacity: 1; }
+  .gn-dado.guard { border-color: var(--accent); background: var(--accent-soft); transform: translateY(8px); }
+  .gn-dado.vacio { opacity: .45; }
+  .gn-dado.rueda { transform: rotate(-9deg) scale(.96); }
+  .gn-dado:disabled { cursor: default; }
+  .gn-pie { text-align: center; min-height: 14px; }
+
+  .gn-mandos { padding: 4px 0 0; }
+  .gn-tools { display: flex; gap: 10px; justify-content: center; padding: 8px 0 calc(12px + env(safe-area-inset-bottom)); }
+  .gn-tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
+  .gn-tool:active { opacity: .6; }
+
+  /* Pantalla de inicio: el mejor puntaje va en un bloque beige, como las marcas. */
+  .gn-mejor { background: var(--panel); border-radius: var(--mano-3); padding: 13px 16px; display: flex; align-items: baseline; justify-content: space-between; }
+  .gn-mejor .n { font-size: 24px; font-weight: 400; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .gn-mejor .l { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); }
+
+  /* Tabla de puntos del «¿Cómo se juega?» */
+  .gn-ptos { width: 100%; border-collapse: collapse; margin: 4px 0 12px; font-size: 14px; color: var(--sub); }
+  .gn-ptos td { padding: 5px 0; border-top: 1px solid var(--linea); }
+  .gn-ptos td:first-child { color: var(--ink); font-weight: 500; }
+  .gn-ptos td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ── Motor puro ────────────────────────────────────────────────────────
+   Nada de aquí toca la pantalla: sirve para jugar y para simular miles de
+   partidas y medir las IAs. Las casillas van por índice: 0..5 son las caras
+   1..6, luego Escalera, Full, Póker, Generala y Generala doble. */
+const NOMBRE_CAT = ['Unos', 'Doses', 'Treses', 'Cuatros', 'Cincos', 'Seises', 'Escalera', 'Full', 'Póker', 'Generala', 'Doble'];
+const ESC = 6, FULL = 7, POKER = 8, GEN = 9, DOBLE = 10, NCAT = 11;
+const YO = 0, APP = 1;
+const ESCALERAS = new Set(['12345', '23456', '13456']);   // la tercera es 3-4-5-6-1
+
+/* Multiconjuntos de dados: todos los de tamaño 0..5 con caras 1..6. Los de
+   tamaño 5 (252) son los resultados finales; los demás, lo que se guarda. */
+function multiconjuntos(n) {
+  const out = [];
+  (function rec(arr, min) {
+    if (arr.length === n) { out.push(arr.slice()); return; }
+    for (let f = min; f <= 6; f++) { arr.push(f); rec(arr, f); arr.pop(); }
+  })([], 1);
+  return out;
+}
+const MS = [0, 1, 2, 3, 4, 5].map(multiconjuntos);
+const FIN = MS[5];
+const FIN_IDX = new Map(FIN.map((a, i) => [a.join(''), i]));
+const KEPT = [].concat(...MS);                                   // 462 guardados posibles
+const KEPT_IDX = new Map(KEPT.map((a, i) => [a.join(''), i]));
+const FACT = [1, 1, 2, 6, 24, 120];
+function probMulti(arr) {                                        // probabilidad de que k dados den ese multiconjunto
+  const c = [0, 0, 0, 0, 0, 0, 0];
+  for (const f of arr) c[f]++;
+  let d = 1; for (let f = 1; f <= 6; f++) d *= FACT[c[f]];
+  return FACT[arr.length] / d / Math.pow(6, arr.length);
+}
+/* Para cada guardado K: la distribución del resultado final tras tirar los 5-|K| restantes. */
+const SALIDAS = KEPT.map((K) => MS[5 - K.length].map((R) => [FIN_IDX.get(K.concat(R).sort().join('')), probMulti(R)]));
+/* Para cada resultado final: qué guardados (subconjuntos) admite. */
+const SUBS = FIN.map((D) => {
+  const set = new Set();
+  for (let m = 0; m < 32; m++) {
+    const k = [];
+    for (let i = 0; i < 5; i++) if (m & (1 << i)) k.push(D[i]);
+    set.add(KEPT_IDX.get(k.join('')));
+  }
+  return Array.from(set);
+});
+/* Rasgos y puntos base (sin servida) de cada resultado final. */
+const CNT = FIN.map((D) => { const c = [0, 0, 0, 0, 0, 0, 0]; for (const f of D) c[f]++; return c; });
+const RASGO = FIN.map((D, i) => {
+  const c = CNT[i], mx = Math.max(...c);
+  return { esc: ESCALERAS.has(D.join('')), full: c.includes(3) && c.includes(2), poker: mx >= 4, gen: mx === 5 };
+});
+const PTS = FIN.map((D, i) => {
+  const r = RASGO[i], c = CNT[i];
+  return [c[1], c[2] * 2, c[3] * 3, c[4] * 4, c[5] * 5, c[6] * 6, r.esc ? 20 : 0, r.full ? 30 : 0, r.poker ? 40 : 0, r.gen ? 50 : 0, r.gen ? 100 : 0];
+});
+const idxDe = (dados) => FIN_IDX.get(dados.slice().sort().join(''));
+
+/* Puntos que valen los dados «i» en la casilla b para una hoja dada. La doble
+   solo cuenta si la Generala ya está anotada con 50; servida suma 5 a
+   escalera, full y póker. */
+function puntos(i, b, servida, hoja) {
+  if (b === DOBLE) return hoja[GEN] === 50 ? PTS[i][DOBLE] : 0;
+  let p = PTS[i][b];
+  if (servida && p > 0 && b >= ESC && b <= POKER) p += 5;
+  return p;
+}
+const generalaServida = (G) => G.tirada === 1 && RASGO[idxDe(G.dados)].gen && G.hoja[G.turno][GEN] == null;
+
+function nuevaPartida(empieza) {
+  return {
+    hoja: [new Array(NCAT).fill(null), new Array(NCAT).fill(null)],
+    turno: empieza, dados: [1, 2, 3, 4, 5], guard: [false, false, false, false, false], tirada: 0,
+    fin: false, ganador: -1, servida: false,
+  };
+}
+const total = (hoja) => hoja.reduce((s, v) => s + (v || 0), 0);
+const llena = (hoja) => hoja.every((v) => v != null);
+
+function tirar(G, rnd) {
+  for (let k = 0; k < 5; k++) if (!G.guard[k]) G.dados[k] = 1 + Math.floor(rnd() * 6);
+  G.tirada++;
+}
+/* Anota la casilla b para quien tiene el turno y pasa el turno. */
+function anotar(G, b) {
+  const j = G.turno, h = G.hoja[j];
+  h[b] = puntos(idxDe(G.dados), b, G.tirada === 1, h);
+  G.guard.fill(false); G.tirada = 0;
+  if (llena(G.hoja[0]) && llena(G.hoja[1])) {
+    G.fin = true;
+    const a = total(G.hoja[0]), c = total(G.hoja[1]);
+    G.ganador = a > c ? 0 : c > a ? 1 : -1;
+  } else G.turno = 1 - j;
+}
+function ganaServida(G) {
+  G.hoja[G.turno][GEN] = 50;
+  G.fin = true; G.servida = true; G.ganador = G.turno;
+}
+
+/* ── Plan exacto de un turno ──
+   Para una hoja y una función de valor por casilla, calcula el valor de cada
+   resultado final (T, y TS con bonus de servida), lo que vale cada guardado
+   con una tirada por delante (E0) y con dos (E1). Enumera todas las
+   combinaciones: 252 resultados × sus guardados × sus salidas. */
+function planTurno(hoja, valor) {
+  const libres = [];
+  for (let b = 0; b < NCAT; b++) if (hoja[b] == null) libres.push(b);
+  const n = FIN.length, T = new Float64Array(n), TS = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    let m = -Infinity, ms = -Infinity;
+    for (const b of libres) { const v = valor(i, b, false, hoja); if (v > m) m = v; const vs = valor(i, b, true, hoja); if (vs > ms) ms = vs; }
+    T[i] = m; TS[i] = ms;
+  }
+  const esperanza = (V) => {
+    const E = new Float64Array(KEPT.length);
+    for (let k = 0; k < KEPT.length; k++) { let s = 0; for (const [f, p] of SALIDAS[k]) s += p * V[f]; E[k] = s; }
+    return E;
+  };
+  const E0 = esperanza(T);
+  const V1 = new Float64Array(n);
+  for (let i = 0; i < n; i++) { let m = -Infinity; for (const k of SUBS[i]) if (E0[k] > m) m = E0[k]; V1[i] = m; }
+  const E1 = esperanza(V1);
+  return { T, TS, E0, E1, libres, hoja, valor };
+}
+/* Mejor guardado para los dados «i» con «quedan» tiradas (1 o 2). Devuelve el
+   índice del guardado o -1 si conviene plantarse ya. */
+function mejorGuardado(plan, i, quedan) {
+  const E = quedan === 2 ? plan.E1 : plan.E0;
+  let mk = -1, m = -Infinity;
+  for (const k of SUBS[i]) if (E[k] > m) { m = E[k]; mk = k; }
+  const plantarse = quedan === 2 ? plan.TS[i] : plan.T[i];
+  return plantarse >= m - 1e-9 ? -1 : mk;
+}
+function mejorCasilla(plan, i, servida) {
+  let mb = -1, m = -Infinity;
+  for (const b of plan.libres) { const v = plan.valor(i, b, servida, plan.hoja); if (v > m) { m = v; mb = b; } }
+  return mb;
+}
+
+/* Valor esperado de un turno dedicado solo a la casilla b (con hoja vacía
+   salvo la Generala en 50 para la doble). Es la «referencia» que usa Experto
+   para saber cuánto cuesta gastar cada casilla. */
+const EV_BASE = (() => {
+  const out = [];
+  for (let b = 0; b < NCAT; b++) {
+    const hoja = new Array(NCAT).fill(0); hoja[b] = null; if (b === DOBLE) hoja[GEN] = 50;
+    const plan = planTurno(hoja, (i, bb, s, h) => puntos(i, bb, s, h));
+    let ev = 0;
+    for (let i = 0; i < FIN.length; i++) {
+      let m = plan.TS[i];
+      for (const k of SUBS[i]) if (plan.E1[k] > m) m = plan.E1[k];
+      ev += probMulti(FIN[i]) * m;
+    }
+    out.push(ev);
+  }
+  return out;
+})();
+
+/* ── Las IAs ──
+   facil: guarda cada dado a cara o cruz, tira siempre tres veces y anota
+   donde más puntos dé ahora. normal: guarda la cara más repetida (o cuatro
+   dados de escalera si la tiene libre), se planta con combinación hecha y
+   anota por puntos dando prioridad a las casillas altas. dificil: elige
+   guardado y casilla por el valor esperado exacto de las tiradas que quedan,
+   contando solo los puntos de este turno. experto: lo mismo, pero cada
+   casilla vale sus puntos menos lo que se espera de ella en un turno
+   dedicado (EV_BASE): gastar Seises en 12 le duele; tachar Unos, no. */
+const PRIORIDAD = [DOBLE, GEN, POKER, FULL, ESC, 5, 4, 3, 2, 1, 0];   // para desempatar a puntos iguales
+const PESO_EXPERTO = 1;
+function evCasilla(b, hoja) {
+  if (b === DOBLE) return hoja[GEN] === 50 ? EV_BASE[DOBLE] : hoja[GEN] === 0 ? 0 : EV_BASE[DOBLE] * 0.5;
+  if (b === GEN) return EV_BASE[GEN] + (hoja[DOBLE] == null ? EV_BASE[DOBLE] * 0.5 : 0);
+  return EV_BASE[b];
+}
+const valorDificil = (i, b, s, hoja) => puntos(i, b, s, hoja) + (10 - PRIORIDAD.indexOf(b)) * 1e-4;
+const valorExperto = (i, b, s, hoja) => puntos(i, b, s, hoja) - PESO_EXPERTO * evCasilla(b, hoja);
+const necesitaPlan = (nivel) => nivel === 'dificil' || nivel === 'experto';
+function planDe(nivel, hoja) {
+  return planTurno(hoja, nivel === 'experto' ? valorExperto : valorDificil);
+}
+
+/* Orden de tachado de Normal cuando nada puntúa: primero lo que menos vale. */
+function tacharNormal(hoja) {
+  const orden = [];
+  if (hoja[GEN] === 0) orden.push(DOBLE);
+  orden.push(0, 1, DOBLE, 2, GEN, 3, ESC, 4, FULL, 5, POKER);
+  for (const b of orden) if (hoja[b] == null) return b;
+  return hoja.indexOf(null);
+}
+/* Guardado de Normal: escalera si tiene cuatro dados seguidos y la casilla
+   libre; si no, la cara más repetida (a igual cuenta, la más alta). */
+function guardadoNormal(G) {
+  const h = G.hoja[G.turno], D = G.dados, i = idxDe(D), r = RASGO[i], c = CNT[i];
+  if ((r.gen && (h[GEN] == null || (h[GEN] === 50 && h[DOBLE] == null))) ||
+      (r.poker && h[POKER] == null) || (r.full && h[FULL] == null) || (r.esc && h[ESC] == null)) return null;
+  if (h[ESC] == null) {
+    let mejor = null, mejorN = 0;
+    for (const patron of ESCALERAS) {
+      const caras = new Set(patron.split('').map(Number));
+      const usados = new Set(); const g = [false, false, false, false, false]; let n = 0;
+      D.forEach((f, k) => { if (caras.has(f) && !usados.has(f)) { usados.add(f); g[k] = true; n++; } });
+      if (n > mejorN) { mejorN = n; mejor = g; }
+    }
+    if (mejorN >= 4) return mejor;
+  }
+  let cara = 1;
+  for (let f = 1; f <= 6; f++) if (c[f] >= c[cara]) cara = f;
+  return D.map((f) => f === cara);
+}
+function casillaNormal(G) {
+  const h = G.hoja[G.turno], i = idxDe(G.dados), servida = G.tirada === 1;
+  let mb = -1, m = 0;
+  for (const b of PRIORIDAD) { if (h[b] != null) continue; const p = puntos(i, b, servida, h); if (p > m) { m = p; mb = b; } }
+  return mb >= 0 ? mb : tacharNormal(h);
+}
+
+/* Decisión de guardado de la app: null = se planta; si no, qué dados guarda. */
+function iaGuardado(nivel, G, plan, rnd) {
+  if (nivel === 'facil') return G.dados.map(() => rnd() < 0.5);
+  if (nivel === 'normal') return guardadoNormal(G);
+  const i = idxDe(G.dados);
+  const k = mejorGuardado(plan, i, 3 - G.tirada);
+  if (k < 0) return null;
+  const falta = [0, 0, 0, 0, 0, 0, 0];
+  for (const f of KEPT[k]) falta[f]++;
+  return G.dados.map((f) => { if (falta[f] > 0) { falta[f]--; return true; } return false; });
+}
+function iaCasilla(nivel, G, plan, rnd) {
+  const h = G.hoja[G.turno], i = idxDe(G.dados), servida = G.tirada === 1;
+  if (nivel === 'facil') {
+    let m = -1, cands = [];
+    for (let b = 0; b < NCAT; b++) {
+      if (h[b] != null) continue;
+      const p = puntos(i, b, servida, h);
+      if (p > m) { m = p; cands = [b]; } else if (p === m) cands.push(b);
+    }
+    return cands[Math.floor(rnd() * cands.length)];
+  }
+  if (nivel === 'normal') return casillaNormal(G);
+  return mejorCasilla(plan, i, servida);
+}
+
+/* Un turno entero sin pantalla. Lo usa la simulación. */
+function turnoSimulado(G, nivel, rnd) {
+  const plan = necesitaPlan(nivel) ? planDe(nivel, G.hoja[G.turno]) : null;
+  G.guard.fill(false); G.tirada = 0;
+  tirar(G, rnd);
+  if (generalaServida(G)) return ganaServida(G);
+  while (G.tirada < 3) {
+    const g = iaGuardado(nivel, G, plan, rnd);
+    if (!g) break;
+    G.guard = g;
+    if (g.every(Boolean)) break;
+    tirar(G, rnd);
+  }
+  anotar(G, iaCasilla(nivel, G, plan, rnd));
+}
+/* ── Fin del motor ─────────────────────────────────────────────────── */
+
+/* ── Estado de pantalla ────────────────────────────────────────────── */
+const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+const S = {
+  nivel: store.get('gen.nivel', 'normal'),
+  empieza: store.get('gen.empieza', YO),
+  G: null, gen: 0, timers: [], jugando: false, rodando: false,
+};
+
+const REGLAS = `<p>Cinco dados y hasta <b>tres tiradas</b> por turno: toca un dado para guardarlo (o soltarlo) antes de volver a tirar. Cuando quieras, toca una casilla de tu columna para anotar lo que marcan los dados. Cada casilla se usa una sola vez; si nada encaja, tachas una (0).</p>
+<table class="gn-ptos">
+<tr><td>Unos … Seises</td><td>suma de esa cara</td></tr>
+<tr><td>Escalera</td><td>20 · servida 25</td></tr>
+<tr><td>Full</td><td>30 · servida 35</td></tr>
+<tr><td>Póker</td><td>40 · servida 45</td></tr>
+<tr><td>Generala</td><td>50 · servida gana</td></tr>
+<tr><td>Generala doble</td><td>100</td></tr>
+</table>
+<p><b>Servida</b> es la que sale en la primera tirada. Escalera: 1-2-3-4-5, 2-3-4-5-6 o 3-4-5-6-1. Full: tres iguales y dos iguales. Póker: cuatro o más iguales. Generala: los cinco iguales; si sale servida y tu casilla Generala está libre, <b>ganas en el acto</b>. Generala doble: cinco iguales otra vez, solo si ya tienes la Generala anotada con 50.</p>
+<p>Gana quien suma más al llenar las once; se alterna quién empieza. La app <b>Fácil</b> guarda dados a cara o cruz; <b>Normal</b> guarda la cara más repetida (o cuatro de escalera); <b>Difícil</b> calcula el valor esperado exacto de cada guardado; <b>Experto</b> además pesa lo que vale cada casilla que le queda libre. Tus victorias se guardan por nivel, y tu mejor puntaje también.</p>`;
+
+const victorias = (n) => store.get('gen.wins.' + n, 0);
+function anotaVictoria(nivel) {
+  const n = victorias(nivel) + 1;
+  store.set('gen.wins.' + nivel, n);
+  let alto = null;
+  for (const v of NIVELES) if (victorias(v) > 0) alto = v;
+  if (alto) {
+    const k = victorias(alto);
+    store.set('gen.hub', `${DIFF_LABEL[alto]}: ${k} victoria${k === 1 ? '' : 's'}`);
+  }
+  return n;
+}
+function bestsHTML() {
+  return NIVELES.map((v) =>
+    `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
+}
+
+function limpiar() {
+  S.gen++;
+  for (const t of S.timers) clearTimeout(t);
+  S.timers = []; S.jugando = false; S.rodando = false;
+}
+const espera = (ms) => new Promise((r) => { const t = setTimeout(r, ms); S.timers.push(t); });
+const vivo = (g) => g === S.gen && S.jugando && !!$('#gn-tabla');
+
+function renderSetup() {
+  limpiar();
+  const mejor = store.get('gen.best', null);
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Generala', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
+        ${diffSegHTML('seg-d', S.nivel)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Victorias, por nivel</div>
+      <div class="bests">${bestsHTML()}</div>
+      <div class="gn-mejor"><span class="l">Tu mejor puntaje</span><span class="n">${mejor == null ? '—' : mejor}</span></div>
+      <button class="btn btn-primary" style="margin-top:4px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-d', (v) => { S.nivel = v; store.set('gen.nivel', v); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  limpiar();
+  S.G = nuevaPartida(S.empieza);
+  S.empieza = 1 - S.empieza; store.set('gen.empieza', S.empieza);   // se alterna quién sale
+  S.jugando = true;
+  renderPlay();
+  turno();
+}
+
+/* ── Pantalla de juego ─────────────────────────────────────────────── */
+function renderPlay() {
+  const filas = NOMBRE_CAT.map((n, b) => `
+    <tr>
+      <td class="gn-nom">${n}${b === ESC ? '<small>20·25</small>' : b === FULL ? '<small>30·35</small>' : b === POKER ? '<small>40·45</small>' : b === GEN ? '<small>50</small>' : b === DOBLE ? '<small>100</small>' : ''}</td>
+      <td class="gn-num"><button class="gn-celda" data-j="0" data-b="${b}"></button></td>
+      <td class="gn-num"><button class="gn-celda" data-j="1" data-b="${b}" disabled></button></td>
+    </tr>`).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Generala', `<span class="chip">${DIFF_LABEL[S.nivel]}</span>`)}
+    <div class="gn-zona">
+      <div class="gn-estado" id="gn-estado"></div>
+      <table class="gn-tabla" id="gn-tabla">
+        <thead><tr><th>Casilla</th><th>Tú</th><th>App</th></tr></thead>
+        <tbody>${filas}
+          <tr class="gn-total"><td class="gn-nom">Total</td><td class="gn-t" id="gn-tot0">0</td><td class="gn-t" id="gn-tot1">0</td></tr>
+        </tbody>
+      </table>
+      <div>
+        <div class="gn-dados" id="gn-dados">${[0, 1, 2, 3, 4].map((k) => `<button class="gn-dado vacio" data-k="${k}" aria-label="Dado ${k + 1}">${'<i></i>'.repeat(9)}</button>`).join('')}</div>
+        <div class="gn-pie dato" id="gn-pie"></div>
+      </div>
+      <div class="gn-mandos"><button class="btn btn-primary" id="gn-tirar">Tirar</button></div>
+      <div class="gn-tools">
+        <button class="gn-tool" id="t-nueva">Nueva</button>
+        <button class="gn-tool" id="t-salir">Salir</button>
+      </div>
+    </div>
+  </div>`;
+  $('#gn-dados').onclick = (e) => { const d = e.target.closest('.gn-dado'); if (d) tocarDado(Number(d.dataset.k)); };
+  $('#gn-tabla').onclick = (e) => { const c = e.target.closest('.gn-celda.libre'); if (c) tocarCasilla(Number(c.dataset.b)); };
+  $('#gn-tirar').onclick = tirarYo;
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+  paint();
+}
+
+const CARAS = { 1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+function pintarDado(k, n) {
+  const d = $$('.gn-dado')[k]; if (!d) return;
+  const on = new Set(CARAS[n] || []);
+  $$('i', d).forEach((el, i) => el.classList.toggle('on', on.has(i)));
+}
+
+function paint() {
+  if (!$('#gn-tabla')) return;                  // el jugador ya se fue de la pantalla
+  const G = S.G, mio = G.turno === YO && !G.fin, tirado = G.tirada > 0;
+  const i = idxDe(G.dados), servida = G.tirada === 1;
+  // previsualización de lo que anotaría cada casilla libre
+  let mejor = -1, mejorP = 0;
+  const prev = G.hoja[YO].map((v, b) => {
+    if (v != null || !mio || !tirado) return null;
+    const p = puntos(i, b, servida, G.hoja[YO]);
+    if (p > mejorP) { mejorP = p; mejor = b; }
+    return p;
+  });
+  $$('.gn-celda').forEach((c) => {
+    const j = Number(c.dataset.j), b = Number(c.dataset.b), v = G.hoja[j][b];
+    c.classList.toggle('hecha', v != null);
+    const libre = j === YO && mio && tirado && v == null && !S.rodando;
+    c.classList.toggle('libre', libre);
+    c.classList.toggle('mejor', libre && b === mejor);
+    c.disabled = !libre;
+    c.textContent = v != null ? (v === 0 ? '—' : v) : (prev[b] == null ? '' : (prev[b] === 0 ? '—' : prev[b]));
+  });
+  $('#gn-tot0').textContent = total(G.hoja[0]);
+  $('#gn-tot1').textContent = total(G.hoja[1]);
+  $$('.gn-dado').forEach((d, k) => {
+    d.classList.toggle('guard', G.guard[k]);
+    d.classList.toggle('vacio', !tirado);
+    d.disabled = !(mio && tirado && G.tirada < 3 && !S.rodando);
+    pintarDado(k, tirado ? G.dados[k] : 0);
+  });
+  const bt = $('#gn-tirar');
+  if (!mio) { bt.disabled = true; bt.textContent = G.fin ? 'Fin de la partida' : 'Juega la app'; }
+  else if (G.tirada >= 3) { bt.disabled = true; bt.textContent = 'Anota una casilla'; }
+  else { bt.disabled = S.rodando; bt.textContent = G.tirada === 0 ? 'Tirar' : `Tirar · ${G.tirada === 1 ? 'quedan 2' : 'queda 1'}`; }
+  $('#gn-pie').textContent = mio && tirado && G.tirada < 3 ? 'toca un dado para guardarlo' : '';
+}
+function estado(html) { const el = $('#gn-estado'); if (el) el.innerHTML = html; }
+
+/* Animación de tirada: los dados sueltos bailan unas caras y caen en la real. */
+async function animarTirada(g) {
+  const G = S.G;
+  S.rodando = true; paint();
+  const sueltos = [0, 1, 2, 3, 4].filter((k) => !G.guard[k]);
+  tirar(G, Math.random);
+  $$('.gn-dado').forEach((d, k) => { if (!G.guard[k]) d.classList.add('rueda'); d.classList.remove('vacio'); });
+  for (let f = 0; f < 5; f++) {
+    for (const k of sueltos) pintarDado(k, 1 + randInt(6));
+    await espera(52); if (!vivo(g)) return false;
+  }
+  $$('.gn-dado').forEach((d) => d.classList.remove('rueda'));
+  vibrate(6);
+  S.rodando = false; paint();
+  return true;
+}
+
+/* ── Flujo de turnos ───────────────────────────────────────────────── */
+function turno() {
+  if (!vivo(S.gen)) return;
+  const G = S.G;
+  if (G.fin) return terminar();
+  if (G.turno === APP) return turnoApp();
+  estado('<b>Tu turno</b> · tirada 1 de 3');
+  paint();
+}
+
+async function tirarYo() {
+  const G = S.G, g = S.gen;
+  if (!vivo(g) || G.turno !== YO || G.tirada >= 3 || S.rodando) return;
+  if (G.guard.every(Boolean)) return;
+  if (!(await animarTirada(g))) return;
+  if (generalaServida(G)) { ganaServida(G); paint(); return terminar(); }
+  estado(G.tirada < 3 ? `<b>Tu turno</b> · tirada ${G.tirada} de 3` : '<b>Tu turno</b> · anota una casilla');
+}
+function tocarDado(k) {
+  const G = S.G;
+  if (!S.jugando || G.turno !== YO || G.tirada === 0 || G.tirada >= 3 || S.rodando) return;
+  G.guard[k] = !G.guard[k];
+  vibrate(5);
+  paint();
+}
+function tocarCasilla(b) {
+  const G = S.G;
+  if (!S.jugando || G.turno !== YO || G.tirada === 0 || S.rodando || G.hoja[YO][b] != null) return;
+  anotar(G, b);
+  vibrate(10);
+  paint();
+  const c = $(`.gn-celda[data-j="0"][data-b="${b}"]`); if (c) c.classList.add('flash');
+  turno();
+}
+
+async function turnoApp() {
+  const g = S.gen; if (!vivo(g)) return;
+  const G = S.G;
+  const plan = necesitaPlan(S.nivel) ? planDe(S.nivel, G.hoja[APP]) : null;
+  G.guard.fill(false); G.tirada = 0;
+  estado('Juega la <b>app</b>…'); paint();
+  await espera(600); if (!vivo(g)) return;
+  while (true) {
+    if (!(await animarTirada(g))) return;
+    if (generalaServida(G)) { ganaServida(G); paint(); return terminar(); }
+    estado(`La app tira <b>${G.tirada} de 3</b>`);
+    await espera(650); if (!vivo(g)) return;
+    if (G.tirada >= 3) break;
+    const guard = iaGuardado(S.nivel, G, plan, Math.random);
+    if (!guard) { estado('La app <b>se planta</b>'); await espera(500); if (!vivo(g)) return; break; }
+    G.guard = guard; paint();
+    const n = guard.filter(Boolean).length;
+    if (n === 5) { estado('La app <b>se planta</b>'); await espera(500); if (!vivo(g)) return; break; }
+    estado(n ? `La app guarda <b>${n} dado${n === 1 ? '' : 's'}</b>` : 'La app <b>vuelve a tirar todo</b>');
+    await espera(700); if (!vivo(g)) return;
+  }
+  const b = iaCasilla(S.nivel, G, plan, Math.random);
+  const p = puntos(idxDe(G.dados), b, G.tirada === 1, G.hoja[APP]);
+  anotar(G, b);
+  paint();
+  const c = $(`.gn-celda[data-j="1"][data-b="${b}"]`); if (c) c.classList.add('flash');
+  estado(p ? `La app anota <b>${NOMBRE_CAT[b]}: ${p}</b>` : `La app tacha <b>${NOMBRE_CAT[b]}</b>`);
+  await espera(900); if (!vivo(g)) return;
+  turno();
+}
+
+function terminar() {
+  if (!$('#gn-tabla')) return;
+  const G = S.G;
+  S.jugando = false;
+  const a = total(G.hoja[YO]), c = total(G.hoja[APP]);
+  const gana = G.ganador === YO;
+  let titulo, sub = '';
+  if (G.servida) titulo = gana ? '¡Generala servida!' : 'Generala servida de la app';
+  else titulo = gana ? '¡Ganaste!' : G.ganador === APP ? 'Ganó la app' : 'Empate';
+  if (gana) { sub = `<p style="text-align:center;">Llevas <b>${anotaVictoria(S.nivel)}</b> victoria(s) en <b>${DIFF_LABEL[S.nivel]}</b></p>`; confetti(); vibrate([30, 60, 30]); }
+  const best = store.get('gen.best', null);
+  const record = !G.servida && (best == null || a > best);
+  if (record) store.set('gen.best', a);
+  estado(`<b>${titulo}</b>`); paint();
+  const t = setTimeout(() => {
+    if (!$('#gn-tabla')) return;
+    openModal(`<h3>${titulo}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${a}</div><div class="l">tú</div></div>
+        <div class="stat"><div class="n">${c}</div><div class="l">app</div></div>
+      </div>${sub}
+      ${record ? `<p style="text-align:center;" class="record">Nuevo mejor puntaje: ${a}</p>` : ''}
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>`);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 900);
+  S.timers.push(t);
+}
+
+renderSetup();
+</script>
+</body>
+</html>
