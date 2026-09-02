@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Calcudoku: cuadrícula latina con jaulas que deben dar su resultado. Solución única garantizada." />
+<title>Calcudoku</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EC%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Todas las clases llevan prefijo cd- : las genéricas (.seg, .row, .tool…)
+     viven en comun/estilo.css y pisarlas ya rompió otros juegos. */
+  .cd-wrap { display: flex; justify-content: center; padding: 4px 0 0; }
+  .cd-board {
+    width: min(94vw, 390px); aspect-ratio: 1; display: grid;
+    --cd-lado: calc(min(94vw, 390px) / var(--cd-n));
+    /* La jaula es lo que significa en este juego, así que su filete es el
+       fuerte: tinta al 62 % a 2px, frente al susurro de --linea a 1px de la
+       cuadrícula normal. Es color-mix del token, no un hex inventado. */
+    --cd-jaula: color-mix(in srgb, var(--ink) 62%, transparent);
+    border: 2px solid var(--cd-jaula); border-radius: 12px; overflow: hidden;
+    background: var(--card); touch-action: manipulation;
+    user-select: none; -webkit-user-select: none;
+  }
+  .cd-c {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-variant-numeric: tabular-nums; min-width: 0;
+    font-size: clamp(15px, calc(var(--cd-lado) * .46), 26px);
+  }
+  /* Cada arista interior se dibuja UNA sola vez (arriba e izquierda de la
+     celda de la derecha/abajo); el contorno exterior lo pone el tablero. */
+  .cd-c.cd-t1 { border-top: 1px solid var(--linea); }
+  .cd-c.cd-l1 { border-left: 1px solid var(--linea); }
+  .cd-c.cd-t2 { border-top: 2px solid var(--cd-jaula); }
+  .cd-c.cd-l2 { border-left: 2px solid var(--cd-jaula); }
+  .cd-c .cd-meta {
+    position: absolute; top: 1px; left: 3px; font-family: var(--mono); color: var(--sub);
+    letter-spacing: .01em; line-height: 1.1; pointer-events: none;
+    font-size: clamp(8.5px, calc(var(--cd-lado) * .21), 12px);
+  }
+  /* Tinta de la cifra: dada en tinta plena, puesta por el jugador en
+     terracota. NO se distingue «repetido» solo por color: --bad y
+     --accent-texto están a ΔE2000 4,3 y serían el mismo rojo a ojo. Lo que
+     marca el error es el FONDO. */
+  .cd-c.cd-dado { font-weight: 600; color: var(--ink); }
+  .cd-c.cd-puesto { font-weight: 500; color: var(--accent-texto); }
+  .cd-c.cd-rep { color: var(--bad); font-weight: 600; }
+  /* Los dos únicos tintes del tablero, y a propósito de familias distintas:
+     azul polvo para la fila y la columna de la casilla elegida, rosa de
+     error para lo que ya no puede cuadrar (ΔE2000 9,7 entre ellos). El
+     rosa de selección quedaba a ΔE2000 1,7 del de error: por eso la
+     casilla elegida se marca con contorno, sin relleno. */
+  .cd-c.cd-par { background: color-mix(in srgb, var(--second-soft) 70%, transparent); }
+  .cd-c.cd-err { background: var(--bad-soft); }
+  .cd-c .cd-meta.cd-meta-mal { color: var(--bad); }
+  .cd-c.cd-igual { outline: 1.5px solid color-mix(in srgb, var(--accent) 50%, transparent); outline-offset: -1.5px; z-index: 1; }
+  .cd-c.cd-sel { outline: 2.5px solid var(--accent); outline-offset: -2.5px; z-index: 2; }
+  .cd-notas {
+    position: absolute; left: 2px; right: 2px; bottom: 1px; top: 45%;
+    display: grid; pointer-events: none;
+  }
+  .cd-notas i {
+    font-style: normal; font-weight: 600; color: var(--sub);
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(6.5px, calc(var(--cd-lado) * .17), 11px);
+  }
+  .cd-pie {
+    text-align: center; padding: 8px 16px 0; font-family: var(--display); font-style: italic;
+    font-size: 14px; color: var(--sub); min-height: 20px;
+  }
+  .cd-pie b { font-style: normal; font-family: var(--font); font-weight: 500; color: var(--ink); }
+  /* El teclado absorbe el alto que sobra (hasta el tope) para que no quede
+     pantalla muerta debajo de los mandos; siempre dos filas, en todos los
+     tamaños, así las teclas son grandes también en el 4×4. */
+  .cd-pad { margin: 0 16px; display: grid; gap: 9px; grid-auto-rows: 1fr; flex: 1 1 auto; max-height: 150px; }
+  .cd-key {
+    min-height: 50px; background: var(--card); border: var(--trazo) solid var(--linea);
+    border-radius: 14px; font-family: var(--title-font); font-size: 21px; font-weight: 500;
+    color: var(--ink); cursor: pointer; padding: 0;
+    transition: opacity var(--dur) var(--ease);
+  }
+  .cd-key:active { opacity: .6; }
+  .cd-key.cd-lleno { opacity: .32; }
+  .cd-key svg { display: block; margin: 0 auto; }
+  .cd-tools { margin: 8px 12px calc(8px + env(safe-area-inset-bottom)); display: flex; gap: 7px; justify-content: center; }
+  .cd-tool {
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font);
+    font-weight: 500; font-size: 12.5px; padding: 12px 12px; border-radius: var(--pastilla);
+    background: var(--card); color: var(--ink); display: flex; align-items: center; gap: 5px;
+    transition: opacity var(--dur) var(--ease), background var(--dur) var(--ease);
+  }
+  .cd-tool:active { opacity: .6; }
+  .cd-tool.cd-on { background: var(--accent-texto); color: var(--accent-ink); border-color: transparent; }
+  .cd-tool:disabled { opacity: .4; cursor: default; }
+  /* space-evenly SOLO en la pantalla de juego: en la de inicio mandaría el
+     botón «Jugar» al fondo. */
+  .cd-zona { display: flex; flex-direction: column; justify-content: space-evenly; }
+  .cd-ej { display: flex; justify-content: center; margin: 2px 0 10px; --cd-linea-ej: color-mix(in srgb, var(--ink) 62%, transparent); }
+  .cd-ej table { border-collapse: collapse; }
+  .cd-ej td {
+    width: 38px; height: 38px; text-align: center; vertical-align: middle;
+    border: 1px solid var(--linea); font-size: 17px; color: var(--ink); position: relative;
+  }
+  .cd-ej td.cd-e1 { border-top: 2px solid var(--cd-linea-ej); border-left: 2px solid var(--cd-linea-ej); border-bottom: 2px solid var(--cd-linea-ej); }
+  .cd-ej td.cd-e2 { border-top: 2px solid var(--cd-linea-ej); border-right: 2px solid var(--cd-linea-ej); border-bottom: 2px solid var(--cd-linea-ej); }
+  .cd-ej td span { position: absolute; top: 1px; left: 3px; font-family: var(--mono); font-size: 10px; color: var(--sub); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ══ Motor ══════════════════════════════════════════════════════════════
+   Cuadrado latino + partición en jaulas + resolutor que CUENTA soluciones.
+   Solo se sirve un tablero cuando el conteo da exactamente 1, así que la
+   promesa de «solución única» de las reglas la sostiene el generador. */
+
+const CFG = {
+  facil:   { n: 4, ops: '+x',   pesos: { 1: 2, 2: 6, 3: 2 },       solas: 2, banda: [50, 125] },
+  normal:  { n: 5, ops: '+x-/', pesos: { 1: 1, 2: 6, 3: 3 },       solas: 2, banda: [200, 700] },
+  dificil: { n: 6, ops: '+x-/', pesos: { 1: 1, 2: 4, 3: 4, 4: 1 }, solas: 1, banda: [1200, 8000] },
+  experto: { n: 7, ops: '+x-/', pesos: { 1: 1, 2: 3, 3: 4, 4: 3 }, solas: 1, banda: [9000, 65000] },
+};
+const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+
+function latino(n) {
+  const g = new Int32Array(n * n);
+  const filaM = new Int32Array(n), colM = new Int32Array(n);
+  function paso(i) {
+    if (i === n * n) return true;
+    const r = (i / n) | 0, c = i % n;
+    const vs = [];
+    for (let v = 1; v <= n; v++) if (!((filaM[r] | colM[c]) & (1 << v))) vs.push(v);
+    for (let k = vs.length - 1; k > 0; k--) {
+      const j = randInt(k + 1);
+      const t = vs[k]; vs[k] = vs[j]; vs[j] = t;
+    }
+    for (const v of vs) {
+      g[i] = v; filaM[r] |= 1 << v; colM[c] |= 1 << v;
+      if (paso(i + 1)) return true;
+      filaM[r] &= ~(1 << v); colM[c] &= ~(1 << v);
+    }
+    g[i] = 0;
+    return false;
+  }
+  paso(0);
+  return g;
+}
+
+function vecinos(i, n) {
+  const r = (i / n) | 0, c = i % n, out = [];
+  if (r > 0) out.push(i - n);
+  if (r < n - 1) out.push(i + n);
+  if (c > 0) out.push(i - 1);
+  if (c < n - 1) out.push(i + 1);
+  return out;
+}
+
+function eligeTam(pesos) {
+  let total = 0;
+  for (const k in pesos) total += pesos[k];
+  let x = Math.random() * total;
+  for (const k in pesos) { x -= pesos[k]; if (x <= 0) return Number(k); }
+  return 2;
+}
+
+/* Jaulas por crecimiento: se siembra una celda libre y se le pegan vecinas
+   hasta el tamaño sorteado. El tope «solas» evita el tablero de regalo con
+   todas las jaulas de una casilla. */
+function partir(n, cfg) {
+  const de = new Int32Array(n * n).fill(-1);
+  const grupos = [];
+  let solas = 0;
+  const orden = shuffle(Array.from({ length: n * n }, (_, i) => i));
+  for (const semilla of orden) {
+    if (de[semilla] >= 0) continue;
+    let tam = eligeTam(cfg.pesos);
+    if (tam === 1 && solas >= cfg.solas) tam = 2;
+    const id = grupos.length;
+    const celdas = [semilla];
+    de[semilla] = id;
+    while (celdas.length < tam) {
+      const cand = [];
+      for (const c of celdas) for (const v of vecinos(c, n)) if (de[v] < 0 && cand.indexOf(v) < 0) cand.push(v);
+      if (!cand.length) break;
+      const el = cand[randInt(cand.length)];
+      de[el] = id; celdas.push(el);
+    }
+    if (celdas.length === 1) solas++;
+    celdas.sort((a, b) => a - b);
+    grupos.push(celdas);
+  }
+  if (solas > cfg.solas + 1) return null;
+  grupos.sort((a, b) => a[0] - b[0]);
+  for (let id = 0; id < grupos.length; id++) for (const c of grupos[id]) de[c] = id;
+  return { grupos, de };
+}
+
+/* Tope del producto por tamaño: sin él salen jaulas de «×840» que no se
+   pueden razonar de cabeza. */
+const TOPE_PROD = { 3: 200, 4: 500 };
+
+function ponOps(grupos, sol, cfg) {
+  const jaulas = [];
+  for (const celdas of grupos) {
+    const vals = celdas.map((i) => sol[i]);
+    if (celdas.length === 1) { jaulas.push({ celdas, op: '=', meta: vals[0] }); continue; }
+    const opciones = [];
+    if (celdas.length === 2) {
+      const a = Math.max(vals[0], vals[1]), b = Math.min(vals[0], vals[1]);
+      if (cfg.ops.includes('+')) opciones.push({ op: '+', meta: a + b, peso: 2 });
+      if (cfg.ops.includes('x')) opciones.push({ op: '×', meta: a * b, peso: 2 });
+      if (cfg.ops.includes('-') && a !== b) opciones.push({ op: '−', meta: a - b, peso: 3 });
+      if (cfg.ops.includes('/') && a % b === 0) opciones.push({ op: '÷', meta: a / b, peso: 3 });
+    } else {
+      let suma = 0, prod = 1;
+      for (const v of vals) { suma += v; prod *= v; }
+      if (cfg.ops.includes('+')) opciones.push({ op: '+', meta: suma, peso: 3 });
+      const tope = TOPE_PROD[celdas.length] || 0;
+      if (cfg.ops.includes('x') && prod <= tope) opciones.push({ op: '×', meta: prod, peso: 2 });
+    }
+    if (!opciones.length) return null;
+    let total = 0;
+    for (const o of opciones) total += o.peso;
+    let x = Math.random() * total, pick = opciones[0];
+    for (const o of opciones) { x -= o.peso; if (x <= 0) { pick = o; break; } }
+    jaulas.push({ celdas, op: pick.op, meta: pick.meta });
+  }
+  return jaulas;
+}
+
+/* ¿Esta jaula todavía puede cumplirse con lo que hay puesto? La usa el
+   resolutor para podar Y la pantalla para marcar en vivo las imposibles. */
+function jaulaViable(j, g, n) {
+  const cs = j.celdas;
+  let llenas = 0, suma = 0, prod = 1, a = 0, b = 0;
+  for (const i of cs) {
+    const v = g[i];
+    if (v) { llenas++; suma += v; prod *= v; if (llenas === 1) a = v; else b = v; }
+  }
+  const faltan = cs.length - llenas;
+  switch (j.op) {
+    case '=': return !llenas || a === j.meta;
+    case '+':
+      if (!faltan) return suma === j.meta;
+      return suma + faltan <= j.meta && suma + faltan * n >= j.meta;
+    case '×':
+      if (!faltan) return prod === j.meta;
+      if (j.meta % prod !== 0) return false;
+      return j.meta / prod <= Math.pow(n, faltan);
+    case '−':
+      if (!faltan) return Math.abs(a - b) === j.meta;
+      if (llenas === 1) return (a + j.meta <= n) || (a - j.meta >= 1);
+      return true;
+    case '÷': {
+      if (!faltan) {
+        const hi = Math.max(a, b), lo = Math.min(a, b);
+        return hi % lo === 0 && hi / lo === j.meta;
+      }
+      if (llenas === 1) return (a * j.meta <= n) || (a % j.meta === 0);
+      return true;
+    }
+  }
+  return true;
+}
+
+/* Cuenta soluciones hasta «limite», recorriendo las celdas jaula por jaula
+   (así la poda de la jaula entra cuanto antes). «tope» corta las
+   particiones patológicas para que generar no se eternice. */
+function contar(n, jaulas, de, limite, tope) {
+  const orden = [];
+  for (const j of jaulas) for (const c of j.celdas) orden.push(c);
+  const g = new Int32Array(n * n);
+  const filaM = new Int32Array(n), colM = new Int32Array(n);
+  const max = tope || Infinity;
+  let cuenta = 0, nodos = 0, cortado = false;
+  function paso(k) {
+    if (k === orden.length) { cuenta++; return; }
+    const i = orden[k], r = (i / n) | 0, c = i % n;
+    const j = jaulas[de[i]];
+    for (let v = 1; v <= n; v++) {
+      if ((filaM[r] | colM[c]) & (1 << v)) continue;
+      g[i] = v; nodos++;
+      if (nodos > max) { cortado = true; g[i] = 0; return; }
+      if (jaulaViable(j, g, n)) {
+        filaM[r] |= 1 << v; colM[c] |= 1 << v;
+        paso(k + 1);
+        filaM[r] &= ~(1 << v); colM[c] &= ~(1 << v);
+        if (cuenta >= limite || cortado) { g[i] = 0; return; }
+      }
+      g[i] = 0;
+    }
+  }
+  paso(0);
+  return { cuenta, nodos, cortado };
+}
+
+function generar(nivel) {
+  const cfg = CFG[nivel], n = cfg.n;
+  let suplente = null;
+  for (let ronda = 0; ronda < 80; ronda++) {
+    const sol = latino(n);
+    for (let k = 0; k < 12; k++) {
+      const p = partir(n, cfg);
+      if (!p) continue;
+      const jaulas = ponOps(p.grupos, sol, cfg);
+      if (!jaulas) continue;
+      const r = contar(n, jaulas, p.de, 2, 120000);
+      if (r.cortado || r.cuenta !== 1) continue;
+      const tab = { n, sol: Array.from(sol), jaulas, de: Array.from(p.de), nodos: r.nodos };
+      /* Banda de coste: dentro de un nivel todos los tableros cuestan
+         parecido al resolutor, para que la marca de tiempo compare tableros
+         comparables. Si en 80 rondas no sale ninguno en banda, vale el más
+         cercano (nunca se sirve uno sin solución única). */
+      if (r.nodos >= cfg.banda[0] && r.nodos <= cfg.banda[1]) return tab;
+      const dist = r.nodos < cfg.banda[0] ? cfg.banda[0] / r.nodos : r.nodos / cfg.banda[1];
+      if (!suplente || dist < suplente.dist) suplente = { tab, dist };
+    }
+  }
+  return suplente ? suplente.tab : null;
+}
+
+/* ══ Estado ═════════════════════════════════════════════════════════════ */
+const S = {
+  nivel: store.get('cal.nivel', 'normal'),
+  n: 0, jaulas: null, de: null, sol: null, dado: null,
+  val: null, notas: null, sel: -1, notasOn: false, pistas: 3, done: false,
+};
+const reloj = makeClock(() => $('#cd-reloj'));
+
+const REGLAS = `
+<p>Rellena la cuadrícula con los números del <b>1 al lado</b> (1–4 en el 4×4, 1–7 en el 7×7), <b>sin repetir en fila ni en columna</b>.</p>
+<p>Las casillas van en <b>jaulas</b>, marcadas con filete grueso. En su esquina está el <b>resultado y la operación</b> que deben dar los números de dentro.</p>
+<div class="cd-ej">
+  <table><tr><td class="cd-e1"><span>3−</span>5</td><td class="cd-e2">2</td></tr></table>
+</div>
+<p>Ahí, «3−»: 5 − 2 = 3. Resta y división van <b>siempre en dos casillas</b>; suma y multiplicación pueden ser mayores. La jaula de una casilla ya viene puesta.</p>
+<p>Se tiñe lo repetido y la jaula que ya <b>no puede cumplirse</b>. Hay notas y 3 pistas, y <b>una sola solución</b> por tablero: el generador las cuenta antes de servirlo.</p>`;
+
+/* ══ Pantalla de inicio ═════════════════════════════════════════════════ */
+function renderSetup() {
+  reloj.stop();
+  const guardada = store.get('cal.partida', null);
+  const marcas = NIVELES.map((d) => {
+    const b = store.get('cal.best.' + d, null);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Calcudoku', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;">
+          <div class="row-title">Dificultad</div><div class="row-hint" id="cd-hint"></div>
+        </div>
+        ${diffSegHTML('cd-seg', S.nivel)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${marcas}</div>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+        ${guardada ? '<button class="btn btn-primary" id="cd-seguir">Continuar partida</button>' : ''}
+        <button class="btn ${guardada ? 'btn-soft' : 'btn-primary'}" id="new">Nueva partida</button>
+      </div>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const pinta = () => {
+    const c = CFG[S.nivel];
+    const el = $('#cd-hint');
+    if (el) el.textContent = `${c.n}×${c.n} · ${c.ops === '+x' ? 'suma y multiplicación' : 'las cuatro operaciones'}`;
+  };
+  pinta();
+  bindSeg('cd-seg', (v) => { S.nivel = v; store.set('cal.nivel', v); pinta(); });
+  $('#new').onclick = () => empezar(null);
+  const seg = $('#cd-seguir');
+  if (seg) seg.onclick = () => empezar(guardada);
+  bindHowto(REGLAS);
+}
+
+/* ══ Partida ════════════════════════════════════════════════════════════ */
+function empezar(guardada) {
+  if (guardada) {
+    S.nivel = guardada.nivel; S.n = guardada.n; S.jaulas = guardada.jaulas;
+    S.de = guardada.de; S.sol = guardada.sol; S.dado = guardada.dado;
+    S.val = guardada.val; S.notas = guardada.notas.map((a) => new Set(a));
+    S.pistas = guardada.pistas;
+  } else {
+    /* En 1.200 tableros medidos nunca se agotaron las rondas, pero antes de
+       reventar con un null se reintenta y, si aun así no sale, se avisa. */
+    let t = null;
+    for (let k = 0; k < 3 && !t; k++) t = generar(S.nivel);
+    if (!t) {
+      renderSetup();
+      openModal('<h3>No salió el tablero</h3><p>No se pudo armar un tablero con solución única en este intento. Prueba otra vez.</p>' +
+        '<div class="m-actions"><button class="btn btn-primary" id="m-ok">Entendido</button></div>', closeModal);
+      const ok = $('#m-ok');
+      if (ok) ok.onclick = closeModal;
+      return;
+    }
+    S.n = t.n; S.jaulas = t.jaulas; S.de = t.de; S.sol = t.sol;
+    S.dado = new Array(t.n * t.n).fill(false);
+    S.val = new Array(t.n * t.n).fill(0);
+    for (const j of t.jaulas) {
+      if (j.op === '=') { S.dado[j.celdas[0]] = true; S.val[j.celdas[0]] = j.meta; }
+    }
+    S.notas = Array.from({ length: t.n * t.n }, () => new Set());
+    S.pistas = 3;
+  }
+  S.sel = -1; S.notasOn = false; S.done = false;
+  renderPlay();
+  reloj.start();
+  if (guardada) reloj.seconds = guardada.secs;
+  guardar();
+}
+
+function guardar() {
+  if (S.done || !S.jaulas) { store.set('cal.partida', null); return; }
+  store.set('cal.partida', {
+    nivel: S.nivel, n: S.n, jaulas: S.jaulas, de: S.de, sol: S.sol, dado: S.dado,
+    val: S.val, notas: S.notas.map((s) => [...s]), pistas: S.pistas, secs: reloj.seconds,
+  });
+}
+
+const BORRAR = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H9l-6 6 6 6h11a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"></path><path d="M17 10l-4 4M13 10l4 4"></path></svg>';
+
+function renderPlay() {
+  const n = S.n;
+  const cols = n <= 5 ? 3 : 4;      // siempre dos filas de teclas
+  const teclas = [];
+  for (let v = 1; v <= n; v++) teclas.push(`<button class="cd-key" data-k="${v}">${v}</button>`);
+  teclas.push(`<button class="cd-key" data-k="0" aria-label="Borrar">${BORRAR}</button>`);
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Calcudoku', `<span class="chip">${DIFF_LABEL[S.nivel]}</span><span class="clock" id="cd-reloj">0:00</span>`)}
+    <div class="scroll cd-zona">
+      <div class="cd-wrap">
+        <div class="cd-board" id="tablero" style="--cd-n:${n}; grid-template-columns: repeat(${n}, 1fr); grid-template-rows: repeat(${n}, 1fr);">
+          ${Array.from({ length: n * n }, (_, i) => celdaHTML(i)).join('')}
+        </div>
+      </div>
+      <div class="cd-pie" id="cd-pie"></div>
+      <div class="cd-pad" id="cd-pad" style="grid-template-columns: repeat(${cols}, 1fr);">${teclas.join('')}</div>
+      <div class="cd-tools">
+        <button class="cd-tool" id="cd-notas"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg> Notas</button>
+        <button class="cd-tool" id="cd-pista">Pista <span id="cd-pn">3</span></button>
+        <button class="cd-tool" id="t-nueva">Nueva</button>
+        <button class="cd-tool" id="t-salir">Salir</button>
+      </div>
+    </div>
+  </div>`;
+  $('#tablero').onclick = (e) => {
+    const c = e.target.closest('.cd-c');
+    if (c) { S.sel = Number(c.dataset.i); pintar(); }
+  };
+  $('#cd-pad').onclick = (e) => {
+    const k = e.target.closest('.cd-key');
+    if (k) tecla(Number(k.dataset.k));
+  };
+  $('#cd-notas').onclick = () => {
+    S.notasOn = !S.notasOn;
+    const b = $('#cd-notas');
+    if (b) b.classList.toggle('cd-on', S.notasOn);
+  };
+  $('#cd-pista').onclick = pista;
+  $('#t-nueva').onclick = () => { S.done = true; guardar(); empezar(null); };
+  $('#t-salir').onclick = () => { guardar(); reloj.stop(); renderSetup(); };
+  pintar();
+}
+
+/* Bordes: cada arista interior la dibuja una sola celda (su lado de arriba y
+   su lado de la izquierda); el contorno del tablero lo pone el contenedor. */
+function celdaHTML(i) {
+  const n = S.n, r = (i / n) | 0, c = i % n;
+  const cls = ['cd-c'];
+  if (r > 0) cls.push(S.de[i] !== S.de[i - n] ? 'cd-t2' : 'cd-t1');
+  if (c > 0) cls.push(S.de[i] !== S.de[i - 1] ? 'cd-l2' : 'cd-l1');
+  return `<div class="${cls.join(' ')}" data-i="${i}">${rotuloHTML(i, false)}</div>`;
+}
+
+/* El rótulo (resultado + operación) vive en la casilla de arriba a la
+   izquierda de su jaula. Se pinta en rojo cuando la jaula ya no puede
+   cumplirse: es una señal aparte del tinte del fondo. */
+function rotuloHTML(i, mala) {
+  const j = S.jaulas[S.de[i]];
+  if (j.celdas[0] !== i || j.op === '=') return '';
+  return `<span class="cd-meta${mala ? ' cd-meta-mal' : ''}">${j.meta}${j.op}</span>`;
+}
+
+function repetidos() {
+  const n = S.n, mal = new Set();
+  for (let i = 0; i < n * n; i++) {
+    const v = S.val[i];
+    if (!v) continue;
+    const r = (i / n) | 0, c = i % n;
+    for (let k = 0; k < n; k++) {
+      const a = r * n + k, b = k * n + c;
+      if (a !== i && S.val[a] === v) { mal.add(i); mal.add(a); }
+      if (b !== i && S.val[b] === v) { mal.add(i); mal.add(b); }
+    }
+  }
+  return mal;
+}
+
+function jaulasMalas() {
+  const mal = new Set();
+  for (let k = 0; k < S.jaulas.length; k++) {
+    if (!jaulaViable(S.jaulas[k], S.val, S.n)) mal.add(k);
+  }
+  return mal;
+}
+
+function pintar() {
+  const tab = $('#tablero');
+  if (!tab) return;                       // la pantalla se pudo ir antes
+  const n = S.n;
+  const mal = repetidos();
+  const jmal = jaulasMalas();
+  const selVal = S.sel >= 0 ? S.val[S.sel] : 0;
+  const cuentas = new Array(n + 1).fill(0);
+  for (const v of S.val) if (v) cuentas[v]++;
+  const notaCols = n <= 4 ? 2 : (n <= 6 ? 3 : 4);
+  for (const el of $$('.cd-c', tab)) {
+    const i = Number(el.dataset.i);
+    const v = S.val[i], r = (i / n) | 0, c = i % n;
+    const base = ['cd-c'];
+    if (r > 0) base.push(S.de[i] !== S.de[i - n] ? 'cd-t2' : 'cd-t1');
+    if (c > 0) base.push(S.de[i] !== S.de[i - 1] ? 'cd-l2' : 'cd-l1');
+    // cifra
+    if (S.dado[i]) base.push('cd-dado');
+    else if (v) base.push('cd-puesto');
+    if (mal.has(i) && !S.dado[i]) base.push('cd-rep');
+    // fondo: el error manda sobre la fila/columna resaltada
+    const rota = jmal.has(S.de[i]);
+    if (rota || mal.has(i)) base.push('cd-err');
+    else if (S.sel >= 0 && (r === ((S.sel / n) | 0) || c === (S.sel % n))) base.push('cd-par');
+    // contorno
+    if (S.sel === i) base.push('cd-sel');
+    else if (S.sel >= 0 && selVal && v === selVal) base.push('cd-igual');
+    el.className = base.join(' ');
+    const rotulo = rotuloHTML(i, rota);
+    let dentro = '';
+    if (v) dentro = String(v);
+    else if (S.notas[i].size) {
+      dentro = `<span class="cd-notas" style="grid-template-columns: repeat(${notaCols}, 1fr);">` +
+        Array.from({ length: n }, (_, k) => `<i>${S.notas[i].has(k + 1) ? k + 1 : ''}</i>`).join('') + '</span>';
+    }
+    el.innerHTML = rotulo + dentro;
+  }
+  for (const k of $$('#cd-pad .cd-key')) {
+    const v = Number(k.dataset.k);
+    if (v >= 1) k.classList.toggle('cd-lleno', cuentas[v] >= n);
+  }
+  const pie = $('#cd-pie');
+  if (pie) {
+    const faltan = S.val.filter((x) => !x).length;
+    if (jmal.size) pie.innerHTML = `<b>${jmal.size}</b> jaula${jmal.size === 1 ? '' : 's'} ya no puede${jmal.size === 1 ? '' : 'n'} cuadrar`;
+    else if (mal.size) pie.innerHTML = 'Hay un número repetido en su fila o columna';
+    else if (faltan) pie.innerHTML = `Faltan <b>${faltan}</b> casilla${faltan === 1 ? '' : 's'}`;
+    else pie.innerHTML = 'Todo cuadra';
+  }
+}
+
+function tecla(v) {
+  if (S.done || S.sel < 0) return;
+  const i = S.sel;
+  if (S.dado[i]) return;
+  if (v === 0) { S.val[i] = 0; S.notas[i].clear(); }
+  else if (S.notasOn) {
+    if (S.val[i]) return;
+    if (S.notas[i].has(v)) S.notas[i].delete(v); else S.notas[i].add(v);
+  } else {
+    S.val[i] = (S.val[i] === v) ? 0 : v;
+    if (S.val[i]) {
+      S.notas[i].clear();
+      const n = S.n, r = (i / n) | 0, c = i % n;
+      for (let k = 0; k < n; k++) { S.notas[r * n + k].delete(v); S.notas[k * n + c].delete(v); }
+    }
+  }
+  vibrate(6);
+  pintar();
+  guardar();
+  revisarFin();
+}
+
+function pista() {
+  if (S.done || S.pistas <= 0) return;
+  let i = S.sel;
+  if (i < 0 || S.dado[i] || S.val[i] === S.sol[i]) {
+    const libres = [];
+    for (let k = 0; k < S.n * S.n; k++) if (!S.dado[k] && S.val[k] !== S.sol[k]) libres.push(k);
+    if (!libres.length) return;
+    i = libres[randInt(libres.length)];
+  }
+  S.pistas--;
+  const pn = $('#cd-pn');
+  if (pn) pn.textContent = S.pistas;
+  const bp = $('#cd-pista');
+  if (bp) bp.disabled = S.pistas <= 0;
+  S.sel = i;
+  S.val[i] = S.sol[i];
+  S.notas[i].clear();
+  vibrate(18);
+  pintar();
+  guardar();
+  revisarFin();
+}
+
+/* ══ Fin ════════════════════════════════════════════════════════════════ */
+function revisarFin() {
+  for (let i = 0; i < S.n * S.n; i++) if (S.val[i] !== S.sol[i]) return;
+  S.done = true;
+  reloj.stop();
+  guardar();
+  const secs = reloj.seconds;
+  const clave = 'cal.best.' + S.nivel;
+  const previa = store.get(clave, null);
+  const record = !previa || secs < previa;
+  if (record) {
+    store.set(clave, secs);
+    /* Al hub va la marca del nivel más alto que se haya resuelto. */
+    let alto = null;
+    for (const d of NIVELES) if (store.get('cal.best.' + d, null) != null) alto = d;
+    if (alto) store.set('cal.hub', `Mejor ${fmtTime(store.get('cal.best.' + alto))} · ${DIFF_LABEL[alto]}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡Cuadró todo!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.n}×${S.n}</div><div class="l">tablero</div></div>
+      <div class="stat"><div class="n">${3 - S.pistas}</div><div class="l">pistas</div></div>
+    </div>
+    ${record ? '<p style="text-align:center;"><span class="record">Nuevo mejor tiempo</span></p>'
+      : (previa ? `<p style="text-align:center;">Tu mejor tiempo en ${DIFF_LABEL[S.nivel].toLowerCase()}: <b>${fmtTime(previa)}</b></p>` : '')}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otro tablero</button>
+      <button class="btn btn-ghost" id="m-out">Salir</button>
+    </div>
+  `);
+  const a = $('#m-again'), o = $('#m-out');
+  if (a) a.onclick = () => { closeModal(); empezar(null); };
+  if (o) o.onclick = () => { closeModal(); renderSetup(); };
+}
+
+/* Teclado físico (en el teléfono no estorba). */
+addEventListener('keydown', (e) => {
+  if (!$('#tablero')) return;
+  const n = S.n;
+  if (e.key >= '1' && e.key <= String(n)) tecla(Number(e.key));
+  else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') tecla(0);
+  else if (e.key === 'n') {
+    S.notasOn = !S.notasOn;
+    const b = $('#cd-notas');
+    if (b) b.classList.toggle('cd-on', S.notasOn);
+  } else if (e.key.startsWith('Arrow') && S.sel >= 0) {
+    const d = { ArrowUp: -n, ArrowDown: n, ArrowLeft: -1, ArrowRight: 1 }[e.key];
+    const k = S.sel + d;
+    if (k >= 0 && k < n * n) { S.sel = k; pintar(); }
+    e.preventDefault();
+  }
+});
+
+renderSetup();
+</script>
+</body>
+</html>
