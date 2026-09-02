@@ -350,10 +350,18 @@ function crearMotor() {
 /* @motor-fin */
 
 const M = crearMotor();
-const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+/* Tres niveles, no cuatro: se midió una búsqueda más honda (4, 5 y 6 jugadas,
+   con y sin búsqueda de quietud, y con varios juegos de pesos) y NINGUNA gana a
+   la de tres jugadas: 37,5 %, 40,8 % y 30,4 % de victorias contra ella. La poda
+   es correcta (coincide con un minimax sin podar) y la evaluación es
+   antisimétrica, así que el problema es la evaluación, no la búsqueda. Un
+   «Experto» que pierde contra «Difícil» es decorado: se queda fuera hasta que
+   haya una evaluación que de verdad aproveche la profundidad. */
+const NIVELES = ['facil', 'normal', 'dificil'];
 const YO = 1, APP = 2;
 const S = {
-  nivel: store.get('mol.nivel', 'normal'),
+  // Si quedó guardado un nivel que ya no existe, se cae a Difícil.
+  nivel: NIVELES.includes(store.get('mol.nivel', 'normal')) ? store.get('mol.nivel', 'normal') : 'dificil',
   G: null, gen: 0, timers: [], jugando: false, pensando: false,
   sel: -1, captura: false, molino: null, ultimo: -1, deSel: -1,
   empiezaApp: false, worker: null, pid: 0, pendientes: new Map(),
@@ -361,7 +369,7 @@ const S = {
 
 const REGLAS = `<p>Cada quien tiene <b>nueve fichas</b>. Primero se <b>colocan</b> por turnos en los puntos libres; cuando ya están todas en el tablero, se <b>mueven</b> a un punto vecino libre siguiendo las líneas. A quien le queden <b>solo tres</b> puede «volar» a cualquier punto libre.</p>
 <p>Tres fichas tuyas en línea forman un <b>molino</b>: quitas una ficha de la app que no esté en molino (si todas lo están, cualquiera). <b>Pierde</b> quien se queda con dos fichas o no puede mover. Si pasan 50 jugadas sin captura en la fase de movimiento, es empate.</p>
-<p><b>Fácil</b> juega al azar (pero cierra molino si puede); <b>Normal</b> mira un paso: cierra, tapa y no te deja molino a tiro; <b>Difícil</b> piensa tres jugadas por delante; <b>Experto</b>, seis o más. Se alterna quién empieza. Tus victorias se guardan por nivel.</p>`;
+<p><b>Fácil</b> juega al azar (pero cierra molino si puede); <b>Normal</b> mira un paso: cierra, tapa y no te deja molino a tiro; <b>Difícil</b> piensa tres jugadas por delante y es un rival serio. Se alterna quién empieza. Tus victorias se guardan por nivel.</p>`;
 
 const victorias = (n) => store.get('mol.wins.' + n, 0);
 function anotaVictoria(nivel) {
@@ -435,7 +443,7 @@ function renderSetup() {
     <div class="g-setup scroll">
       <div class="card" style="padding: 14px 18px 18px;">
         <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
-        ${diffSegHTML('seg-d', S.nivel)}
+        ${diffSegHTML('seg-d', S.nivel, NIVELES)}
         <div class="mol-hint" id="d-hint"></div>
       </div>
       <div class="label-sm" style="margin-top:4px;">Victorias, por nivel</div>
@@ -447,8 +455,7 @@ function renderSetup() {
   const PISTA = {
     facil: 'Coloca y mueve al azar, pero cierra molino si puede.',
     normal: 'Mira un paso: cierra, tapa y no te deja molino a tiro.',
-    dificil: 'Piensa tres jugadas por delante.',
-    experto: 'Seis jugadas o más; tarda un poco en responder.',
+    dificil: 'Piensa tres jugadas por delante; cuesta ganarle.',
   };
   const hint = () => { $('#d-hint').textContent = PISTA[S.nivel]; };
   hint();

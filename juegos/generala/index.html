@@ -46,13 +46,20 @@
   /* Dados: tarjeta clara con pips de tinta; el guardado baja un poco y se
      tiñe de terracota suave para que se vea sin leer nada. */
   .gn-dados { display: flex; justify-content: center; gap: 9px; padding: 8px 0 4px; }
+  /* flex: 0 0 y min-width: 0 son obligatorios. Sin ellos, `min-width: auto` de
+     flexbox usa el ancho mínimo del contenido (la rejilla de nueve pips) y el
+     dado crecía de 60 a 110 px: los cinco no cabían y se salían de la pantalla. */
   .gn-dado {
+    flex: 0 0 var(--dado); min-width: 0; min-height: 0;
     width: var(--dado); height: var(--dado); border-radius: 15px; background: var(--card);
     border: var(--trazo) solid var(--linea-fuerte); display: grid; grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr); padding: 15%; gap: 0; cursor: pointer;
+    /* El relleno NO puede ir en %: un porcentaje se calcula sobre el ancho del
+       contenedor (la fila, 362 px), no sobre el dado, y con border-box la caja
+       no puede ser menor que su propio relleno: el dado quedaba en 111 px. */
+    grid-template-rows: repeat(3, 1fr); padding: calc(var(--dado) * .15); gap: 0; cursor: pointer;
     transition: transform var(--dur) var(--ease), background var(--dur) var(--ease), border-color var(--dur) var(--ease), opacity var(--dur) var(--ease);
   }
-  .gn-dado i { border-radius: 999px; background: var(--ink); opacity: 0; transform: scale(.82); }
+  .gn-dado i { border-radius: 999px; background: var(--ink); opacity: 0; transform: scale(.82); min-width: 0; min-height: 0; }
   .gn-dado i.on { opacity: 1; }
   .gn-dado.guard { border-color: var(--accent); background: var(--accent-soft); transform: translateY(8px); }
   .gn-dado.vacio { opacity: .45; }
@@ -483,7 +490,10 @@ function paint() {
     c.classList.toggle('libre', libre);
     c.classList.toggle('mejor', libre && b === mejor);
     c.disabled = !libre;
-    c.textContent = v != null ? (v === 0 ? '—' : v) : (prev[b] == null ? '' : (prev[b] === 0 ? '—' : prev[b]));
+    // La previsión es de TU tirada: solo va en tu columna. Antes se pintaba
+    // también en la de la app, que parecía haber anotado sin jugar.
+    const p = j === YO ? prev[b] : null;
+    c.textContent = v != null ? (v === 0 ? '—' : v) : (p == null ? '' : (p === 0 ? '—' : p));
   });
   $('#gn-tot0').textContent = total(G.hoja[0]);
   $('#gn-tot1').textContent = total(G.hoja[1]);

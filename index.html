@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="apple-mobile-web-app-title" content="Sobremesa" />
-<meta name="description" content="Sobremesa: 43 pasatiempos en español para el rato de mesa. Palabras, números, clásicos y arcade, sin anuncios y sin conexión." />
+<meta name="description" content="Sobremesa: 49 pasatiempos en español para el rato de mesa. Palabras, números, clásicos y arcade, sin anuncios y sin conexión." />
 <title>Sobremesa · Pasatiempos en español</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="manifest.webmanifest" />
@@ -32,7 +32,7 @@
   <div class="hub">
     <div class="brand">
       <h1>Sobremesa</h1>
-      <div class="tag">Pasatiempos para el rato de mesa · 43 juegos</div>
+      <div class="tag">Pasatiempos para el rato de mesa · 49 juegos</div>
     </div>
 
     <div class="buscador" id="buscador">
@@ -110,6 +110,12 @@ const IC = {
   blo: '<rect x="4" y="10.4" width="5.1" height="5.1" fill="currentColor" stroke="none" opacity="0.3"></rect><rect x="9.4" y="10.4" width="5.1" height="5.1" fill="currentColor" stroke="none" opacity="0.3"></rect><rect x="14.8" y="10.4" width="5.1" height="5.1" fill="currentColor" stroke="none" opacity="0.3"></rect><rect x="9.4" y="5" width="5.1" height="5.1" fill="currentColor" stroke="none" opacity="0.3"></rect><path d="M4 20.5h16" opacity="0.4"></path>',
   lad: '<path d="M3.5 4h17v6h-17z"></path><path d="M9.2 4v3M14.9 4v3M6.3 7v3M12 7v3M17.7 7v3M3.5 7h17" opacity="0.55"></path><circle cx="12" cy="15" r="1.6" fill="currentColor" stroke="none"></circle><path d="M7.5 20.5h9" stroke-width="2.6"></path>',
   topo: '<circle cx="12" cy="12" r="4.2"></circle><path d="M12 3.5v2.6M12 17.9v2.6M3.5 12h2.6M17.9 12h2.6M6.2 6.2l1.9 1.9M17.8 6.2l-1.9 1.9M6.2 17.8l1.9-1.9M17.8 17.8l-1.9-1.9" opacity="0.7"></path>',
+  tim: '<circle cx="5" cy="5" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="19" cy="5" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="5" cy="19" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"></circle><circle cx="19" cy="19" r="1.5" fill="currentColor" stroke="none"></circle><rect x="5" y="5" width="7" height="7" fill="currentColor" stroke="none" opacity="0.28"></rect><path d="M5 5h7M5 12h7M5 5v7M12 5v7"></path>',
+  gen: '<rect x="2.5" y="7" width="9" height="9" rx="2.5"></rect><rect x="13" y="7" width="9" height="9" rx="2.5"></rect><circle cx="7" cy="11.5" r="1.35" fill="currentColor" stroke="none"></circle><circle cx="15.6" cy="9.6" r="1.2" fill="currentColor" stroke="none"></circle><circle cx="19.4" cy="13.4" r="1.2" fill="currentColor" stroke="none"></circle>',
+  mol: '<rect x="3" y="3" width="18" height="18"></rect><rect x="7.5" y="7.5" width="9" height="9"></rect><path d="M12 3v4.5M12 16.5V21M3 12h4.5M16.5 12H21"></path><circle cx="12" cy="7.5" r="1.6" fill="currentColor" stroke="none"></circle><circle cx="12" cy="3" r="1.6" fill="currentColor" stroke="none"></circle>',
+  man: '<rect x="1.8" y="6.5" width="20.4" height="11" rx="5.5"></rect><circle cx="7.6" cy="12" r="2.5"></circle><circle cx="12" cy="12" r="2.5"></circle><circle cx="16.4" cy="12" r="2.5"></circle><circle cx="7.6" cy="12" r="0.9" fill="currentColor" stroke="none"></circle><circle cx="16.4" cy="12" r="0.9" fill="currentColor" stroke="none"></circle>',
+  pan: '<path d="M12 2.6L20 7.3v9.4L12 21.4 4 16.7V7.3z"></path><path d="M12 8.3l3.4 2v3.4L12 15.7l-3.4-2v-3.4z" fill="currentColor" stroke="none" opacity="0.34"></path>',
+  crip: '<circle cx="8.2" cy="8.2" r="4.2"></circle><path d="M11.2 11.2L20 20"></path><path d="M16.4 16.4l2.4-2.4M13.8 13.8l2.4-2.4"></path>',
 };
 
 const SECCIONES = {
@@ -124,6 +130,8 @@ const SECCIONES = {
     ['buscapalabras', 'bus', 'Buscapalabras', 'Letras vecinas contra el reloj'],
     ['frase', 'fra', 'Ordena la frase', 'Refranes revueltos'],
     ['silabas', 'sil', 'Sílabas', 'Encadenadas del recreo'],
+    ['panal', 'pan', 'Panal', 'Siete letras, una en el centro'],
+    ['criptograma', 'crip', 'Criptograma', 'Descifra el refrán'],
   ],
   's-numeros': [
     ['sudoku', 'sud', 'Sudoku', 'El clásico de números'],
@@ -155,6 +163,10 @@ const SECCIONES = {
     ['hanoi', 'han', 'Torres de Hanoi', 'La torre entera, sin trampas'],
     ['blackjack', 'bj', 'Blackjack', 'A 21 contra la casa'],
     ['holdem', 'hold', "Texas Hold'em", 'Duelo de fichas y faroles'],
+    ['timbiriche', 'tim', 'Timbiriche', 'Puntos y cajas contra la app'],
+    ['generala', 'gen', 'Generala', 'Cinco dados, once jugadas'],
+    ['molino', 'mol', 'Molino', 'Tres en línea y comes'],
+    ['mancala', 'man', 'Mancala', 'Siembra y cosecha'],
   ],
   's-arcade': [
     ['serpiente', 'serp', 'Serpiente', 'Come, crece, no te muerdas'],

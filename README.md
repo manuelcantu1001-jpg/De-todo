@@ -2,7 +2,7 @@
 
 Colección propia de juegos de pasatiempos, al estilo de las apps de «mil juegos»
 pero hecha en casa. Se llama **Sobremesa** por el rato para el que es: el de después
-de comer, con la mesa recogida, dominó, cartas y plática. Son **43 juegos sin anuncios, sin conexión y con el mismo lenguaje
+de comer, con la mesa recogida, dominó, cartas y plática. Son **49 juegos sin anuncios, sin conexión y con el mismo lenguaje
 de diseño** en todos. Auditados uno por uno: si un juego no tenía juego dentro, se
 fue; si prometía algo que no cumplía, se arregló.
 
@@ -15,7 +15,9 @@ fue; si prometía algo que no cumplía, se arregló.
 Crucigrama (banco propio de ~390 pistas) · La palabra del día (5 letras, modo diario
 con racha) · Ahorcado · Anagramas · Acomoda-palabras · Buscapalabras (tipo Boggle,
 con el léxico completo) · Ordena la frase (banco propio de 144 refranes,
-con pista) · Sílabas encadenadas (con silabeador propio).
+con pista) · Sílabas encadenadas (con silabeador propio) · Panal (siete letras,
+una obligatoria; cada panal esconde de 20 a 100 palabras y siempre un pangrama) ·
+Criptograma (un refrán cifrado por sustitución; se puntúa, no se cronometra).
 
 **Números y lógica**: Sudoku (solución única) · Cifras (objetivo siempre alcanzable) ·
 Nonograma (38 dibujos de verdad; única y sin adivinar) · Kakuro (solución única) ·
@@ -33,7 +35,11 @@ Reversi (minimax α-β con final exacto) · Dominó (el rival deduce por tus pas
 Deslizante (empuja filas enteras; revueltos de dificultad fija) · Come solo ·
 Torres de Hanoi · Ludo (contra 1, 2 o 3 rivales; los niveles se miden con
 simulación) · Blackjack (con división y reto de banca: de $200 a $500) ·
-Texas Hold'em (tú eliges cuánto apostar; evaluador de 7 cartas y equity Monte Carlo).
+Texas Hold'em (tú eliges cuánto apostar; evaluador de 7 cartas y equity Monte Carlo) ·
+Timbiriche (puntos y cajas; la app cuenta cadenas y juega la paridad) ·
+Generala (cinco dados; la app decide por valor esperado) ·
+Molino (nueve hombres de Morris, con tres niveles medidos) ·
+Mancala (Kalah; la app busca hasta once jugadas).
 
 **Arcade**: Serpiente (mando de flechas y gestos que giran al vuelo) · Simón (con
 sonido, reloj y modo que no repite la secuencia entera) · Laberinto a oscuras
@@ -54,7 +60,7 @@ banco-es.js           Banco curado: 7.800 palabras y 14 listas temáticas
 vocab-es.js           Vocabulario amplio (17.100 formas) para los juegos de cadena
 lexico-es.txt.gz      Léxico de validación (~635.000 formas normalizadas)
 scripts/              auditar-con-codex.sh (segunda opinión) y las dos pruebas
-                      de robustez que se pasan a los 43 juegos con Playwright
+                      de robustez que se pasan a los 49 juegos con Playwright
 manifest.webmanifest  PWA instalable · sw.js: cache para jugar sin conexión
 .github/workflows/    Deploy automático a GitHub Pages (rama gh-pages) en cada push
 ```

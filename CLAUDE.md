@@ -6,7 +6,7 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
 
 ## Lo que ya existe y funciona
 
-- **Hub + 43 juegos** (eran 44: se retiraron «La definición» y «Póker 3 cartas» por
+- **Hub + 49 juegos** (eran 44: se retiraron «La definición» y «Póker 3 cartas» por
   relleno, ver auditoría abajo), todos vanilla JS sin build, con dificultades, marcas y
   «¿Cómo se juega?»: Palabras (Encadena, Sopa, Crucigrama con banco propio de ~390
   pistas, La palabra del día con modo diario, Ahorcado, Anagramas, Acomoda-palabras,
@@ -16,14 +16,15 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
   2048, Binario/Takuzu, Puentes/Hashi, Hitori, Luces fuera, Picas y fijas,
   Punteros —el de las flechas que pidió Manuel—, Inunda),
   Mesa (Memorama, Gato, Conecta 4, Damas, Solitario, Reversi, Dominó, Deslizante,
-  Come solo, Hanoi, Ludo, Blackjack con división y reto de banca, Texas Hold'em con
+  Come solo, Hanoi, Ludo, Timbiriche, Generala, Molino, Mancala,
+  Blackjack con división y reto de banca, Texas Hold'em con
   equity Monte Carlo y apuesta a elección) y Arcade (Serpiente, Simón, Laberinto, Bloques/tetrominós, Ladrillos,
   Topos). Ver `README.md`. Generadores con garantías (unicidad/solubilidad) en
   sudoku, nonograma, naval, cifras, binario, luces, deslizante, punteros e
   inunda (límite = resolutor voraz + margen).
 - **Sistema compartido** en `comun/`: `estilo.css` (TODA la identidad visual vive ahí,
   tokens en `:root`) y `nucleo.js` (utilidades + diccionario). Cada juego enlaza ambos.
-- **PWA instalable** (manifest «Sobremesa», `sw.js` cache `sobremesa-v13`).
+- **PWA instalable** (manifest «Sobremesa», `sw.js` cache `sobremesa-v14`).
   Al añadir/cambiar assets: bump de versión del cache.
 - **Publicación automática**: push a esta rama → workflow construye `_site` → rama
   `gh-pages` → **https://manuelcantu1001-jpg.github.io/De-todo/**
@@ -32,7 +33,8 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
   ids: enc, sopa, cru, pal, ahorcado, ana, aco, sud, cif, nono, kak, mina, naval,
   m2048, memo, gato, c4, damas, sol, serp, simon, lab, bus, fra, sil, bin,
   pue, hit, luz, pic, pun, inu, rev, dom, des, come, han, bj, hold, blo,
-  lad, topo, ludo. (Carpeta ≠ id en varios: buscapalabras→bus, frase→fra, etc.)
+  lad, topo, ludo, tim, gen, mol, man, pan, crip. (Carpeta ≠ id en varios:
+  buscapalabras→bus, frase→fra, criptograma→crip, timbiriche→tim, etc.)
   Los juegos con rival guardan la marca por nivel (`<juego>.wins.<nivel>`) y al hub
   mandan la del nivel más alto ganado.
 - La portada tiene **buscador** y **«seguir jugando»** (últimos abiertos, en
@@ -134,6 +136,22 @@ en la política de red del entorno; el script lo detecta y avisa en vez de colga
   frecuencias de subtítulos y metía nombres propios ingleses («jeff», «randy») como
   respuestas. NO volver a usar frecuencias crudas para preguntar.
 - `norm()`: minúsculas, sin tildes, conserva la ñ.
+- **Un porcentaje de relleno se mide contra el CONTENEDOR, no contra el elemento.**
+  Los dados de la Generala llevaban `padding: 15%` y `width: var(--dado)` (60px);
+  con `box-sizing: border-box` la caja no puede ser menor que su propio relleno,
+  y el 15 % salía del ancho de la fila (362px): cada dado medía 111px y los cinco
+  se salían de la pantalla. Relleno atado al propio tamaño (`calc(var(--dado)*.15)`).
+  En un elemento flexible añade además `min-width: 0`: `min-width: auto` usa el
+  ancho mínimo del contenido y también lo agranda.
+- **Más honda no es más fuerte.** El Molino se quedó en tres niveles: se midió una
+  búsqueda a 4, 5 y 6 jugadas (con y sin búsqueda de quietud, y con varios juegos de
+  pesos) y ninguna gana a la de tres (37,5 %, 40,8 % y 30,4 %). Se descartó que
+  fuera la búsqueda: la poda coincide jugada a jugada con un minimax sin podar en
+  107 posiciones, hacer/deshacer restaura el estado en 198.560 pruebas y la
+  evaluación es antisimétrica en 3.245 posiciones. Es la evaluación la que no
+  aguanta la profundidad. Antes de vender un «Experto», mídelo contra el nivel de
+  abajo: si no gana, no es un nivel.
+
 - **Cuidado al medir en este entorno.** Dos trampas que ya invalidaron mediciones:
   (1) el **service worker sirve desde su caché**, así que un `page.route` que
   sustituye CSS o HTML no se aplica y acabas comparando una versión contra sí
