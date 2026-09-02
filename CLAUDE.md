@@ -6,7 +6,7 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
 
 ## Lo que ya existe y funciona
 
-- **Hub + 55 juegos** (eran 44: se retiraron «La definición» y «Póker 3 cartas» por
+- **Hub + 61 juegos** (eran 44: se retiraron «La definición» y «Póker 3 cartas» por
   relleno, ver auditoría abajo), todos vanilla JS sin build, con dificultades, marcas y
   «¿Cómo se juega?»: Palabras (Encadena, Sopa, Crucigrama con banco propio de ~390
   pistas, La palabra del día con modo diario, Ahorcado, Anagramas, Acomoda-palabras,
@@ -17,7 +17,8 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
   Punteros —el de las flechas que pidió Manuel—, Inunda, Futoshiki, Rascacielos,
   Calcudoku, Tiendas y árboles, Atasco),
   Mesa (Memorama, Gato, Conecta 4, Damas, Solitario, Reversi, Dominó, Deslizante,
-  Come solo, Hanoi, Ludo, Timbiriche, Generala, Molino, Mancala,
+  Come solo, Hanoi, Ludo, Timbiriche, Generala, Molino, Mancala, Ajedrez,
+  Backgammon, Escoba del 15, FreeCell, Hundir la flota,
   Blackjack con división y reto de banca, Texas Hold'em con
   equity Monte Carlo y apuesta a elección) y Arcade (Serpiente, Simón, Laberinto, Bloques/tetrominós, Ladrillos,
   Topos). Ver `README.md`. Generadores con garantías (unicidad/solubilidad) en
@@ -25,7 +26,7 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
   inunda (límite = resolutor voraz + margen).
 - **Sistema compartido** en `comun/`: `estilo.css` (TODA la identidad visual vive ahí,
   tokens en `:root`) y `nucleo.js` (utilidades + diccionario). Cada juego enlaza ambos.
-- **PWA instalable** (manifest «Sobremesa», `sw.js` cache `sobremesa-v15`).
+- **PWA instalable** (manifest «Sobremesa», `sw.js` cache `sobremesa-v16`).
   Al añadir/cambiar assets: bump de versión del cache.
 - **Publicación automática**: push a esta rama → workflow construye `_site` → rama
   `gh-pages` → **https://manuelcantu1001-jpg.github.io/De-todo/**
@@ -34,7 +35,8 @@ Repo personal de Manuel con proyectos sueltos por rama. **Esta rama
   ids: enc, sopa, cru, pal, ahorcado, ana, aco, sud, cif, nono, kak, mina, naval,
   m2048, memo, gato, c4, damas, sol, serp, simon, lab, bus, fra, sil, bin,
   pue, hit, luz, pic, pun, inu, rev, dom, des, come, han, bj, hold, blo,
-  lad, topo, ludo, tim, gen, mol, man, pan, crip, fut, ras, cal, tie, ata, esc.
+  lad, topo, ludo, tim, gen, mol, man, pan, crip, fut, ras, cal, tie, ata, esc,
+  aje, bak, esco, fre, flo, cua.
   (Carpeta ≠ id en varios:
   buscapalabras→bus, frase→fra, criptograma→crip, timbiriche→tim, etc.)
   Los juegos con rival guardan la marca por nivel (`<juego>.wins.<nivel>`) y al hub
@@ -138,6 +140,27 @@ en la política de red del entorno; el script lo detecta y avisa en vez de colga
   frecuencias de subtítulos y metía nombres propios ingleses («jeff», «randy») como
   respuestas. NO volver a usar frecuencias crudas para preguntar.
 - `norm()`: minúsculas, sin tildes, conserva la ñ.
+- **Perft es la única prueba que vale para un generador de jugadas.** El Ajedrez
+  entrega los seis conteos canónicos exactos (20, 400, 8.902, 197.281, 4.865.609
+  desde la inicial; kiwipete 48, 2.039, 97.862, 4.085.603; y las posiciones 3 a 6).
+  Esos números no se aciertan por casualidad: si salen, el enroque, la captura al
+  paso, la coronación y las clavadas están bien. Se corrieron dos veces, con un
+  contador propio contra el archivo publicado.
+- **El desempate al azar va DENTRO de la ventana alfa-beta, no después.** En el
+  Ajedrez se sumaba al final, así que una jugada podada volvía con el valor de
+  corte y le ganaba a la mejor: el Experto perdía 0-20 contra el Difícil.
+- **Afinar pesos con pocas partidas por prueba es ruido.** En el Backgammon, un
+  ascenso de coordenadas con 400 partidas por prueba dio un 62,3 % que con
+  semillas nuevas se cayó a 52,5 %. Se tiró entero: los rasgos se eligieron por
+  ablación a 1.500 partidas y se validaron con 2.500 de semillas distintas.
+- **Segunda confirmación de que más honda no es más fuerte** (ver Molino): el
+  expectimax de un tiro del Backgammon vale 51 % contra la misma evaluación sin
+  buscar. Lo que separa a su Experto del Difícil es lo que MIDE, no lo que mira.
+- **Las pruebas del repo no llegan a todos los estados.** En la Escoba, un fallo
+  que reventaba al cerrar ronda pasó `prueba-manoseo.js` sin despeinarse: 25
+  toques al azar no llegan a fin de ronda. Para estados tardíos (fin de ronda,
+  fin de partida, modales) hace falta forzarlos a mano.
+
 - **Verifica el verificador.** En la tanda de lógica cada generador traía su
   propio contador de soluciones, y un contador con un fallo «demuestra» lo que
   quieras. Para auditarlos se escribió un segundo contador por juego, con otra

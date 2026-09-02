@@ -2,7 +2,7 @@
 
 Colección propia de juegos de pasatiempos, al estilo de las apps de «mil juegos»
 pero hecha en casa. Se llama **Sobremesa** por el rato para el que es: el de después
-de comer, con la mesa recogida, dominó, cartas y plática. Son **55 juegos sin anuncios, sin conexión y con el mismo lenguaje
+de comer, con la mesa recogida, dominó, cartas y plática. Son **61 juegos sin anuncios, sin conexión y con el mismo lenguaje
 de diseño** en todos. Auditados uno por uno: si un juego no tenía juego dentro, se
 fue; si prometía algo que no cumplía, se arregló.
 
@@ -19,7 +19,9 @@ con pista) · Sílabas encadenadas (con silabeador propio) · Panal (siete letra
 una obligatoria; cada panal esconde de 20 a 100 palabras y siempre un pangrama) ·
 Criptograma (un refrán cifrado por sustitución; se puntúa, no se cronometra) ·
 Escalera de palabras (cambia una letra por paso; el camino mínimo se calcula con
-búsqueda en anchura y la marca son las escaleras clavadas).
+búsqueda en anchura y la marca son las escaleras clavadas) ·
+Cuadrado de letras (doce letras en cuatro lados; siempre hay solución dentro
+del límite, y se guarda para enseñarla).
 
 **Números y lógica**: Sudoku (solución única) · Cifras (objetivo siempre alcanzable) ·
 Nonograma (38 dibujos de verdad; única y sin adivinar) · Kakuro (solución única) ·
@@ -45,7 +47,11 @@ Texas Hold'em (tú eliges cuánto apostar; evaluador de 7 cartas y equity Monte 
 Timbiriche (puntos y cajas; la app cuenta cadenas y juega la paridad) ·
 Generala (cinco dados; la app decide por valor esperado) ·
 Molino (nueve hombres de Morris, con tres niveles medidos) ·
-Mancala (Kalah; la app busca hasta once jugadas).
+Mancala (Kalah; la app busca hasta once jugadas) ·
+Ajedrez (reglas completas, verificadas con perft) · Backgammon (sin cubo de
+doblar) · Escoba del 15 (baraja española dibujada, partida a 15 puntos) ·
+FreeCell (todo reparto servido se puede ganar) ·
+Hundir la flota (el rival experto dispara por mapa de probabilidad).
 
 **Arcade**: Serpiente (mando de flechas y gestos que giran al vuelo) · Simón (con
 sonido, reloj y modo que no repite la secuencia entera) · Laberinto a oscuras
@@ -66,7 +72,7 @@ banco-es.js           Banco curado: 7.800 palabras y 14 listas temáticas
 vocab-es.js           Vocabulario amplio (17.100 formas) para los juegos de cadena
 lexico-es.txt.gz      Léxico de validación (~635.000 formas normalizadas)
 scripts/              auditar-con-codex.sh (segunda opinión) y las dos pruebas
-                      de robustez que se pasan a los 55 juegos con Playwright
+                      de robustez que se pasan a los 61 juegos con Playwright
 manifest.webmanifest  PWA instalable · sw.js: cache para jugar sin conexión
 .github/workflows/    Deploy automático a GitHub Pages (rama gh-pages) en cada push
 ```

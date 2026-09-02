@@ -1,5 +1,5 @@
 /* Service worker de la colección: cache-first para jugar sin conexión. */
-const CACHE = 'sobremesa-v15';
+const CACHE = 'sobremesa-v16';
 const ASSETS = [
   './', 'index.html',
   'comun/estilo.css', 'comun/nucleo.js',
@@ -42,6 +42,12 @@ const ASSETS = [
   'juegos/tiendas/',
   'juegos/atasco/',
   'juegos/escalera/',
+  'juegos/ajedrez/',
+  'juegos/backgammon/',
+  'juegos/escoba/',
+  'juegos/freecell/',
+  'juegos/flota/',
+  'juegos/cuadrado/',
 ];
 
 self.addEventListener('install', (e) => {
