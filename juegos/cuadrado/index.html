@@ -429,14 +429,14 @@ const S = {
   palabras: [],        // [{ n, w, ruta: [posiciones] }]
   draft: [],           // posiciones de la palabra en formación
   usadas: 0,           // máscara de 12 bits de letras ya gastadas
-  fin: false, gano: false, rendido: false, diaHecho: false,
+  fin: false, gano: false,
   tmMsg: null, tmFin: null,
 };
 
-const REGLAS = `<p>Doce letras, <b>tres en cada lado</b>. Forma palabras tocando letras: <b>dos seguidas nunca del mismo lado</b>, por eso las de ese lado se apagan. Cada palabra nueva <b>empieza por la última de la anterior</b>, que ya viene puesta.</p>
-<p>Ganas cuando has usado las <b>doce</b> letras, dentro del límite del nivel: Fácil 5 palabras, Normal 4, Difícil 3, Experto 2. Todos los cuadrados tienen solución dentro de su límite —el juego la busca antes de dártelo y te la enseña si te rindes— y arriba ves el <b>mínimo</b> de ese cuadrado.</p>
-<p>Valen las palabras de la lista del juego (banco curado más plurales y conjugaciones), de <b>3 letras o más</b>, sin tildes y sin repetir; la <b>ñ</b> es letra propia. Es la misma lista con la que se arma el reto.</p>
-<p>Tu marca es en <b>cuántas palabras</b> lo resolviste: menos es mejor. En <b>Diario</b> el cuadrado es el mismo para todos y cada día resuelto alarga la racha.</p>`;
+const REGLAS = `<p>Doce letras, <b>tres en cada lado</b>. Forma palabras tocando letras: <b>dos seguidas nunca del mismo lado</b> (las de ese lado se apagan). Cada palabra empieza por <b>la última de la anterior</b>, ya puesta.</p>
+<p>Ganas al usar las <b>doce</b> letras dentro del límite: Fácil 5 palabras, Normal 4, Difícil 3, Experto 2. Todo cuadrado tiene solución dentro de su límite —se busca antes de dártelo y se enseña si te rindes— y arriba ves su <b>mínimo</b>.</p>
+<p>Valen las palabras de la lista del juego (banco, plurales y conjugaciones), de <b>3 letras o más</b>, sin tildes y sin repetir; la <b>ñ</b> va aparte. Es la misma lista con la que se arma el reto.</p>
+<p>Tu marca: en <b>cuántas palabras</b> lo resolviste. En <b>Diario</b> el cuadrado es el mismo para todos y cada día resuelto alarga la racha.</p>`;
 
 /* ── Fecha y diario ──────────────────────────────────────────────────── */
 const fecha = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -539,7 +539,7 @@ function renderSetup() {
       </div>
       <div class="label-sm" style="margin-top:4px;">Palabras que te bastaron (menos es mejor)</div>
       <div class="bests">${bests}</div>
-      <button class="btn btn-primary" style="margin-top:8px;" id="new">${textoJugar(dd)}</button>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">${S.modo === 'diaria' ? textoJugar(dd) : 'Jugar'}</button>
       <button class="howto" id="howto">¿Cómo se juega?</button>
     </div>
   </div>`;
@@ -564,7 +564,7 @@ function renderSetup() {
 function empezar(reiniciar) {
   pararTemporizadores();
   S.palabras = []; S.draft = []; S.usadas = 0;
-  S.fin = false; S.gano = false; S.rendido = false; S.diaHecho = false;
+  S.fin = false; S.gano = false;
   if (S.modo === 'diaria') {
     S.cu = generar(DIARIO, mulberry32(semillaDia(hoy())), 3000);
     S.limite = DIARIO.limite;
@@ -615,7 +615,7 @@ function renderPlay() {
   const fichas = PUNTOS.map((pt, i) =>
     `<g class="cua-pt" data-i="${i}"><circle class="cua-hit" cx="${pt[0]}" cy="${pt[1]}" r="9.5"></circle>` +
     `<circle class="cua-mota" cx="${pt[0]}" cy="${pt[1]}" r="8"></circle>` +
-    `<text x="${pt[0]}" y="${pt[1]}">${letras[i]}</text></g>`).join('');
+    `<text x="${pt[0]}" y="${pt[1]}" text-anchor="middle" dominant-baseline="central">${letras[i]}</text></g>`).join('');
   $('#app').innerHTML = `
   <div class="screen">
     ${topbarHTML('Cuadrado de letras', `<span class="chip">${S.modo === 'diaria' ? 'Diario' : DIFF_LABEL[S.nivel]}</span>`)}
@@ -673,9 +673,11 @@ function pintar() {
   $('#c-n').textContent = `${S.palabras.length}/${S.limite}`;
   $('#c-falta').textContent = falta;
   $('#c-falta-w').classList.toggle('apura', falta > 0 && S.palabras.length >= S.limite - 1);
-  $('#c-pie').textContent = S.fin
-    ? (S.gano ? '¡Las doce letras!' : 'Se acabaron las palabras')
-    : `Se puede resolver en ${S.cu.min} palabra${S.cu.min === 1 ? '' : 's'}`;
+  $('#c-pie').textContent = S.gano
+    ? '¡Las doce letras!'
+    : (S.fin && S.palabras.length >= S.limite
+      ? 'Se acabaron las palabras'
+      : `Se puede resolver en ${S.cu.min} palabra${S.cu.min === 1 ? '' : 's'}`);
   pintarHechas();
   pintarTrazos();
   pintarFichas();
@@ -848,7 +850,7 @@ function perder() {
 
 function rendirse() {
   if (S.fin) { modalSolucion('La solución', ''); return; }
-  S.fin = true; S.gano = false; S.rendido = true;
+  S.fin = true; S.gano = false;
   guardarDiaria();
   pintar();
   modalSolucion('La solución', '');
