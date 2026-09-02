@@ -737,20 +737,23 @@ function crearMotor() {
      («killers»), búsqueda de quietud opcional (solo capturas y coronaciones)
      y freno por tiempo o por número de nodos. */
   let nodos = 0, limiteNodos = 0, plazo = 0, abortado = false, killers = null;
-  const ORDEN_VICTIMA = [0, 1, 2, 3, 4, 5, 6];
 
+  /* Orden de las jugadas: primero las capturas por víctima gorda y atacante
+     flaco (MVV-LVA), luego las coronaciones y luego las dos jugadas tranquilas
+     que ya provocaron un corte a esta misma altura («killers»). Cuanto antes
+     aparezca la mejor, más poda la alfa-beta. */
   function puntuarJugada(G, m, ply) {
     const a = jA(m), f = jF(m);
     const victima = f === F_ALPASO ? PEON : tipo(G.b[a]);
-    if (victima) return 1000000 + ORDEN_VICTIMA[victima] * 100 - tipo(G.b[jDe(m)]);
+    if (victima) return 1000000 + victima * 100 - tipo(G.b[jDe(m)]);
     if (f === F_CORONA) return 900000 + jPr(m);
-    if (killers && (killers[ply * 2] === m || killers[ply * 2 + 1] === m)) return 800000;
+    if (ply < 128 && (killers[ply * 2] === m || killers[ply * 2 + 1] === m)) return 800000;
     return 0;
   }
-  function ordenar(G, ms, ply, primera) {
+  function ordenar(G, ms, ply) {
     const n = ms.length;
     const sc = new Int32Array(n);
-    for (let i = 0; i < n; i++) sc[i] = (primera && ms[i] === primera) ? 2000000 : puntuarJugada(G, ms[i], ply);
+    for (let i = 0; i < n; i++) sc[i] = puntuarJugada(G, ms[i], ply);
     for (let i = 1; i < n; i++) {
       const m = ms[i], s = sc[i];
       let j = i - 1;
@@ -775,14 +778,14 @@ function crearMotor() {
     let mejor;
     let ms;
     if (jaque) {
-      ms = ordenar(G, legales(G), ply, 0);
+      ms = ordenar(G, legales(G), ply);
       if (!ms.length) return -MATE + ply;
       mejor = -INF;
     } else {
       mejor = evaluar(G, true);
       if (mejor >= beta) return mejor;
       if (mejor > alfa) alfa = mejor;
-      ms = ordenar(G, legalesRuido(G), ply, 0);
+      ms = ordenar(G, legalesRuido(G), ply);
     }
     for (let i = 0; i < ms.length; i++) {
       hacer(G, ms[i]);
@@ -807,7 +810,7 @@ function crearMotor() {
     // como material y la app no lo ve ni lo evita.
     if (opc.extender && ply < 24 && enJaque(G, G.turno)) prof++;
     if (prof <= 0) return opc.quietud ? quietud(G, alfa, beta, ply) : evaluar(G, opc.tablas);
-    const ms = ordenar(G, legales(G), ply, 0);
+    const ms = ordenar(G, legales(G), ply);
     if (!ms.length) return enJaque(G, G.turno) ? -MATE + ply : 0;
     let mejor = -INF;
     for (let i = 0; i < ms.length; i++) {
@@ -820,7 +823,7 @@ function crearMotor() {
       if (v > alfa) {
         alfa = v;
         if (alfa >= beta) {
-          if (killers && !tipo(G.b[jA(m)]) && jF(m) !== F_CORONA) {
+          if (ply < 128 && !tipo(G.b[jA(m)]) && jF(m) !== F_CORONA) {
             killers[ply * 2 + 1] = killers[ply * 2];
             killers[ply * 2] = m;
           }
@@ -862,12 +865,12 @@ function crearMotor() {
     nodos = 0; abortado = false;
     limiteNodos = opc.nodos || 0;
     plazo = opc.plazo ? Date.now() + opc.plazo : 0;
-    killers = new Int32Array(128);
+    killers = new Int32Array(256);        // dos por altura, hasta 128 de hondo
     const ruido = new Map();
     for (const m of ms) ruido.set(m, rnd() * (opc.ruido == null ? 6 : opc.ruido));
     const t0 = Date.now();
     let res = null, hecha = 0;
-    let orden = ordenar(G, ms.slice(), 0, 0);
+    let orden = ordenar(G, ms.slice(), 0);
     const profMax = opc.profMax || opc.prof;
     for (let d = opc.prof || 1; d <= profMax; d++) {
       const r = raiz(G, orden, d, opc, ruido);

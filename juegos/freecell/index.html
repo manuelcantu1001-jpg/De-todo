@@ -44,7 +44,10 @@
     background: color-mix(in srgb, var(--card) 45%, transparent);
     display: flex; align-items: center; justify-content: center; color: var(--sub); cursor: pointer;
   }
-  .fc-hueco svg { display: block; fill: currentColor; opacity: .75; }
+  /* El palo del hueco dice qué base es cada una. Al 75 % daba 3,06:1, en el
+     filo justo de lo legible: al 85 % son 3,72:1 y sigue leyéndose como
+     marca de sitio vacío y no como carta puesta. */
+  .fc-hueco svg { display: block; fill: currentColor; opacity: .85; }
 
   /* Elegida y destino: aro. El outline sigue el border-radius de la carta. */
   .fc-carta.fc-sel, .fc-hueco.fc-sel { outline: 3px solid var(--accent); outline-offset: 1px; z-index: 3; }
@@ -391,7 +394,7 @@ const REGLAS = `<p>Las <b>52 cartas</b> están a la vista en 8 columnas. Arriba:
 <p>De golpe mueves <b>(celdas libres + 1)</b>, y eso se <b>duplica por cada columna vacía</b>; si el destino es una columna vacía, esa no cuenta. El marcador «Mueves» lo dice en cada momento.</p>
 <p>Toca la carta y toca a dónde va: los destinos legales se marcan. <b>Doble toque</b> la manda a su base. <b>Deshacer</b> es ilimitado y no cuenta como movimiento.</p>
 <p>Los <b>300 repartos de cada nivel se pueden ganar</b> con las celdas de ese nivel (4, 4, 3 y 2): los ganó antes el resolutor del juego. Atorarte sí puedes: <b>¿Queda salida?</b> busca desde donde estás y te dice si aún hay.</p>
-<p>Tu marca son los <b>movimientos</b>: menos es mejor. El mínimo posible son 52, uno por carta que sube.</p>`;
+<p>Tu marca son los <b>movimientos</b>: menos es mejor. Ninguna mano baja de 52, que son las 52 subidas a las bases; lo que sobre de ahí es lo que te costó ordenar.</p>`;
 
 /* ═══ Dibujo de las cartas ════════════════════════════════════════════
    Cada carta es un SVG hecho aquí: el valor va en la esquina, dentro del
@@ -711,6 +714,7 @@ function tocaCelda(v) {
   if (v === 'v') {
     if (S.sel && mueveA('cel')) return;
     if (S.sel) { sacude('#celdas'); aviso('A una celda solo va una carta suelta', true); }
+    else aviso('Una celda aparta una carta: toma una y tócala aquí');
     return;
   }
   const i = Number(v);
@@ -853,7 +857,7 @@ function ganar() {
         <div class="stat"><div class="n">${S.celdas}</div><div class="l">celdas</div></div>
       </div>
       <p style="text-align:center;">${record
-        ? `Tu mejor mano en ${DIFF_LABEL[S.nivel]}. El mínimo posible son 52 movimientos.`
+        ? `Tu mejor mano en ${DIFF_LABEL[S.nivel]}. De 52 no se baja: son las 52 subidas.`
         : `Tu récord en ${DIFF_LABEL[S.nivel]} sigue siendo <b>${best}</b> movimientos.`}</p>
       <div class="m-actions">
         <button class="btn btn-primary" id="m-again">Otro reparto</button>

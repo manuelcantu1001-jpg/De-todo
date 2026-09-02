@@ -58,11 +58,15 @@
   }
   .bg-f.bg-yo { background: var(--accent-texto); }
   .bg-f.bg-app { background: var(--tinta-2); }
-  /* Ficha que puede moverse: filete de tinta. Ficha elegida: aro terracota. */
-  .bg-f.bg-viva { border-color: var(--ink); border-width: 2px; }
-  .bg-f.bg-elegida { border-color: var(--accent-texto); border-width: 3px; }
+  /* Ficha que puede moverse y ficha elegida. Van como aro POR FUERA (outline),
+     no como borde del propio color: un filete terracota sobre una ficha
+     terracota no se ve, que es justo lo que pasó al primer intento. */
+  .bg-f.bg-viva { outline: 2px solid color-mix(in srgb, var(--ink) 42%, transparent); outline-offset: 1px; }
+  .bg-f.bg-elegida { outline: 3px solid var(--ink); outline-offset: 2px; }
   .bg-f.bg-nueva { animation: bgLlega .34s var(--ease); }
-  @keyframes bgLlega { from { transform: translateX(-50%) scale(.55); opacity: .4; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+  /* La ficha va centrada con left:50% + margin-left, no con transform, así que
+     la animación solo escala: si aquí hubiera un translateX se descentraría. */
+  @keyframes bgLlega { from { transform: scale(.55); opacity: .4; } to { transform: none; opacity: 1; } }
   /* Destino legal: un aro terracota de puntos donde caería la ficha */
   .bg-bandeja.bg-ok { background: color-mix(in srgb, var(--accent-texto) 14%, var(--soft)); }
   .bg-diana { position: absolute; left: 50%; border-radius: 999px; border: 2px dashed var(--accent-texto); background: color-mix(in srgb, var(--accent-texto) 12%, transparent); }
@@ -74,7 +78,7 @@
 
   /* ── Dados ─────────────────────────────────────────────────────── */
   .bg-mesa { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 14px; }
-  .bg-dados { display: flex; gap: 8px; }
+  .bg-dados { display: flex; gap: 8px; justify-content: center; min-width: 100px; min-height: 46px; align-items: center; }
   .bg-dado {
     width: 46px; height: 46px; border-radius: 12px; background: var(--card);
     border: var(--trazo) solid var(--linea-fuerte); padding: 8px;
@@ -84,6 +88,9 @@
   .bg-dado i { border-radius: 999px; background: var(--ink); opacity: 0; }
   .bg-dado i.bg-on { opacity: 1; }
   .bg-dado.bg-gastado { opacity: .3; }
+  /* Con dobles salen cuatro dados: se encogen para que quepan con el botón
+     de tirar hasta en una pantalla de 320 px. */
+  .bg-dados.bg-cuatro .bg-dado { width: 38px; height: 38px; padding: 6px; border-radius: 10px; }
   .bg-dado.bg-app { border-color: var(--tinta-2); }
   .bg-tirar {
     width: 100px; height: 46px; border-radius: var(--pastilla); border: none;
@@ -356,17 +363,21 @@ function hayContacto(t) {
    `lado` puntúa lo que vale la posición para un bando y `evalua` resta el
    del otro: así la evaluación es antisimétrica por construcción
    (evalua(t, YO) === -evalua(t, APP)), y eso se comprueba en la medición.
-   `alTiro` es quién tira A CONTINUACIÓN, y hace falta: una ficha sola vale
-   mucho menos cuando el que tira es su dueño (aún puede taparla o huir) que
-   cuando tira el rival. Sin ese dato la evaluación mide la misma posición de
-   dos maneras según la profundidad, y entonces buscar un tiro más no sirve
-   de nada: es lo que se midió antes de añadirlo (52,5 %). */
-/* Difícil mira exactamente lo que promete: pips, puntos hechos, primas y
-   fichas solas pesadas por el riesgo real. Experto mira además la casa
-   hecha, el ancla en campo rival, las fichas amontonadas (las de más de
-   tres en un punto no trabajan) y las que están en la barra. */
+   `alTiro` es quién tira A CONTINUACIÓN: una ficha sola vale mucho menos
+   cuando el que tira es su dueño (aún puede taparla o huir) que cuando tira
+   el rival. Sin ese dato la hoja de la búsqueda se mediría con otra vara que
+   la raíz, así que hace falta para que Experto tenga sentido. */
+/* Difícil mira exactamente lo que promete y nada más: pips, puntos hechos,
+   primas y fichas solas pesadas por el riesgo real de que se las coman.
+   Experto añade tres cosas que Difícil no ve —los puntos hechos DENTRO de su
+   casa, las fichas amontonadas de más de tres en un punto (no trabajan) y el
+   desperdicio al sacar— y sus pesos están afinados por ascenso de coordenadas
+   con 400 partidas pareadas por prueba, no puestos a ojo. El ancla en campo
+   rival y el castigo por fichas en la barra se probaron y el afinado los dejó
+   en cero: los pips ya cuentan las de la barra a 25, y el ancla se comía las
+   dos cosas. Se dejan los pesos a la vista para poder volver a medirlos. */
 const W_DIF = { pip: 1, fuera: 0, barra: 0, punto: 2.4, casa: 0, prima: 0.6, ancla: 0, blot: 0.75, apila: 0, desp: 0, propio: 0.4, escala: 90 };
-const W_EXP = { pip: 1, fuera: 6, barra: 8, punto: 2.4, casa: 4.2, prima: 0.75, ancla: 6, blot: 0.95, apila: 1.3, desp: 2, propio: 0.4, escala: 90 };
+const W_EXP = { pip: 1, fuera: 2, barra: 0, punto: 1.4, casa: 1, prima: 0.3, ancla: 0, blot: 0.75, apila: 0.4, desp: 0.5, propio: 0.8, escala: 90 };
 const W_CAR = { pip: 1, fuera: 10, cruce: 1.6 };
 
 const puntoPip = (j, k) => (j === YO ? k - 1 : 24 - k);   // el punto que está a k pips de salir
@@ -449,9 +460,12 @@ const TIRADAS = (() => {
    porque el coste crece con el número de candidatas (ver informe).
    La puntuación de la hoja se aplasta con una tangente hiperbólica antes de
    promediar: sin eso, una tirada catastrófica (la evaluación llega a −340
-   cuando la de al lado vale −40) se comía la media de las otras veinte y la
-   búsqueda no aportaba nada. Sumar valores ordinales no da una esperanza;
-   sumar algo parecido a una equity, sí. */
+   cuando la de al lado vale −40) se come la media de las otras veinte. Sumar
+   valores ordinales no da una esperanza; sumar algo parecido a una equity, sí.
+   Aviso medido, para no repetir el error del Molino: aun así, este tiro de
+   más vale poco (≈ 51 % contra la misma evaluación sin buscar). Lo que separa
+   de verdad a Experto de Difícil son las tres cosas más que mira y los pesos
+   afinados; la búsqueda es la guinda, no el motor. */
 const CAND_EXP = 6;
 function trasRespuesta(t, j, W) {
   const o = 1 - j;
@@ -536,7 +550,7 @@ const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
 const REGLAS = `<p>Quince fichas cada uno sobre 24 triángulos. Tú corres del 24 al 1 y sacas por abajo a la derecha; la app va al revés. Tiras dos dados y mueves <b>una ficha ese número de puntos</b>, con la misma o con dos distintas; <b>si salen dobles juegas cuatro movimientos</b>.</p>
 <p>Solo puedes caer en un triángulo <b>libre, tuyo o con UNA sola ficha rival</b>: a esa la comes y va a la barra. Mientras tengas fichas en la barra lo primero es reentrarlas. Hay que gastar los dos dados siempre que se pueda y, si solo cabe uno, tiene que ser el más alto.</p>
 <p>Cuando tus quince estén en tu cuadrante final empiezas a <b>sacarlas</b>. Gana quien saca las quince: si el rival no sacó ninguna es <b>gammon</b> y vale doble, y si además le quedan fichas en la barra o en tu cuadrante es <b>backgammon</b> y vale triple. <b>Sin cubo de doblar.</b></p>
-<p>Toca una ficha para ver a dónde puede ir y toca el destino; puedes <b>deshacer</b> mientras no confirmes con «Listo». La app: <b>Fácil</b> elige al azar entre sus jugadas legales; <b>Normal</b> come, evita dejar fichas solas, hace puntos y avanza; <b>Difícil</b> valora la posición entera (pips, puntos hechos, primas y el riesgo real de que te coman cada ficha sola); <b>Experto</b> además promedia la mejor respuesta del rival en las 21 tiradas posibles.</p>`;
+<p>Toca una ficha para ver a dónde puede ir y toca el destino; puedes <b>deshacer</b> mientras no confirmes con «Listo». La app: <b>Fácil</b> elige al azar entre sus jugadas legales; <b>Normal</b> come, evita dejar fichas solas, hace puntos y avanza; <b>Difícil</b> valora la posición entera (pips, puntos hechos, primas y el riesgo real de que te coman cada ficha sola); <b>Experto</b> mira además los puntos hechos dentro de su casa, las fichas amontonadas y el desperdicio al sacar, y promedia la mejor respuesta del rival en las 21 tiradas posibles.</p>`;
 
 const S = {
   nivel: store.get('bak.nivel', 'normal'),
@@ -596,7 +610,7 @@ function renderSetup() {
     facil: 'Mueve al azar entre sus jugadas legales. Para agarrarle el modo.',
     normal: 'Come, evita dejar fichas solas, hace puntos y avanza.',
     dificil: 'Valora la posición entera: pips, puntos, primas y el riesgo real de cada ficha sola.',
-    experto: 'Lo de Difícil y, además, promedia tu mejor respuesta en las 21 tiradas posibles.',
+    experto: 'Lo de Difícil, su casa, las fichas amontonadas y tu mejor respuesta en las 21 tiradas.',
   };
   const hint = () => { const e = $('#bg-hint'); if (e) e.textContent = textos[S.nivel]; };
   hint();
@@ -614,11 +628,11 @@ function mideTablero() {
   const presupuesto = Math.max(180, innerHeight - 300);   // alto que le queda al tablero
   const fsDe = (c) => c - 4;
   const pasoDe = (c) => Math.round((c - 4) * 0.86);
-  const altoNat = (c) => 2 * (pasoDe(c) * 4 + fsDe(c) + 4) + Math.round(c * 1.05);
+  const altoNat = (c) => 2 * (pasoDe(c) * 4 + fsDe(c) + 9) + Math.round(c * 1.05);
   let c = Math.max(17, Math.floor(anchoLibre / 13.86));
   while (c > 17 && altoNat(c) > presupuesto) c--;
   const fs = fsDe(c), paso = pasoDe(c), gap = Math.round(c * 1.05);
-  let ph = paso * 4 + fs + 4;
+  let ph = paso * 4 + fs + 9;
   // Si sobra alto, los triángulos se alargan (como en un tablero de verdad)
   // en vez de dejar media pantalla vacía debajo de los mandos.
   const sobra = presupuesto - (2 * ph + gap);
@@ -713,7 +727,7 @@ function dadoHTML(n, clases) {
 }
 function fichaHTML(j, k, texto, G, marca) {
   const arr = marca.arriba;
-  const y = 2 + k * G.paso;
+  const y = 4 + k * G.paso;                       // 4 px de aire para que quepa el aro de la elegida
   return `<span class="bg-f ${j === YO ? 'bg-yo' : 'bg-app'} ${marca.extra || ''}"
     style="${arr ? 'top' : 'bottom'}:${y}px;width:${G.fs}px;height:${G.fs}px;margin-left:${-G.fs / 2}px;font-size:${Math.round(G.fs * 0.46)}px">${texto || ''}</span>`;
 }
@@ -747,7 +761,7 @@ function pinta() {
     else if (origenes.has(i) && S.sel < 0) marca += 'bg-viva';
     let h = '';
     if (n) h = pilaHTML(j, n, G, arribaP(i), marca);
-    if (destinos.has(i)) h += `<span class="bg-diana" style="${arribaP(i) ? 'top' : 'bottom'}:${2 + Math.min(n, 5) * G.paso}px;width:${G.fs}px;height:${G.fs}px;margin-left:${-G.fs / 2}px"></span>`;
+    if (destinos.has(i)) h += `<span class="bg-diana" style="${arribaP(i) ? 'top' : 'bottom'}:${4 + Math.min(n, 5) * G.paso}px;width:${G.fs}px;height:${G.fs}px;margin-left:${-G.fs / 2}px"></span>`;
     el.innerHTML = '';
     el.appendChild(tri);
     el.insertAdjacentHTML('beforeend', h);
@@ -825,6 +839,7 @@ async function turno() {
   S.sel = -1; S.hist = []; S.ultimo = -1; S.movs = [];
   if (S.turno === YO) {
     S.esperando = 'tirar';
+    if (!S.preDados) { S.tirada = []; S.rest = []; }   // fuera los dados de la app
     avisa(S.preDados ? 'Te toca: juega la tirada de salida' : 'Tu turno: tira los dados');
     pinta();
     if (S.preDados) tirar();
