@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Tiendas y árboles: planta una tienda pegada a cada árbol sin que dos se toquen." />
+<title>Tiendas y árboles</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Prefijo propio en TODAS las clases: la barra compartida ya se rompió dos
+     veces por usar nombres genéricos (.seg de la naval, .meta del ludo). */
+
+  /* Reparte el alto sobrante entre marcador, tablero y aviso. Solo en la
+     pantalla de juego: en la de inicio mandaría el «Jugar» al fondo. */
+  /* «Tiendas y árboles» a 23px + chip de nivel + reloj no cabe en 375 px y el
+     título partía en dos renglones: en la pantalla de juego baja a 19px. */
+  .tie-barra .topbar h1 { font-size: 19px; white-space: nowrap; }
+
+  .tie-zona { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
+
+  .tie-wrap { display: flex; justify-content: center; padding: 4px 6px 0; }
+  /* gap 0 y filete por casilla: con separación entre casillas el tablero mayor
+     perdía 22 px de ancho, casi una casilla entera. */
+  .tie-grid {
+    display: grid; gap: 0; width: min(97vw, 404px);
+    touch-action: manipulation; -webkit-user-select: none; user-select: none;
+  }
+
+  /* Números del borde. Se apagan (a --sub, no a --faint: con --faint quedaban
+     en 2:1 y dejaban de leerse) cuando la fila o columna ya tiene su cuenta. */
+  .tie-num {
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font); font-weight: 500; font-variant-numeric: tabular-nums;
+    color: var(--ink); font-size: var(--tie-fs); line-height: 1;
+    transition: color var(--dur) var(--ease);
+  }
+  .tie-num.tie-lista { color: var(--sub); font-weight: 400; }
+  .tie-num.tie-pasada { color: var(--bad); }
+
+  .tie-c {
+    aspect-ratio: 1; padding: 0; margin: 0; border: var(--trazo) solid var(--linea);
+    border-radius: 4px; background: var(--card); cursor: pointer;
+    display: block; position: relative; overflow: hidden;
+    transition: background .12s var(--ease);
+  }
+  .tie-c.tie-arbol { cursor: default; }
+  /* Hierba marcada: verde muy tenue y matojo. Se probó --soft (beige) y contra
+     el peach de la casilla con tienda quedaba en ΔE 3,7, casi el mismo fondo;
+     --good-soft lo sube a 8,8 y además significa lo que dibuja: hierba. */
+  .tie-c.tie-no { background: var(--good-soft); }
+  .tie-c.tie-hay { background: var(--accent-soft); border-color: transparent; }
+  /* Aviso en vivo: dos tiendas que se tocan quedan cercadas en rojo. */
+  .tie-c.tie-choca { outline: 2px solid var(--bad); outline-offset: -2px; border-radius: 4px; }
+
+  .tie-g { display: block; width: 100%; height: 100%; }
+  .tie-hoja { fill: var(--tinta-3); }
+  .tie-tronco { fill: var(--tinta-8); }
+  .tie-lona { fill: var(--accent-texto); }
+  .tie-puerta { fill: var(--accent-soft); }
+  .tie-mata { fill: none; stroke: var(--sub); stroke-width: 2.2; stroke-linecap: round; }
+
+  .tie-marcador { display: flex; justify-content: center; gap: 22px; padding-top: 10px; }
+  .tie-marcador span {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--sub); display: flex; align-items: baseline; gap: 7px;
+  }
+  .tie-marcador b {
+    font-family: var(--font); font-size: 17px; font-weight: 500; color: var(--ink);
+    letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums;
+  }
+  .tie-aviso {
+    text-align: center; padding: 10px 16px 0; font-family: var(--display); font-style: italic;
+    font-size: 14px; color: var(--sub); min-height: 20px;
+  }
+  .tie-aviso.tie-mal { color: var(--bad); }
+
+  .tie-tools { margin: 0 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 9px; justify-content: center; padding-top: 12px; }
+  .tie-tools button {
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font);
+    font-weight: 500; font-size: 13px; padding: 11px 16px; border-radius: var(--pastilla);
+    background: var(--card); color: var(--ink); min-height: 42px;
+  }
+  .tie-tools button:active { opacity: .6; }
+
+  /* Leyenda del «¿Cómo se juega?»: las mismas piezas del tablero, a tamaño fijo. */
+  .tie-leyenda { display: flex; gap: 16px; justify-content: center; margin: 4px 0 14px; }
+  .tie-leyenda div { text-align: center; }
+  .tie-leyenda .tie-caja {
+    width: 46px; height: 46px; border: var(--trazo) solid var(--linea); border-radius: 8px;
+    background: var(--card); margin: 0 auto 6px;
+  }
+  .tie-leyenda .tie-caja.tie-no { background: var(--good-soft); }
+  .tie-leyenda .tie-caja.tie-hay { background: var(--accent-soft); border-color: transparent; }
+  .tie-leyenda p { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--sub); margin: 0; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ── Niveles ──────────────────────────────────────────────────────────
+   n = lado del tablero · tiendas = árboles a repartir · fs = cuerpo de los
+   números del borde. Experto se quedó en 11×11 y no en 12×12 por tamaño de
+   casilla en el teléfono (ver informe): a 375 px de ancho, 12×12 deja casillas
+   de 27,7 px y 11×11 las sube a 30,1 px. */
+const CFG = {
+  facil:   { n: 6,  tiendas: 7,  fs: '17px' },
+  normal:  { n: 8,  tiendas: 13, fs: '15px' },
+  dificil: { n: 10, tiendas: 20, fs: '13px' },
+  experto: { n: 11, tiendas: 26, fs: '12px' },
+};
+const ORDEN = ['facil', 'normal', 'dificil', 'experto'];
+
+/* celda: 0 hierba limpia · 1 tienda · 2 hierba marcada («aquí no») */
+const S = {
+  diff: store.get('tiendas.diff', 'normal'),
+  n: 0, arbol: null, sol: null, filas: null, cols: null,
+  celda: null, glifo: null,
+  clock: makeClock(() => $('#tie-clk')),
+  jugando: false, tFin: null,
+};
+
+const SVG_ARBOL =
+  '<svg class="tie-g" viewBox="0 0 24 24" aria-hidden="true">' +
+  '<path class="tie-tronco" d="M10.8 14h2.4v7.2h-2.4z"/>' +
+  '<path class="tie-hoja" d="M12 2.4 5.3 12.1h2.9L3.2 18.6h17.6l-5-6.5h2.9z"/></svg>';
+const SVG_TIENDA =
+  '<svg class="tie-g" viewBox="0 0 24 24" aria-hidden="true">' +
+  '<path class="tie-lona" d="M12 3.2 21.4 20.4H2.6z"/>' +
+  '<path class="tie-puerta" d="M12 11.4 16.6 20.4H7.4z"/></svg>';
+const SVG_MATA =
+  '<svg class="tie-g" viewBox="0 0 24 24" aria-hidden="true">' +
+  '<path class="tie-mata" d="M12 18.4V8.6M7.4 18.4q0-4 2.2-6.6M16.6 18.4q0-4-2.2-6.6"/></svg>';
+
+const REGLAS = `
+<div class="tie-leyenda">
+  <div><div class="tie-caja">${SVG_ARBOL}</div><p>Árbol</p></div>
+  <div><div class="tie-caja tie-hay">${SVG_TIENDA}</div><p>Tienda</p></div>
+  <div><div class="tie-caja tie-no">${SVG_MATA}</div><p>Aquí no</p></div>
+</div>
+<p>Pon <b>una tienda por cada árbol</b>, pegada de lado (nunca en diagonal). Se emparejan <b>uno a uno</b>: cada árbol con su propia tienda.</p>
+<p><b>Dos tiendas nunca se tocan</b>, ni de lado ni en diagonal. Los árboles sí pueden estar pegados entre ellos.</p>
+<p>Los números del borde dicen <b>cuántas tiendas</b> lleva esa fila o columna: se apagan al completarse y se ponen en rojo si te pasas.</p>
+<p>Un toque pone tienda, otro marca hierba y el tercero limpia la casilla.</p>
+<p>Cada tablero tiene <b>una sola solución</b> y sale razonando: nunca hay que adivinar.</p>`;
+
+/* ── Geometría ────────────────────────────────────────────────────────── */
+function vec4(i, n) {
+  const r = (i / n) | 0, c = i % n, out = [];
+  if (r > 0) out.push(i - n);
+  if (r < n - 1) out.push(i + n);
+  if (c > 0) out.push(i - 1);
+  if (c < n - 1) out.push(i + 1);
+  return out;
+}
+function vec8(i, n) {
+  const r = (i / n) | 0, c = i % n, out = [];
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    if (!dr && !dc) continue;
+    const rr = r + dr, cc = c + dc;
+    if (rr >= 0 && rr < n && cc >= 0 && cc < n) out.push(rr * n + cc);
+  }
+  return out;
+}
+
+/* ── Emparejamiento uno a uno árbol↔tienda (Kuhn) ─────────────────────
+   Cada árbol necesita SU tienda pegada y ninguna tienda sirve a dos árboles:
+   eso es un emparejamiento perfecto en el grafo bipartito. Sin esto, un
+   tablero con «cada tienda pegada a algún árbol» podría dejar árboles sin
+   pareja y darse por bueno. */
+function hayEmparejamiento(arbolesIdx, tiendaEn, n) {
+  const parejaDe = new Map();          // celda con tienda -> índice de árbol
+  const visto = new Uint8Array(n * n);
+  const adj = arbolesIdx.map((t) => vec4(t, n).filter((c) => tiendaEn[c]));
+  function aumenta(k) {
+    for (const c of adj[k]) {
+      if (visto[c]) continue;
+      visto[c] = 1;
+      const otro = parejaDe.get(c);
+      if (otro === undefined || aumenta(otro)) { parejaDe.set(c, k); return true; }
+    }
+    return false;
+  }
+  for (let k = 0; k < arbolesIdx.length; k++) {
+    visto.fill(0);
+    if (!aumenta(k)) return false;
+  }
+  return true;
+}
+
+/* ── Resolutor exacto: CUENTA soluciones, no solo encuentra una ────────
+   Va fila por fila probando las combinaciones de casillas candidatas que
+   cumplen el número del borde y no se tocan entre sí; poda por las columnas
+   (lo que falta no puede caber más abajo) y por los árboles que ya no
+   recibirán vecinas nuevas. Al llegar abajo exige emparejamiento perfecto.
+   Se corta en «tope» soluciones: con tope 2 basta para saber si es única. */
+function cuentaSoluciones(n, esArbol, filas, cols, tope) {
+  const N = n * n;
+  const arbolesIdx = [];
+  for (let i = 0; i < N; i++) if (esArbol[i]) arbolesIdx.push(i);
+
+  const cand = new Uint8Array(N);
+  for (let i = 0; i < N; i++) {
+    if (esArbol[i]) continue;
+    if (vec4(i, n).some((j) => esArbol[j])) cand[i] = 1;
+  }
+  const masks = [];
+  for (let r = 0; r < n; r++) {
+    let libre = 0;
+    for (let c = 0; c < n; c++) if (cand[r * n + c]) libre |= 1 << c;
+    const out = [];
+    (function gen(c, resta, m) {
+      if (resta === 0) { out.push(m); return; }
+      if (c >= n || n - c < resta) return;
+      if ((libre >> c) & 1) gen(c + 2, resta - 1, m | (1 << c));
+      gen(c + 1, resta, m);
+    })(0, filas[r], 0);
+    if (!out.length) return { soluciones: 0, nodos: 0 };
+    masks.push(out);
+  }
+  const capaz = [];
+  for (let r = n; r >= 0; r--) {
+    const fila = new Int16Array(n);
+    if (r < n) for (let c = 0; c < n; c++) fila[c] = capaz[0][c] + (cand[r * n + c] ? 1 : 0);
+    capaz.unshift(fila);
+  }
+  const arbolCierra = [];
+  for (let r = 0; r < n; r++) arbolCierra.push([]);
+  for (const t of arbolesIdx) arbolCierra[Math.min(n - 1, ((t / n) | 0) + 1)].push(t);
+
+  const tiendaEn = new Uint8Array(N);
+  const usadoCol = new Int16Array(n);
+  let soluciones = 0, nodos = 0;
+
+  function baja(r, prev) {
+    if (soluciones >= tope) return;
+    if (r === n) {
+      if (hayEmparejamiento(arbolesIdx, tiendaEn, n)) soluciones++;
+      return;
+    }
+    const veta = prev | (prev << 1) | (prev >> 1);
+    for (const m of masks[r]) {
+      if (m & veta) continue;
+      nodos++;
+      let ok = true;
+      for (let c = 0; c < n && ok; c++) {
+        const add = (m >> c) & 1;
+        if (add && usadoCol[c] + 1 > cols[c]) ok = false;
+        else if (cols[c] - usadoCol[c] - add > capaz[r + 1][c]) ok = false;
+      }
+      if (!ok) continue;
+      for (let c = 0; c < n; c++) if ((m >> c) & 1) { tiendaEn[r * n + c] = 1; usadoCol[c]++; }
+      let vale = true;
+      for (const t of arbolCierra[r]) {
+        if (!vec4(t, n).some((j) => tiendaEn[j])) { vale = false; break; }
+      }
+      if (vale) baja(r + 1, m);
+      for (let c = 0; c < n; c++) if ((m >> c) & 1) { tiendaEn[r * n + c] = 0; usadoCol[c]--; }
+      if (soluciones >= tope) return;
+    }
+  }
+  baja(0, 0);
+  return { soluciones, nodos };
+}
+
+/* ── Resolutor por deducciones (las que usa una persona) ───────────────
+   0 sin decidir · 1 tienda · 2 hierba descartada · 3 árbol.
+   (a) casilla que ningún árbol alcanza → hierba;
+   (b) las ocho vecinas de una tienda → hierba;
+   (c) fila o columna con su cuenta llena → el resto hierba; y con justo los
+       huecos que le faltan → todos tienda;
+   (d) árbol con un solo hueco posible → ahí va su tienda.
+   Sirve para NO publicar tableros que obliguen a adivinar. */
+function deduce(n, esArbol, filas, cols) {
+  const N = n * n;
+  const g = new Uint8Array(N);
+  const arbolesIdx = [];
+  for (let i = 0; i < N; i++) if (esArbol[i]) { g[i] = 3; arbolesIdx.push(i); }
+  for (let i = 0; i < N; i++) if (!g[i] && !vec4(i, n).some((j) => esArbol[j])) g[i] = 2;
+
+  let cambio = true, pasadas = 0;
+  while (cambio) {
+    cambio = false; pasadas++;
+    for (let i = 0; i < N; i++) if (g[i] === 1) {
+      for (const j of vec8(i, n)) if (g[j] === 0) { g[j] = 2; cambio = true; }
+    }
+    for (let r = 0; r < n; r++) {
+      let t = 0; const u = [];
+      for (let c = 0; c < n; c++) { const i = r * n + c; if (g[i] === 1) t++; else if (g[i] === 0) u.push(i); }
+      if (u.length) {
+        if (t === filas[r]) { for (const i of u) g[i] = 2; cambio = true; }
+        else if (t + u.length === filas[r]) { for (const i of u) g[i] = 1; cambio = true; }
+        else if (t > filas[r] || t + u.length < filas[r]) return { resuelto: false, restan: -1, pasadas, g };
+      }
+    }
+    for (let c = 0; c < n; c++) {
+      let t = 0; const u = [];
+      for (let r = 0; r < n; r++) { const i = r * n + c; if (g[i] === 1) t++; else if (g[i] === 0) u.push(i); }
+      if (u.length) {
+        if (t === cols[c]) { for (const i of u) g[i] = 2; cambio = true; }
+        else if (t + u.length === cols[c]) { for (const i of u) g[i] = 1; cambio = true; }
+        else if (t > cols[c] || t + u.length < cols[c]) return { resuelto: false, restan: -1, pasadas, g };
+      }
+    }
+    for (const t of arbolesIdx) {
+      const libres = vec4(t, n).filter((j) => g[j] === 0 || g[j] === 1);
+      if (libres.length === 1 && g[libres[0]] === 0) { g[libres[0]] = 1; cambio = true; }
+    }
+  }
+  let restan = 0;
+  for (let i = 0; i < N; i++) if (g[i] === 0) restan++;
+  return { resuelto: restan === 0, restan, pasadas, g };
+}
+
+/* ── Generador ────────────────────────────────────────────────────────
+   Siembra parejas tienda+árbol al azar (dos tiendas nunca se tocan), apunta
+   los números del borde y solo suelta el tablero si el resolutor exacto
+   encuentra EXACTAMENTE una solución y además sale entero por deducciones. */
+function siembra(n, meta) {
+  const N = n * n;
+  const esArbol = new Uint8Array(N), tienda = new Uint8Array(N);
+  const orden = shuffle(Array.from({ length: N }, (_, i) => i));
+  let puestas = 0;
+  for (const i of orden) {
+    if (puestas >= meta) break;
+    if (esArbol[i] || tienda[i]) continue;
+    if (vec8(i, n).some((j) => tienda[j])) continue;
+    const huecos = vec4(i, n).filter((j) => !esArbol[j] && !tienda[j]);
+    if (!huecos.length) continue;
+    tienda[i] = 1; esArbol[huecos[randInt(huecos.length)]] = 1; puestas++;
+  }
+  const filas = new Int16Array(n), cols = new Int16Array(n);
+  for (let i = 0; i < N; i++) if (tienda[i]) { filas[(i / n) | 0]++; cols[i % n]++; }
+  return { esArbol, tienda, filas, cols, puestas };
+}
+
+function genera(n, meta) {
+  // Escalera de rescate: primero lo pedido; si un tablero se resistiera, se
+  // rebaja la exigencia por pasos. La unicidad NO se negocia en ningún paso;
+  // lo último que se suelta es la garantía de «sin adivinar».
+  const planes = [
+    { meta, sinAdivinar: true },
+    { meta: meta - 1, sinAdivinar: true },
+    { meta: meta - 2, sinAdivinar: true },
+    { meta: meta - 2, sinAdivinar: false },
+  ];
+  for (const p of planes) {
+    for (let k = 0; k < 3000; k++) {
+      const t = siembra(n, p.meta);
+      if (t.puestas < p.meta) continue;
+      if (cuentaSoluciones(n, t.esArbol, t.filas, t.cols, 2).soluciones !== 1) continue;
+      if (p.sinAdivinar && !deduce(n, t.esArbol, t.filas, t.cols).resuelto) continue;
+      return t;
+    }
+  }
+  return null;
+}
+
+function nuevoTablero() {
+  const { n, tiendas } = CFG[S.diff];
+  // Red de seguridad: en 2.400 tableros medidos el primer plan siempre bastó,
+  // pero si el generador se quedara sin planes, se baja al tablero más chico.
+  const t = genera(n, tiendas) || genera(6, 6) || siembra(6, 6);
+  S.n = Math.round(Math.sqrt(t.esArbol.length));
+  S.arbol = t.esArbol; S.sol = t.tienda; S.filas = t.filas; S.cols = t.cols;
+  S.celda = new Uint8Array(S.n * S.n);
+  S.glifo = new Array(S.n * S.n).fill('');
+}
+
+/* ── Pantalla de inicio ───────────────────────────────────────────────── */
+function renderSetup() {
+  S.clock.stop();
+  S.jugando = false;
+  if (S.tFin) { clearTimeout(S.tFin); S.tFin = null; }
+  const bests = ORDEN.map((d) => {
+    const b = store.get('tie.best.' + d, 0);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Tiendas y árboles', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div><div class="row-hint" id="tie-hint"></div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => {
+    if (!$('#tie-hint')) return;
+    const c = CFG[S.diff];
+    $('#tie-hint').textContent = `${c.n}×${c.n} · ${c.tiendas} tiendas`;
+  };
+  hint();
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('tiendas.diff', v); hint(); });
+  $('#new').onclick = empezar;
+  bindHowto(REGLAS);
+}
+
+function empezar() {
+  // El modal de fin llega con 620 ms de retraso: si tocas «Otro tablero» antes,
+  // se abriría encima del tablero nuevo. Se cancela aquí igual que al salir.
+  if (S.tFin) { clearTimeout(S.tFin); S.tFin = null; }
+  nuevoTablero();
+  S.jugando = true;
+  renderPlay();
+  S.clock.start();
+}
+
+/* ── Pantalla de juego ────────────────────────────────────────────────── */
+function renderPlay() {
+  const n = S.n;
+  let html = '<div class="tie-c" style="border:none;background:none;"></div>';
+  for (let c = 0; c < n; c++) html += `<div class="tie-num" id="tie-nc${c}">${S.cols[c]}</div>`;
+  for (let r = 0; r < n; r++) {
+    html += `<div class="tie-num" id="tie-nf${r}">${S.filas[r]}</div>`;
+    for (let c = 0; c < n; c++) {
+      const i = r * n + c;
+      html += S.arbol[i]
+        ? `<div class="tie-c tie-arbol" id="tie-x${i}">${SVG_ARBOL}</div>`
+        : `<button class="tie-c" id="tie-x${i}" data-i="${i}" aria-label="fila ${r + 1} columna ${c + 1}"></button>`;
+    }
+  }
+  $('#app').innerHTML = `
+  <div class="screen">
+    <div class="tie-barra">${topbarHTML('Tiendas y árboles', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="tie-clk">0:00</span>`)}</div>
+    <div class="tie-zona">
+      <div class="tie-marcador">
+        <span>Tiendas <b id="tie-puestas">0</b></span>
+        <span>Árboles <b>${S.sol.reduce((a, b) => a + b, 0)}</b></span>
+      </div>
+      <div class="tie-wrap">
+        <div class="tie-grid" id="tie-grid"
+             style="--tie-fs:${CFG[S.diff].fs}; grid-template-columns: .72fr repeat(${n}, 1fr); grid-template-rows: .72fr repeat(${n}, 1fr);">
+          ${html}
+        </div>
+      </div>
+      <div class="tie-aviso" id="tie-aviso">Una tienda pegada a cada árbol</div>
+    </div>
+    <div class="tie-tools">
+      <button id="t-nueva">Otro tablero</button>
+      <button id="t-limpiar">Limpiar</button>
+      <button id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#tie-grid').onclick = (e) => {
+    const b = e.target.closest('.tie-c');
+    if (!b || b.dataset.i === undefined) return;
+    toca(Number(b.dataset.i));
+  };
+  $('#t-nueva').onclick = empezar;
+  $('#t-limpiar').onclick = () => {
+    S.celda.fill(0);
+    pinta();
+  };
+  $('#t-salir').onclick = renderSetup;
+  pinta();
+}
+
+/* Tiendas que se tocan entre ellas (en las ocho direcciones). */
+function chocan() {
+  const n = S.n, out = new Set();
+  for (let i = 0; i < n * n; i++) {
+    if (S.celda[i] !== 1) continue;
+    for (const j of vec8(i, n)) if (S.celda[j] === 1) { out.add(i); out.add(j); }
+  }
+  return out;
+}
+
+function pinta() {
+  // Un temporizador (el del final) puede llegar cuando la pantalla ya cambió.
+  if (!$('#tie-grid')) return;
+  const n = S.n, malas = chocan();
+  let puestas = 0;
+  for (let i = 0; i < n * n; i++) {
+    if (S.arbol[i]) continue;
+    const el = $('#tie-x' + i);
+    if (!el) continue;
+    const v = S.celda[i];
+    if (v === 1) puestas++;
+    const glifo = v === 1 ? 'T' : v === 2 ? 'M' : '';
+    if (S.glifo[i] !== glifo) {
+      el.innerHTML = v === 1 ? SVG_TIENDA : v === 2 ? SVG_MATA : '';
+      S.glifo[i] = glifo;
+    }
+    el.className = 'tie-c' + (v === 1 ? ' tie-hay' : v === 2 ? ' tie-no' : '') + (malas.has(i) ? ' tie-choca' : '');
+  }
+  // Números: se apagan al cumplirse y se ponen en rojo si te pasas.
+  for (let r = 0; r < n; r++) {
+    let t = 0;
+    for (let c = 0; c < n; c++) if (S.celda[r * n + c] === 1) t++;
+    const el = $('#tie-nf' + r);
+    if (el) el.className = 'tie-num' + (t === S.filas[r] ? ' tie-lista' : t > S.filas[r] ? ' tie-pasada' : '');
+  }
+  for (let c = 0; c < n; c++) {
+    let t = 0;
+    for (let r = 0; r < n; r++) if (S.celda[r * n + c] === 1) t++;
+    const el = $('#tie-nc' + c);
+    if (el) el.className = 'tie-num' + (t === S.cols[c] ? ' tie-lista' : t > S.cols[c] ? ' tie-pasada' : '');
+  }
+  $('#tie-puestas').textContent = puestas;
+
+  const av = $('#tie-aviso');
+  if (malas.size) {
+    av.className = 'tie-aviso tie-mal';
+    av.textContent = 'Dos tiendas se están tocando';
+  } else {
+    av.className = 'tie-aviso';
+    const total = S.sol.reduce((a, b) => a + b, 0);
+    av.textContent = puestas === 0 ? 'Una tienda pegada a cada árbol'
+      : puestas < total ? `Te faltan ${total - puestas}`
+      : puestas > total ? 'Te sobran tiendas' : 'Ya están todas: revisa filas y columnas';
+  }
+}
+
+function toca(i) {
+  if (!S.jugando || S.arbol[i]) return;
+  S.celda[i] = (S.celda[i] + 1) % 3;
+  vibrate(6);
+  pinta();
+  if (resuelto()) ganar();
+}
+
+/* Victoria: números clavados, ninguna tienda pegada a otra y emparejamiento
+   perfecto árbol↔tienda. Como la solución es única, esto es la solución. */
+function resuelto() {
+  const n = S.n;
+  for (let r = 0; r < n; r++) {
+    let t = 0;
+    for (let c = 0; c < n; c++) if (S.celda[r * n + c] === 1) t++;
+    if (t !== S.filas[r]) return false;
+  }
+  for (let c = 0; c < n; c++) {
+    let t = 0;
+    for (let r = 0; r < n; r++) if (S.celda[r * n + c] === 1) t++;
+    if (t !== S.cols[c]) return false;
+  }
+  if (chocan().size) return false;
+  const arbolesIdx = [];
+  for (let i = 0; i < n * n; i++) if (S.arbol[i]) arbolesIdx.push(i);
+  const tiendaEn = new Uint8Array(n * n);
+  for (let i = 0; i < n * n; i++) if (S.celda[i] === 1) tiendaEn[i] = 1;
+  return hayEmparejamiento(arbolesIdx, tiendaEn, n);
+}
+
+/* Marca del hub: el mejor tiempo del nivel más alto que ya se haya sacado. */
+function marcaDelHub() {
+  for (let k = ORDEN.length - 1; k >= 0; k--) {
+    const b = store.get('tie.best.' + ORDEN[k], 0);
+    if (b) return `Mejor: ${fmtTime(b)} · ${DIFF_LABEL[ORDEN[k]]}`;
+  }
+  return null;
+}
+
+function ganar() {
+  S.jugando = false;
+  S.clock.stop();
+  const t = S.clock.seconds;
+  const k = 'tie.best.' + S.diff;
+  const best = store.get(k, 0);
+  const record = !best || t < best;
+  if (record) store.set(k, t);
+  const hub = marcaDelHub();
+  if (hub) store.set('tie.hub', hub);
+  confetti(); vibrate([30, 60, 30]);
+  S.tFin = setTimeout(() => {
+    S.tFin = null;
+    openModal(`
+      <h3>${record ? '¡Récord!' : '¡Campamento listo!'}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${fmtTime(t)}</div><div class="l">tiempo</div></div>
+        <div class="stat"><div class="n">${fmtTime(record ? t : best)}</div><div class="l">mejor</div></div>
+        <div class="stat"><div class="n">${CFG[S.diff].n}×${CFG[S.diff].n}</div><div class="l">${DIFF_LABEL[S.diff]}</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otro tablero</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); empezar(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 620);
+}
+
+renderSetup();
+</script>
+</body>
+</html>
