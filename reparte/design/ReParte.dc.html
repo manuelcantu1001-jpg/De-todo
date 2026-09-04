@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#E9E2D6;font-family:Inter,system-ui,sans-serif;color:#1C1917}
+a{color:#C4552F}a:hover{color:#9E4224}
+@keyframes rp-up{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+@keyframes rp-fade{from{opacity:0}to{opacity:1}}
+@keyframes rp-bar{from{transform:scaleY(.25)}to{transform:none}}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;gap:40px;align-items:flex-start;justify-content:center;padding:36px 24px;box-sizing:border-box">
+  <div style="width:240px;display:flex;flex-direction:column;gap:14px;padding-top:12px">
+    <div style="display:flex;align-items:flex-end;gap:3px;height:26px">
+      <div style="width:7px;height:10px;background:#C4552F;border-radius:2px 2px 0 0"></div>
+      <div style="width:7px;height:22px;background:#C4552F;border-radius:2px 2px 0 0"></div>
+      <div style="width:7px;height:16px;background:#C4552F;border-radius:2px 2px 0 0"></div>
+      <div style="width:7px;height:26px;background:#C4552F;border-radius:2px 2px 0 0"></div>
+    </div>
+    <div style="font-family:'Instrument Serif',serif;font-size:32px;line-height:1">ReParte</div>
+    <p style="margin:0;font-size:13px;line-height:1.5;color:#6B6560;text-wrap:pretty">Prototipo del flujo principal. Toca la pantalla: entra con tu nombre, captura un gasto, cierra el evento y copia la CLABE.</p>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="5">
+        <div onClick="{{ n.go }}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;background:{{ n.bg }};color:{{ n.fg }};font-size:13px;font-weight:500" style-hover="background:#DED6C8">
+          <span style="font-family:'Instrument Serif',serif;font-size:15px;width:14px;color:#C4552F">{{ n.i }}</span>{{ n.label }}
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-top:10px;padding:12px;border-radius:10px;background:#F6F1E9;font-size:12px;line-height:1.5;color:#6B6560">
+      <div style="font-weight:600;color:#1C1917;margin-bottom:4px">Decisiones</div>
+      Serif solo en títulos y montos · terracota solo en acciones · verde/rojo solo para dinero · el link muestra el evento antes de pedir nombre · captura en dos taps.
+    </div>
+  </div>
+
+  <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+    <div style="height:100%;background:#F6F1E9;display:flex;flex-direction:column;position:relative;font-family:Inter,system-ui,sans-serif;color:#1C1917;overflow:hidden">
+
+      <!-- ENTRADA / LISTA -->
+      <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;display:flex;flex-direction:column;padding-top:62px;overflow:hidden">
+          <div style="padding:0 22px 14px;display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-size:12px;font-weight:500;color:#8A837B;text-transform:uppercase;letter-spacing:.06em">Evento abierto · 5 personas</div>
+              <div style="font-family:'Instrument Serif',serif;font-size:36px;line-height:1.05;margin-top:4px">Las Vegas</div>
+            </div>
+            <div onClick="{{ goShareLink }}" style="width:40px;height:40px;border-radius:20px;background:#fff;border:1px solid #E6DFD3;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;font-weight:600;color:#C4552F" style-hover="background:#FBF8F3">QR</div>
+          </div>
+          <div style="margin:0 22px;padding:16px 18px;background:#fff;border-radius:16px;border:1px solid #EAE3D8;display:flex;justify-content:space-between;align-items:flex-end">
+            <div>
+              <div style="font-size:12px;color:#8A837B">{{ totalLabel }}</div>
+              <div style="font-family:'Instrument Serif',serif;font-size:34px;line-height:1.1;margin-top:2px">{{ totalMXN }}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:12px;color:#8A837B">{{ balanceLabel }}</div>
+              <div style="font-family:'Instrument Serif',serif;font-size:24px;line-height:1.1;margin-top:2px;color:{{ balanceColor }}">{{ balanceText }}</div>
+            </div>
+          </div>
+          <div style="flex:1;overflow:auto;padding:18px 22px 120px;display:flex;flex-direction:column;gap:2px">
+            <sc-for list="{{ expenses }}" as="e" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid #EAE3D8;animation:rp-fade .3s">
+                <div style="width:38px;height:38px;border-radius:12px;background:#EFE8DC;display:flex;align-items:center;justify-content:center;font-family:'Instrument Serif',serif;font-size:18px;color:#6B6560">{{ e.initial }}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.title }}</div>
+                  <div style="font-size:12px;color:#8A837B;margin-top:2px">{{ e.meta }}</div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-family:'Instrument Serif',serif;font-size:20px">{{ e.amountText }}</div>
+                  <sc-if value="{{ e.fx }}" hint-placeholder-val="{{ false }}"><div style="font-size:11px;color:#8A837B">{{ e.fx }}</div></sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="position:absolute;left:0;right:0;bottom:0;padding:14px 22px 44px;background:linear-gradient(180deg,rgba(246,241,233,0),#F6F1E9 40%);display:flex;gap:10px">
+            <div onClick="{{ goSettle }}" style="flex:1;height:54px;border-radius:16px;background:#fff;border:1px solid #E6DFD3;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;cursor:pointer" style-hover="background:#FBF8F3">Cerrar evento</div>
+            <div onClick="{{ goCapture }}" style="flex:1.4;height:54px;border-radius:16px;background:#C4552F;color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(196,85,47,.28)" style-hover="background:#B04A28"><span style="font-size:22px;line-height:1;margin-top:-2px">+</span> Gasto</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- NOMBRE (modal) -->
+      <sc-if value="{{ askName }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ dismissName }}" style="position:absolute;inset:0;background:rgba(28,25,23,.45);animation:rp-fade .2s;z-index:5"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:28px 28px 0 0;padding:26px 22px 48px;z-index:6;animation:rp-up .3s cubic-bezier(.2,.8,.2,1)">
+          <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.1">¿Cómo te llamas?</div>
+          <p style="margin:6px 0 18px;font-size:13px;color:#6B6560;line-height:1.5">Sin cuenta, sin contraseña. Solo para que los demás sepan quién eres.</p>
+          <input value="{{ nameDraft }}" onChange="{{ onNameChange }}" placeholder="Tu nombre" autoFocus="{{ true }}" style="width:100%;box-sizing:border-box;height:56px;border-radius:14px;border:1.5px solid #E6DFD3;padding:0 16px;font-size:18px;font-family:Inter,system-ui,sans-serif;outline:none;background:#FBF8F3" />
+          <div onClick="{{ confirmName }}" style="margin-top:12px;height:54px;border-radius:16px;background:{{ nameBtnBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;cursor:pointer">Entrar al evento</div>
+        </div>
+      </sc-if>
+
+      <!-- COMPARTIR LINK / QR -->
+      <sc-if value="{{ isShareLink }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;padding:62px 22px 48px;animation:rp-fade .25s">
+          <div onClick="{{ goHome }}" style="font-size:14px;font-weight:500;color:#C4552F;cursor:pointer;width:fit-content">‹ Volver</div>
+          <div style="font-family:'Instrument Serif',serif;font-size:32px;line-height:1.1;margin-top:18px">Invita al grupo</div>
+          <p style="margin:6px 0 0;font-size:13px;color:#6B6560;line-height:1.5">QR para los que están en la mesa. Link para el que no vino. Nadie baja nada.</p>
+          <div style="margin:26px auto 0;width:220px;height:220px;border-radius:20px;background:#fff;border:1px solid #EAE3D8;display:flex;align-items:center;justify-content:center;background-image:repeating-linear-gradient(45deg,#EFE8DC 0 6px,#fff 6px 12px)">
+            <span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#8A837B;background:#fff;padding:4px 8px;border-radius:6px">código QR</span>
+          </div>
+          <div style="margin-top:22px;display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:14px;background:#fff;border:1px solid #EAE3D8">
+            <span style="flex:1;font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#1C1917">reparte.mx/e/vegas-oct</span>
+            <span onClick="{{ copyLink }}" style="font-size:13px;font-weight:600;color:#C4552F;cursor:pointer">Copiar</span>
+          </div>
+          <div style="flex:1"></div>
+          <div onClick="{{ toastWA }}" style="height:54px;border-radius:16px;background:#C4552F;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;cursor:pointer" style-hover="background:#B04A28">Compartir por WhatsApp</div>
+          <div style="margin-top:10px;text-align:center;font-size:12px;color:#8A837B">El link no caduca mientras el evento esté abierto</div>
+        </div>
+      </sc-if>
+
+      <!-- CAPTURAR GASTO -->
+      <sc-if value="{{ isCapture }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;padding-top:58px;animation:rp-fade .25s">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:0 22px">
+            <div onClick="{{ goHome }}" style="font-size:14px;font-weight:500;color:#C4552F;cursor:pointer">Cancelar</div>
+            <div onClick="{{ toggleCurrency }}" style="display:flex;background:#EFE8DC;border-radius:10px;padding:3px;cursor:pointer;font-size:12px;font-weight:600">
+              <span style="padding:5px 12px;border-radius:8px;background:{{ mxnBg }};color:{{ mxnFg }}">MXN</span>
+              <span style="padding:5px 12px;border-radius:8px;background:{{ usdBg }};color:{{ usdFg }}">USD</span>
+            </div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:0 22px">
+            <div style="display:flex;align-items:baseline;gap:6px">
+              <span style="font-family:'Instrument Serif',serif;font-size:30px;color:#B8B0A5">$</span>
+              <span style="font-family:'Instrument Serif',serif;font-size:{{ amountSize }};line-height:1;letter-spacing:-.02em;color:{{ amountColor }}">{{ amountDisplay }}</span>
+            </div>
+            <div style="font-size:12px;color:#8A837B;min-height:16px">{{ fxHint }}</div>
+            <div onClick="{{ toggleSplit }}" style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;background:#fff;border:1px solid #E6DFD3;font-size:14px;cursor:pointer" style-hover="background:#FBF8F3">
+              <span style="font-weight:600">Pagaste tú</span><span style="color:#B8B0A5">·</span><span>{{ splitLabel }}</span><span style="color:#B8B0A5">·</span><span>hoy</span>
+              <span style="color:#C4552F;font-size:12px;margin-left:2px">▾</span>
+            </div>
+            <sc-if value="{{ splitOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;animation:rp-fade .2s">
+                <sc-for list="{{ members }}" as="m" hint-placeholder-count="5">
+                  <div onClick="{{ m.toggle }}" style="padding:8px 14px;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid {{ m.border }};background:{{ m.bg }};color:{{ m.fg }}">{{ m.name }}</div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <input value="{{ descDraft }}" onChange="{{ onDescChange }}" placeholder="Descripción (opcional)" style="width:100%;box-sizing:border-box;height:44px;border:none;border-bottom:1px solid #E6DFD3;background:transparent;text-align:center;font-size:15px;font-family:Inter,system-ui,sans-serif;outline:none;color:#1C1917" />
+          </div>
+          <div style="padding:0 22px 12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            <sc-for list="{{ keys }}" as="k" hint-placeholder-count="12">
+              <div onClick="{{ k.press }}" style="height:54px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:500;cursor:pointer;user-select:none;border:1px solid #EAE3D8" style-hover="background:#FBF8F3" style-active="background:#EFE8DC">{{ k.label }}</div>
+            </sc-for>
+          </div>
+          <div style="padding:0 22px 44px">
+            <div onClick="{{ saveExpense }}" style="height:54px;border-radius:16px;background:{{ saveBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s">{{ saveLabel }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- CERRAR Y LIQUIDAR -->
+      <sc-if value="{{ isSettle }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;padding-top:62px;overflow:hidden;animation:rp-fade .25s">
+          <div style="padding:0 22px">
+            <div onClick="{{ goHome }}" style="font-size:14px;font-weight:500;color:#C4552F;cursor:pointer;width:fit-content">‹ Gastos</div>
+            <div style="font-family:'Instrument Serif',serif;font-size:32px;line-height:1.1;margin-top:14px">Así queda la cuenta</div>
+          </div>
+          <div style="flex:1;overflow:auto;padding:18px 22px 120px">
+            <div style="background:#fff;border-radius:18px;border:1px solid #EAE3D8;padding:6px 18px">
+              <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid #EAE3D8;align-items:baseline">
+                <span style="font-family:'Instrument Serif',serif;font-size:18px;color:#C4552F;width:14px">1</span>
+                <span style="flex:1;font-size:14px;color:#6B6560">Se gastó en total</span>
+                <span style="font-family:'Instrument Serif',serif;font-size:22px">{{ totalMXN }}</span>
+              </div>
+              <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid #EAE3D8;align-items:baseline">
+                <span style="font-family:'Instrument Serif',serif;font-size:18px;color:#C4552F;width:14px">2</span>
+                <span style="flex:1;font-size:14px;color:#6B6560">Tocaba por cabeza</span>
+                <span style="font-family:'Instrument Serif',serif;font-size:22px">{{ perHead }}</span>
+              </div>
+              <div style="display:flex;gap:14px;padding:14px 0;align-items:flex-start">
+                <span style="font-family:'Instrument Serif',serif;font-size:18px;color:#C4552F;width:14px">3</span>
+                <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+                  <span style="font-size:14px;color:#6B6560">Quién pagó de más</span>
+                  <sc-for list="{{ balances }}" as="b" hint-placeholder-count="5">
+                    <div style="display:flex;justify-content:space-between;font-size:14px"><span>{{ b.name }}</span><span style="font-weight:600;color:{{ b.color }}">{{ b.text }}</span></div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <div style="margin:22px 0 10px;font-size:12px;font-weight:500;color:#8A837B;text-transform:uppercase;letter-spacing:.06em">{{ transfersLabel }}</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ transfers }}" as="t" hint-placeholder-count="3">
+                <div onClick="{{ t.open }}" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:16px;background:#fff;border:1px solid #EAE3D8;cursor:pointer;opacity:{{ t.opacity }}" style-hover="background:#FBF8F3">
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:15px"><span style="font-weight:600">{{ t.from }}</span> <span style="color:#8A837B">→</span> <span style="font-weight:600">{{ t.to }}</span></div>
+                    <div style="font-size:12px;margin-top:3px;color:{{ t.statusColor }}">{{ t.status }}</div>
+                  </div>
+                  <div style="font-family:'Instrument Serif',serif;font-size:22px;text-decoration:{{ t.deco }}">{{ t.amountText }}</div>
+                  <span style="color:#C4552F">›</span>
+                </div>
+              </sc-for>
+            </div>
+            <p style="margin:16px 0 0;font-size:12px;color:#8A837B;line-height:1.5">Puedes cerrar aunque falte alguien. El saldo queda visible, no bloqueado.</p>
+          </div>
+          <div style="position:absolute;left:0;right:0;bottom:0;padding:14px 22px 44px;background:linear-gradient(180deg,rgba(246,241,233,0),#F6F1E9 40%)">
+            <div onClick="{{ goSummary }}" style="height:54px;border-radius:16px;background:#C4552F;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(196,85,47,.28)" style-hover="background:#B04A28">Cerrar evento y ver resumen</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- CÓMO PAGAR (sheet) -->
+      <sc-if value="{{ paySheet }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ closePay }}" style="position:absolute;inset:0;background:rgba(28,25,23,.45);animation:rp-fade .2s;z-index:5"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:28px 28px 0 0;padding:22px 22px 48px;z-index:6;animation:rp-up .3s cubic-bezier(.2,.8,.2,1)">
+          <div style="width:40px;height:4px;border-radius:2px;background:#E6DFD3;margin:0 auto 18px"></div>
+          <div style="font-size:13px;color:#6B6560">{{ payFrom }} le paga a</div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.1">{{ payTo }}</div>
+            <div style="font-family:'Instrument Serif',serif;font-size:30px;line-height:1.1">{{ payAmount }}</div>
+          </div>
+          <div style="margin-top:18px;padding:14px 16px;border-radius:14px;background:#FBF8F3;border:1px solid #EAE3D8;display:flex;flex-direction:column;gap:10px;font-size:13px">
+            <div style="display:flex;justify-content:space-between"><span style="color:#8A837B">CLABE</span><span style="font-family:ui-monospace,Menlo,monospace">012 180 0154 9876 5432 1</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#8A837B">Banco</span><span>BBVA</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#8A837B">Concepto</span><span>Las Vegas · ReParte</span></div>
+          </div>
+          <div onClick="{{ copyPay }}" style="margin-top:12px;height:54px;border-radius:16px;background:#C4552F;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;cursor:pointer" style-hover="background:#B04A28">Copiar todo y abrir mi banco</div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <div onClick="{{ toastWA }}" style="flex:1;height:48px;border-radius:14px;border:1px solid #E6DFD3;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#FBF8F3">Recordar por WhatsApp</div>
+            <div onClick="{{ markPaid }}" style="flex:1;height:48px;border-radius:14px;border:1px solid #E6DFD3;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#FBF8F3">{{ markLabel }}</div>
+          </div>
+          <p style="margin:12px 0 0;font-size:11px;color:#8A837B;line-height:1.5;text-align:center">ReParte no mueve dinero. Solo te da el monto y la CLABE listos para pegar. Quien recibe marca como pagado.</p>
+        </div>
+      </sc-if>
+
+      <!-- RESUMEN COMPARTIBLE -->
+      <sc-if value="{{ isSummary }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;padding:62px 22px 44px;animation:rp-fade .25s;background:#1C1917;color:#F6F1E9">
+          <div onClick="{{ goSettle }}" style="font-size:14px;font-weight:500;color:#E8906E;cursor:pointer;width:fit-content">‹ Liquidación</div>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
+            <div style="display:flex;align-items:flex-end;gap:5px;height:56px;margin-bottom:26px">
+              <sc-for list="{{ bars }}" as="b" hint-placeholder-count="5">
+                <div style="width:12px;height:100%;background:#C4552F;border-radius:3px 3px 0 0;transform-origin:bottom;animation:rp-bar .9s cubic-bezier(.2,.8,.2,1) {{ b.delay }} both"></div>
+              </sc-for>
+            </div>
+            <div style="font-size:12px;font-weight:500;color:#A9A198;text-transform:uppercase;letter-spacing:.06em">Evento cerrado</div>
+            <div style="font-family:'Instrument Serif',serif;font-size:44px;line-height:1;margin-top:8px">Las Vegas</div>
+            <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:20px;color:#A9A198;margin-top:6px">{{ expenseCountText }}</div>
+            <div style="margin-top:30px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+              <div><div style="font-size:12px;color:#A9A198">Total</div><div style="font-family:'Instrument Serif',serif;font-size:28px;margin-top:2px">{{ totalMXN }}</div></div>
+              <div><div style="font-size:12px;color:#A9A198">Por cabeza</div><div style="font-family:'Instrument Serif',serif;font-size:28px;margin-top:2px">{{ perHead }}</div></div>
+              <div><div style="font-size:12px;color:#A9A198">Transferencias</div><div style="font-family:'Instrument Serif',serif;font-size:28px;margin-top:2px">{{ transferCount }}</div></div>
+              <div><div style="font-size:12px;color:#A9A198">Costo real para ti</div><div style="font-family:'Instrument Serif',serif;font-size:28px;margin-top:2px">$ 10</div></div>
+            </div>
+            <p style="margin:26px 0 0;font-size:12px;color:#A9A198;line-height:1.5">Pagaste $49 por el evento. Se repartió como primer gasto entre 5. Tu costo real: $10.</p>
+          </div>
+          <div onClick="{{ toastImg }}" style="height:54px;border-radius:16px;background:#F6F1E9;color:#1C1917;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;cursor:pointer" style-hover="background:#fff">Compartir resumen como imagen</div>
+        </div>
+      </sc-if>
+
+      <!-- TOAST -->
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:22px;right:22px;bottom:110px;z-index:20;padding:14px 16px;border-radius:14px;background:#1C1917;color:#F6F1E9;font-size:13px;display:flex;align-items:center;gap:12px;animation:rp-up .25s;box-shadow:0 10px 30px rgba(0,0,0,.25)">
+          <span style="flex:1">{{ toast }}</span>
+          <sc-if value="{{ undo }}" hint-placeholder-val="{{ false }}"><span onClick="{{ undo }}" style="font-weight:600;color:#E8906E;cursor:pointer">Deshacer</span></sc-if>
+        </div>
+      </sc-if>
+    </div>
+  </x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1100,&quot;height&quot;:960}}">
+class Component extends DCLogic {
+  state = {
+    screen: 'home', name: '', nameDraft: '', askName: false, pending: null,
+    amount: '', currency: 'MXN', desc: '', splitOpen: false, selected: ['Tú','Luis','Ana','Manuel','Sofía'],
+    expenses: [
+      {title:'ReParte · evento', payer:'Tú', amt:49, cur:'MXN', among:['Tú','Luis','Ana','Manuel','Sofía']},
+      {title:'Uber al hotel', payer:'Luis', amt:38, cur:'USD', fx:18.4, among:['Tú','Luis','Ana','Manuel','Sofía']},
+      {title:'Cena en el Strip', payer:'Ana', amt:214, cur:'USD', fx:18.4, among:['Tú','Luis','Ana','Manuel','Sofía']},
+      {title:'Boletos del show', payer:'Tú', amt:6900, cur:'MXN', among:['Tú','Luis','Ana','Manuel','Sofía']},
+      {title:'Hielo y cervezas', payer:'Manuel', amt:26, cur:'USD', fx:18.4, among:['Tú','Manuel','Sofía']},
+    ],
+    paySheet: null, paid: {}, toast: '', undo: null,
+  };
+  FX = 18.4;
+  fmt(n){ return '$\u2009' + Math.round(n).toLocaleString('es-MX'); }
+  mxn(e){ return e.cur==='USD' ? e.amt*(e.fx||this.FX) : e.amt; }
+  requireName(fn){ if(this.state.name) fn(); else this.setState({askName:true, pending:fn}); }
+  showToast(toast, undo=null){ clearTimeout(this._t); this.setState({toast, undo}); this._t=setTimeout(()=>this.setState({toast:'',undo:null}),3200); }
+  balances(){
+    const all=['Tú','Luis','Ana','Manuel','Sofía']; const b={}; all.forEach(n=>b[n]=0);
+    this.state.expenses.forEach(e=>{ const v=this.mxn(e); b[e.payer]+=v; const share=v/e.among.length; e.among.forEach(n=>b[n]-=share); });
+    return b;
+  }
+  transfers(){
+    const b=this.balances(); const debt=[],cred=[];
+    Object.entries(b).forEach(([n,v])=>{ if(v<-1) debt.push({n,v:-v}); else if(v>1) cred.push({n,v}); });
+    debt.sort((a,c)=>c.v-a.v); cred.sort((a,c)=>c.v-a.v);
+    const out=[]; let i=0,j=0;
+    while(i<debt.length&&j<cred.length){ const x=Math.min(debt[i].v,cred[j].v); out.push({from:debt[i].n,to:cred[j].n,amt:x}); debt[i].v-=x; cred[j].v-=x; if(debt[i].v<1)i++; if(cred[j].v<1)j++; }
+    return out;
+  }
+  renderVals(){
+    const s=this.state, go=sc=>()=>this.setState({screen:sc,splitOpen:false});
+    const total=s.expenses.reduce((a,e)=>a+this.mxn(e),0);
+    const bal=this.balances(); const myBal=bal['Tú'];
+    const amtNum=parseFloat(s.amount)||0;
+    const members=['Tú','Luis','Ana','Manuel','Sofía'];
+    const trs=this.transfers();
+    const pay=s.paySheet!=null?trs[s.paySheet]:null;
+    const payKey=pay?pay.from+'>'+pay.to:'';
+    const screens=[['home','Entrada y gastos'],['capture','Capturar gasto'],['settle','Cerrar y liquidar'],['summary','Resumen compartible']];
+    return {
+      nav: screens.map(([id,label],i)=>({i:i+1,label,go:()=>this.setState({screen:id,paySheet:null,askName:false}),bg:s.screen===id?'#F6F1E9':'transparent',fg:s.screen===id?'#1C1917':'#6B6560'})),
+      isHome:s.screen==='home', isCapture:s.screen==='capture', isSettle:s.screen==='settle', isSummary:s.screen==='summary', isShareLink:s.screen==='share',
+      askName:s.askName, nameDraft:s.nameDraft, onNameChange:e=>this.setState({nameDraft:e.target.value}),
+      nameBtnBg:s.nameDraft.trim()?'#C4552F':'#D9B9AD',
+      confirmName:()=>{ if(!s.nameDraft.trim())return; const fn=s.pending; this.setState({name:s.nameDraft.trim(),askName:false,pending:null},()=>{fn&&fn(); this.showToast('Ya estás dentro, '+s.nameDraft.trim()+'. Sin cuenta, sin app.');}); },
+      dismissName:()=>this.setState({askName:false,pending:null}),
+      totalLabel: s.name?'Total del viaje':'Total del viaje · viendo como invitado',
+      totalMXN:this.fmt(total),
+      balanceLabel: myBal>1?'Te deben':myBal<-1?'Debes':'Estás al corriente',
+      balanceText: Math.abs(myBal)>1?this.fmt(Math.abs(myBal)):'—',
+      balanceColor: myBal>1?'#2F7A4F':myBal<-1?'#B3392B':'#8A837B',
+      expenses: s.expenses.slice().reverse().map(e=>({title:e.title, initial:e.title[0], meta:(e.payer==='Tú'?'Pagaste tú':'Pagó '+e.payer)+' · '+(e.among.length===members.length?'entre todos':'entre '+e.among.length), amountText:(e.cur==='USD'?'US$\u2009':'$\u2009')+e.amt.toLocaleString('es-MX'), fx:e.cur==='USD'?'≈ '+this.fmt(this.mxn(e))+' MXN':''})),
+      goCapture:()=>this.requireName(()=>this.setState({screen:'capture',amount:'',desc:'',splitOpen:false,selected:members})),
+      goSettle:()=>this.requireName(()=>this.setState({screen:'settle'})),
+      goHome:go('home'), goShareLink:go('share'), goSummary:go('summary'),
+      copyLink:()=>this.showToast('Link copiado'), toastWA:()=>this.showToast('Abriendo WhatsApp con el mensaje listo…'), toastImg:()=>this.showToast('Imagen del resumen lista para compartir'),
+      currency:s.currency, toggleCurrency:()=>this.setState({currency:s.currency==='MXN'?'USD':'MXN'}),
+      mxnBg:s.currency==='MXN'?'#fff':'transparent', mxnFg:s.currency==='MXN'?'#1C1917':'#8A837B',
+      usdBg:s.currency==='USD'?'#fff':'transparent', usdFg:s.currency==='USD'?'#1C1917':'#8A837B',
+      amountDisplay:s.amount||'0', amountColor:s.amount?'#1C1917':'#B8B0A5', amountSize:s.amount.length>6?'56px':'72px',
+      fxHint: s.currency==='USD'&&amtNum?'≈ '+this.fmt(amtNum*this.FX)+' MXN · tipo de cambio de hoy 18.40':(s.currency==='USD'?'Tipo de cambio de hoy: 18.40':''),
+      splitLabel: s.selected.length===members.length?'entre todos':'entre '+s.selected.length,
+      splitOpen:s.splitOpen, toggleSplit:()=>this.setState({splitOpen:!s.splitOpen}),
+      members: members.map(n=>{const on=s.selected.includes(n); return {name:n===''?'':n===members[0]?(s.name||'Tú'):n, border:on?'#C4552F':'#E6DFD3', bg:on?'#C4552F':'#fff', fg:on?'#fff':'#6B6560', toggle:()=>{ if(on&&s.selected.length===1)return; this.setState({selected:on?s.selected.filter(x=>x!==n):[...s.selected,n]}); }};}),
+      descDraft:s.desc, onDescChange:e=>this.setState({desc:e.target.value}),
+      keys: ['1','2','3','4','5','6','7','8','9','.','0','⌫'].map(k=>({label:k, press:()=>{ let a=s.amount; if(k==='⌫')a=a.slice(0,-1); else if(k==='.'){ if(!a.includes('.'))a=(a||'0')+'.'; } else if(a.length<8){ if(a.includes('.')&&a.split('.')[1].length>=2)return; a=a==='0'?k:a+k; } this.setState({amount:a}); }})),
+      saveBg: amtNum>0?'#C4552F':'#D9B9AD',
+      saveLabel: amtNum>0?'Guardar '+(s.currency==='USD'?'US$\u2009':'$\u2009')+amtNum.toLocaleString('es-MX'):'Escribe el monto',
+      saveExpense:()=>{ if(!(amtNum>0))return; const e={title:s.desc.trim()||'Gasto',payer:'Tú',amt:amtNum,cur:s.currency,fx:this.FX,among:s.selected}; this.setState({expenses:[...s.expenses,e],screen:'home'}); this.showToast('Gasto guardado · '+e.title,()=>{this.setState(st=>({expenses:st.expenses.filter(x=>x!==e),toast:'',undo:null}));}); },
+      perHead:this.fmt(total/members.length),
+      balances: members.map(n=>({name:n==='Tú'?(s.name||'Tú'):n, text:Math.abs(bal[n])<1?'al corriente':(bal[n]>0?'+':'−')+this.fmt(Math.abs(bal[n])), color:Math.abs(bal[n])<1?'#8A837B':bal[n]>0?'#2F7A4F':'#B3392B'})),
+      transfersLabel: trs.length+' transferencias en vez de '+(members.length*(members.length-1)/2),
+      transfers: trs.map((t,i)=>{const p=s.paid[t.from+'>'+t.to]; return {from:t.from==='Tú'?(s.name||'Tú'):t.from, to:t.to==='Tú'?(s.name||'Tú'):t.to, amountText:this.fmt(t.amt), open:()=>this.setState({paySheet:i}), status:p?'Pagado ✓':'Pendiente · toca para ver cómo pagar', statusColor:p?'#2F7A4F':'#8A837B', deco:p?'line-through':'none', opacity:p?.55:1};}),
+      paySheet:!!pay, payFrom:pay?(pay.from==='Tú'?(s.name||'Tú'):pay.from):'', payTo:pay?(pay.to==='Tú'?(s.name||'Tú'):pay.to):'', payAmount:pay?this.fmt(pay.amt):'',
+      closePay:()=>this.setState({paySheet:null}),
+      copyPay:()=>this.showToast('CLABE, monto y concepto copiados · abriendo tu banco'),
+      markLabel: s.paid[payKey]?'Desmarcar':'Marcar pagado',
+      markPaid:()=>{ const was=!!s.paid[payKey]; this.setState({paid:{...s.paid,[payKey]:!was},paySheet:null}); this.showToast(was?'Marcado como pendiente':'Marcado como pagado', was?null:()=>this.setState(st=>({paid:{...st.paid,[payKey]:false},toast:'',undo:null}))); },
+      bars:[0,1,2,3,4].map(i=>({delay:(i*.08)+'s'})),
+      expenseCountText: s.expenses.length+' gastos · 5 personas · 2 monedas',
+      transferCount: String(trs.length),
+      toast:s.toast, undo:s.undo,
+    };
+  }
+}
+</script>
+</body>
+</html>
