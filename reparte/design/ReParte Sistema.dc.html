@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F1E9;font-family:Inter,system-ui,sans-serif;color:#1C1917}
+a{color:#C4552F}a:hover{color:#9E4224}
+@keyframes rp-spin{to{transform:rotate(360deg)}}
+@keyframes rp-pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+@keyframes rp-check{to{stroke-dashoffset:0}}
+@keyframes rp-up{from{transform:translateY(100%)}to{transform:none}}
+@keyframes rp-down{from{transform:none}to{transform:translateY(100%)}}
+@keyframes rp-fade{from{opacity:0}to{opacity:1}}
+@keyframes rp-fadeout{from{opacity:1}to{opacity:0}}
+@keyframes rp-level{0%{height:var(--h0)}70%{height:var(--h0)}100%{height:80px}}
+@keyframes rp-shrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@keyframes rp-toast{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
+@keyframes rp-pulse{0%,100%{box-shadow:0 0 0 0 rgba(196,85,47,.35)}70%{box-shadow:0 0 0 10px rgba(196,85,47,0)}}
+@keyframes rp-ring{to{stroke-dashoffset:var(--off)}}
+@keyframes rp-count{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+</style>
+</helmet>
+<div style="max-width:1120px;margin:0 auto;padding:48px 32px 96px;display:flex;flex-direction:column;gap:64px">
+
+  <div>
+    <div style="font-size:12px;font-weight:500;color:#8A837B;text-transform:uppercase;letter-spacing:.08em">ReParte · Sistema de interfaz</div>
+    <h1 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:52px;line-height:1;margin:10px 0 14px">Los detalles que diferencian</h1>
+    <p style="margin:0;max-width:640px;font-size:15px;line-height:1.55;color:#6B6560;text-wrap:pretty">Íconos, botones, tarjetas, indicadores, bottom sheet y los tres flujos que sí aplican a ReParte: entrar sin cuenta, pagar por evento al cerrar y editar tu perfil. Todo interactivo — tócalo. Sin login, signup, chat ni dashboard: no existen en este producto, por diseño.</p>
+  </div>
+
+  <!-- ÍCONOS -->
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 24px"><div style="font-family:'Instrument Serif',serif;font-size:28px">Íconos</div><p style="margin:0;font-size:13px;line-height:1.5;color:#6B6560;max-width:640px;flex:1;min-width:260px">Trazo 1.75, puntas redondas, 24px. Un solo peso. El ícono de marca son las barras que se emparejan.</p></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px">
+      <sc-for list="{{ icons }}" as="ic" hint-placeholder-count="12">
+        <div style="background:#fff;border:1px solid #EAE3D8;border-radius:14px;padding:18px 10px 12px;display:flex;flex-direction:column;align-items:center;gap:12px;cursor:pointer;transition:transform .15s" style-hover="transform:translateY(-2px)">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1C1917" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" dangerouslySetInnerHTML="{{ ic.svg }}"></svg>
+          <span style="font-size:11px;color:#6B6560">{{ ic.name }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <!-- BOTONES -->
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 24px"><div style="font-family:'Instrument Serif',serif;font-size:28px">Botones</div><p style="margin:0;font-size:13px;line-height:1.5;color:#6B6560;max-width:640px;flex:1;min-width:260px">Terracota solo en la acción principal. Al presionar se encoge 2%; al terminar, el texto cede a una palomita y regresa.</p></div>
+    <div style="background:#fff;border:1px solid #EAE3D8;border-radius:20px;padding:28px;display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        <div onClick="{{ demoPrimary }}" style="min-width:200px;height:52px;padding:0 22px;border-radius:16px;background:{{ primaryBg }};color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(196,85,47,.25);transition:transform .12s,background .3s;user-select:none" style-hover="background:#B04A28" style-active="transform:scale(.98)">
+          <sc-if value="{{ primaryIdle }}" hint-placeholder-val="{{ true }}"><span>Guardar $1,240</span></sc-if>
+          <sc-if value="{{ primaryLoading }}" hint-placeholder-val="{{ false }}"><div style="width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:rp-spin .7s linear infinite"></div></sc-if>
+          <sc-if value="{{ primaryDone }}" hint-placeholder-val="{{ false }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:rp-pop .35s cubic-bezier(.2,.8,.2,1)"><path d="M5 12.5l4.5 4.5L19 7" style="stroke-dasharray:30;stroke-dashoffset:30;animation:rp-check .35s .1s ease-out forwards"></path></svg><span style="animation:rp-fade .3s .15s both">Guardado</span></sc-if>
+        </div>
+        <div style="height:52px;padding:0 22px;border-radius:16px;background:#fff;border:1px solid #E6DFD3;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;cursor:pointer;transition:transform .12s,background .15s;user-select:none" style-hover="background:#FBF8F3" style-active="transform:scale(.98)">Cerrar evento</div>
+        <div style="height:52px;padding:0 16px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;color:#C4552F;cursor:pointer;user-select:none" style-hover="background:rgba(196,85,47,.08)">Recordar por WhatsApp</div>
+        <div style="height:52px;padding:0 22px;border-radius:16px;background:#D9B9AD;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;cursor:not-allowed;user-select:none">Escribe el monto</div>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        <div style="height:40px;padding:0 16px;border-radius:999px;background:#fff;border:1px solid #E6DFD3;display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer" style-hover="background:#FBF8F3"><b>Pagaste tú</b><span style="color:#B8B0A5">·</span>entre todos<span style="color:#B8B0A5">·</span>hoy<span style="color:#C4552F;font-size:12px">▾</span></div>
+        <sc-for list="{{ chips }}" as="c" hint-placeholder-count="4">
+          <div onClick="{{ c.toggle }}" style="height:36px;padding:0 14px;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.fg }};transition:all .15s;user-select:none" style-active="transform:scale(.95)">{{ c.name }}</div>
+        </sc-for>
+        <div style="width:44px;height:44px;border-radius:22px;background:#1C1917;color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;line-height:1;cursor:pointer;animation:rp-pulse 2.4s ease-out infinite" style-active="transform:scale(.95)">+</div>
+        <span style="font-size:12px;color:#8A837B">← el + pulsa solo cuando el evento no tiene gastos</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- INDICADORES -->
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 24px"><div style="font-family:'Instrument Serif',serif;font-size:28px">Indicadores de progreso</div><p style="margin:0;font-size:13px;line-height:1.5;color:#6B6560;max-width:640px;flex:1;min-width:260px">Tres: el ciclo del evento, cuántas transferencias van, y el logo que se empareja al cerrar.</p></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
+      <div style="background:#fff;border:1px solid #EAE3D8;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:16px">
+        <div style="font-size:12px;font-weight:500;color:#8A837B;text-transform:uppercase;letter-spacing:.06em">Ciclo del evento</div>
+        <div style="display:flex;align-items:center;gap:0">
+          <sc-for list="{{ steps }}" as="st" hint-placeholder-count="4">
+            <div onClick="{{ st.go }}" style="display:flex;align-items:center;flex:{{ st.flex }};cursor:pointer">
+              <div style="width:26px;height:26px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-family:'Instrument Serif',serif;font-size:14px;background:{{ st.bg }};color:{{ st.fg }};border:1.5px solid {{ st.border }};transition:all .3s;flex:none">{{ st.n }}</div>
+              <sc-if value="{{ st.line }}" hint-placeholder-val="{{ true }}"><div style="flex:1;height:1.5px;background:#EAE3D8;position:relative;overflow:hidden"><div style="position:absolute;inset:0;background:#C4552F;transform-origin:left;transform:scaleX({{ st.fill }});transition:transform .4s cubic-bezier(.2,.8,.2,1)"></div></div></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:8px;font-size:11px;color:#8A837B"><span style="flex:1">Abierto</span><span style="flex:1;text-align:center">Capturando</span><span style="flex:1;text-align:center">Cerrado</span><span style="flex:none">Liquidado</span></div>
+        <div style="font-size:13px;color:#6B6560;line-height:1.4">{{ stepText }}</div>
+      </div>
+      <div style="background:#fff;border:1px solid #EAE3D8;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:12px;align-items:center">
+        <div style="font-size:12px;font-weight:500;color:#8A837B;text-transform:uppercase;letter-spacing:.06em;align-self:flex-start">Liquidación</div>
+        <div style="position:relative;width:120px;height:120px;cursor:pointer" onClick="{{ ringNext }}">
+          <svg width="120" height="120" viewBox="0 0 120 120" style="transform:rotate(-90deg)">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#EFE8DC" stroke-width="8"></circle>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="{{ ringColor }}" stroke-width="8" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="{{ ringOffset }}" style="transition:stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1),stroke .3s"></circle>
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-family:'Instrument Serif',serif;font-size:34px;line-height:1">{{ ringNum }}</span><span style="font-size:11px;color:#8A837B">de 4</span></div>
+        </div>
+        <div style="font-size:13px;color:#6B6560;text-align:center">{{ ringText }}</div>
+      </div>
+      <div style="background:#1C1917;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:12px;color:#F6F1E9">
+        <div style="font-size:12px;font-weight:500;color:#A9A198;text-transform:uppercase;letter-spacing:.06em">Logo al cerrar</div>
+        <div onClick="{{ replayBars }}" style="display:flex;align-items:flex-end;gap:6px;height:80px;cursor:pointer">
+          <sc-for list="{{ bars }}" as="b" hint-placeholder-count="5">
+            <div style="width:14px;background:#C4552F;border-radius:3px 3px 0 0;--h0:{{ b.h }};animation:rp-level 1.6s cubic-bezier(.2,.8,.2,1) {{ b.delay }} both {{ b.state }}"></div>
+          </sc-for>
+        </div>
+        <div style="font-size:13px;color:#A9A198;line-height:1.4">Entran desparejos, salen parejos. Toca para repetir.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TARJETAS -->
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 24px"><div style="font-family:'Instrument Serif',serif;font-size:28px">Tarjetas</div><p style="margin:0;font-size:13px;line-height:1.5;color:#6B6560;max-width:640px;flex:1;min-width:260px">Blanco sobre crema, borde de 1px, radio 16. Los números en serif son el contenido; el resto cede.</p></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start">
+      <div style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:16px 18px;display:flex;justify-content:space-between;align-items:flex-end">
+        <div><div style="font-size:12px;color:#8A837B">Total del viaje</div><div style="font-family:'Instrument Serif',serif;font-size:32px;line-height:1.1;margin-top:2px">$ 16,485</div></div>
+        <div style="text-align:right"><div style="font-size:12px;color:#8A837B">Te deben</div><div style="font-family:'Instrument Serif',serif;font-size:22px;line-height:1.1;margin-top:2px;color:#2F7A4F">$ 2,140</div></div>
+      </div>
+      <div style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:transform .15s,box-shadow .15s" style-hover="transform:translateY(-2px);box-shadow:0 8px 24px rgba(28,25,23,.08)">
+        <div style="width:38px;height:38px;border-radius:12px;background:#EFE8DC;display:flex;align-items:center;justify-content:center;font-family:'Instrument Serif',serif;font-size:18px;color:#6B6560">C</div>
+        <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:500">Cena en el Strip</div><div style="font-size:12px;color:#8A837B;margin-top:2px">Pagó Ana · entre todos</div></div>
+        <div style="text-align:right"><div style="font-family:'Instrument Serif',serif;font-size:20px">US$ 214</div><div style="font-size:11px;color:#8A837B">≈ $3,938 MXN</div></div>
+      </div>
+      <div onClick="{{ togglePaidCard }}" style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;opacity:{{ paidOpacity }};transition:opacity .3s" style-hover="background:#FBF8F3">
+        <div style="flex:1"><div style="font-size:15px"><b>Luis</b> <span style="color:#8A837B">→</span> <b>Ana</b></div><div style="font-size:12px;margin-top:3px;color:{{ paidColor }};transition:color .3s">{{ paidStatus }}</div></div>
+        <div style="font-family:'Instrument Serif',serif;font-size:22px;text-decoration:{{ paidDeco }}">$ 1,860</div>
+        <sc-if value="{{ paidCard }}" hint-placeholder-val="{{ false }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2F7A4F" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" style="animation:rp-pop .35s cubic-bezier(.2,.8,.2,1)"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.5 2.5L16 9.5"></path></svg></sc-if>
+        <sc-if value="{{ paidCardNot }}" hint-placeholder-val="{{ true }}"><span style="color:#C4552F">›</span></sc-if>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOTTOM SHEET + TOAST -->
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 24px"><div style="font-family:'Instrument Serif',serif;font-size:28px">Bottom sheet y toast</div><p style="margin:0;font-size:13px;line-height:1.5;color:#6B6560;max-width:640px;flex:1;min-width:260px">Sube con resorte suave (.32s), fondo se oscurece. Todo lo secundario vive aquí, nunca en otra pantalla. El toast siempre trae Deshacer y una barra de tiempo.</p></div>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start">
+      <div style="position:relative;width:340px;height:520px;border-radius:32px;background:#F6F1E9;border:1px solid #EAE3D8;overflow:hidden">
+        <div style="padding:40px 22px 0"><div style="font-size:12px;color:#8A837B;text-transform:uppercase;letter-spacing:.06em">Liquidación</div><div style="font-family:'Instrument Serif',serif;font-size:28px;margin-top:4px">Así queda la cuenta</div></div>
+        <div style="position:absolute;left:22px;right:22px;bottom:110px;display:flex;flex-direction:column;gap:8px">
+          <div onClick="{{ openSheet }}" style="padding:14px 16px;border-radius:16px;background:#fff;border:1px solid #EAE3D8;display:flex;align-items:center;gap:12px;cursor:pointer" style-hover="background:#FBF8F3"><div style="flex:1"><div style="font-size:15px"><b>Tú</b> <span style="color:#8A837B">→</span> <b>Ana</b></div><div style="font-size:12px;color:#8A837B;margin-top:3px">Toca para ver cómo pagar</div></div><div style="font-family:'Instrument Serif',serif;font-size:22px">$ 1,240</div><span style="color:#C4552F">›</span></div>
+          <div onClick="{{ fireToast }}" style="height:48px;border-radius:14px;border:1px solid #E6DFD3;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;cursor:pointer" style-hover="background:#FBF8F3">Marcar pagado (dispara toast)</div>
+        </div>
+        <sc-if value="{{ sheetVisible }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(28,25,23,.45);animation:{{ backdropAnim }} .3s both"></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:28px 28px 0 0;padding:14px 22px 30px;animation:{{ sheetAnim }} .32s cubic-bezier(.2,.8,.2,1) both">
+            <div style="width:40px;height:4px;border-radius:2px;background:#E6DFD3;margin:0 auto 16px"></div>
+            <div style="font-size:13px;color:#6B6560">Tú le pagas a</div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-family:'Instrument Serif',serif;font-size:28px">Ana</div><div style="font-family:'Instrument Serif',serif;font-size:28px">$ 1,240</div></div>
+            <div style="margin-top:14px;padding:12px 14px;border-radius:14px;background:#FBF8F3;border:1px solid #EAE3D8;display:flex;flex-direction:column;gap:8px;font-size:13px">
+              <div style="display:flex;justify-content:space-between"><span style="color:#8A837B">CLABE</span><span style="font-family:ui-monospace,Menlo,monospace">012 180 0154 9876 5432 1</span></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:#8A837B">Concepto</span><span>Las Vegas · ReParte</span></div>
+            </div>
+            <div onClick="{{ copyAll }}" style="margin-top:10px;height:50px;border-radius:16px;background:{{ copyBg }};color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .3s" style-active="transform:scale(.98)">{{ copyLabel }}</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ toastOn }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:16px;right:16px;bottom:24px;padding:13px 16px 15px;border-radius:14px;background:#1C1917;color:#F6F1E9;font-size:13px;display:flex;align-items:center;gap:12px;animation:rp-toast .25s cubic-bezier(.2,.8,.2,1);box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden">
+            <span style="flex:1">Marcado como pagado</span><span onClick="{{ undoToast }}" style="font-weight:600;color:#E8906E;cursor:pointer">Deshacer</span>
+            <div style="position:absolute;left:0;right:0;bottom:0;height:2px;background:#E8906E;transform-origin:left;animation:rp-shrink 3.2s linear forwards"></div>
+          </div>
+        </sc-if>
+      </div>
+      <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:12px;font-size:13px;line-height:1.5;color:#6B6560">
+        <div style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:16px 18px"><b style="color:#1C1917">Sheet</b><br>Handle de 40×4 arriba. Se cierra tocando el fondo o deslizando. Nunca más de dos acciones dentro: la principal (copiar) y una secundaria.</div>
+        <div style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:16px 18px"><b style="color:#1C1917">Toast</b><br>3.2 s, con Deshacer siempre que la acción cambie dinero. La barra inferior muestra cuánto tiempo queda para arrepentirse.</div>
+        <div style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:16px 18px"><b style="color:#1C1917">Copiar</b><br>El botón confirma en su lugar (verde, 1.6 s) en vez de abrir otro toast. Un solo feedback por acción.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FLUJOS -->
+  <section style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 24px"><div style="font-family:'Instrument Serif',serif;font-size:28px">Flujos</div><p style="margin:0;font-size:13px;line-height:1.5;color:#6B6560;max-width:640px;flex:1;min-width:260px">Los tres que aplican. "Onboarding" aquí es entrar por el link. "Subscribing" es pagar por evento al cerrar. "Perfil" es nombre + CLABE.</p></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start">
+
+      <div style="background:#fff;border:1px solid #EAE3D8;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:14px">
+        <div style="font-size:12px;font-weight:500;color:#8A837B;text-transform:uppercase;letter-spacing:.06em">Entrar por link</div>
+        <div style="display:flex;gap:6px">
+          <sc-for list="{{ onbSteps }}" as="o" hint-placeholder-count="3"><div onClick="{{ o.go }}" style="flex:1;height:3px;border-radius:2px;background:{{ o.bg }};cursor:pointer;transition:background .3s"></div></sc-for>
+        </div>
+        <div style="height:250px;border-radius:16px;background:#F6F1E9;border:1px solid #EAE3D8;overflow:hidden;position:relative">
+          <sc-if value="{{ onb0 }}" hint-placeholder-val="{{ true }}">
+            <div style="position:absolute;inset:0;padding:18px;display:flex;flex-direction:column;justify-content:flex-end;animation:rp-fade .3s">
+              <div style="align-self:flex-end;max-width:85%;background:#DDF5D0;border-radius:14px 14px 4px 14px;padding:10px 12px;font-size:12px;line-height:1.4;color:#1C1917">Ya abrí el ReParte del viaje 👇<br><span style="color:#2F7A4F">reparte.mx/e/vegas-oct</span></div>
+              <div style="align-self:flex-end;margin-top:8px;background:#fff;border:1px solid #EAE3D8;border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;max-width:85%"><div style="display:flex;align-items:flex-end;gap:2px;height:20px"><div style="width:4px;height:8px;background:#C4552F;border-radius:1px"></div><div style="width:4px;height:16px;background:#C4552F;border-radius:1px"></div><div style="width:4px;height:12px;background:#C4552F;border-radius:1px"></div><div style="width:4px;height:20px;background:#C4552F;border-radius:1px"></div></div><div style="font-size:11px;line-height:1.35"><b>Las Vegas · 5 personas</b><br><span style="color:#8A837B">Ver gastos sin cuenta</span></div></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ onb1 }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;padding:18px;animation:rp-fade .3s">
+              <div style="font-size:10px;color:#8A837B;text-transform:uppercase;letter-spacing:.06em">Viendo como invitado</div>
+              <div style="font-family:'Instrument Serif',serif;font-size:26px;margin-top:2px">Las Vegas</div>
+              <div style="margin-top:10px;background:#fff;border-radius:12px;border:1px solid #EAE3D8;padding:10px 12px;display:flex;justify-content:space-between;font-size:12px"><span>Cena en el Strip</span><span style="font-family:'Instrument Serif',serif;font-size:15px">US$ 214</span></div>
+              <div style="margin-top:6px;background:#fff;border-radius:12px;border:1px solid #EAE3D8;padding:10px 12px;display:flex;justify-content:space-between;font-size:12px"><span>Boletos del show</span><span style="font-family:'Instrument Serif',serif;font-size:15px">$ 6,900</span></div>
+              <div style="position:absolute;left:18px;right:18px;bottom:16px;height:42px;border-radius:12px;background:#C4552F;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">+ Gasto</div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ onb2 }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;background:rgba(28,25,23,.45);animation:rp-fade .3s"></div>
+            <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:20px 20px 0 0;padding:16px 18px 18px;animation:rp-up .32s cubic-bezier(.2,.8,.2,1)">
+              <div style="font-family:'Instrument Serif',serif;font-size:22px">¿Cómo te llamas?</div>
+              <div style="font-size:11px;color:#6B6560;margin-top:4px">Solo para que sepan quién eres.</div>
+              <div style="margin-top:10px;height:40px;border-radius:10px;border:1.5px solid #C4552F;background:#FBF8F3;display:flex;align-items:center;padding:0 12px;font-size:14px">Diego<span style="width:1.5px;height:18px;background:#1C1917;margin-left:1px;animation:rp-fade .6s steps(2) infinite alternate"></span></div>
+              <div style="margin-top:8px;height:40px;border-radius:12px;background:#C4552F;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">Entrar al evento</div>
+            </div>
+          </sc-if>
+        </div>
+        <div style="font-size:13px;color:#6B6560;line-height:1.45;min-height:40px">{{ onbText }}</div>
+        <div onClick="{{ onbNext }}" style="height:40px;border-radius:12px;border:1px solid #E6DFD3;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;cursor:pointer" style-hover="background:#FBF8F3">Siguiente paso</div>
+      </div>
+
+      <div style="background:#fff;border:1px solid #EAE3D8;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:14px">
+        <div style="font-size:12px;font-weight:500;color:#8A837B;text-transform:uppercase;letter-spacing:.06em">Pagar por evento (al cerrar)</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ tiers }}" as="t" hint-placeholder-count="3">
+            <div onClick="{{ t.pick }}" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;border:1.5px solid {{ t.border }};background:{{ t.bg }};cursor:pointer;transition:all .2s" style-active="transform:scale(.99)">
+              <div style="width:18px;height:18px;border-radius:9px;border:1.5px solid {{ t.dot }};display:flex;align-items:center;justify-content:center;flex:none"><div style="width:10px;height:10px;border-radius:5px;background:#C4552F;transform:scale({{ t.dotScale }});transition:transform .2s cubic-bezier(.2,.8,.2,1)"></div></div>
+              <div style="flex:1"><div style="font-size:14px;font-weight:500">{{ t.label }}</div><div style="font-size:11px;color:#8A837B">{{ t.sub }}</div></div>
+              <div style="font-family:'Instrument Serif',serif;font-size:22px">{{ t.price }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding:14px 16px;border-radius:14px;background:#F6F1E9;font-size:13px;line-height:1.5;color:#6B6560">Pagas <b style="color:#1C1917">{{ tierPrice }}</b> una vez. Se mete como primer gasto y se reparte entre <b style="color:#1C1917">{{ tierPeople }}</b>.<br>Tu costo real: <span key="{{ tierReal }}" style="font-family:'Instrument Serif',serif;font-size:24px;color:#1C1917;display:inline-block;animation:rp-count .3s cubic-bezier(.2,.8,.2,1)">{{ tierReal }}</span></div>
+        <div style="height:46px;border-radius:14px;background:#C4552F;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;cursor:pointer" style-hover="background:#B04A28">Pagar y cerrar evento</div>
+        <div style="display:flex;justify-content:center;gap:12px;font-size:11px;color:#8A837B;white-space:nowrap"><span>Mercado Pago</span><span>·</span><span>OXXO</span><span>·</span><span>SPEI</span></div>
+      </div>
+
+      <div style="background:#fff;border:1px solid #EAE3D8;border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:14px">
+        <div style="font-size:12px;font-weight:500;color:#8A837B;text-transform:uppercase;letter-spacing:.06em">Editar perfil</div>
+        <div style="display:flex;align-items:center;gap:12px"><div style="width:48px;height:48px;border-radius:24px;background:#EFE8DC;display:flex;align-items:center;justify-content:center;font-family:'Instrument Serif',serif;font-size:22px;color:#6B6560">{{ profInitial }}</div><div style="font-size:12px;color:#6B6560;line-height:1.4">Sin foto, sin correo, sin contraseña.<br>Solo lo que hace falta para cobrarte.</div></div>
+        <div>
+          <div style="font-size:11px;font-weight:500;color:#8A837B;margin-bottom:6px">Nombre</div>
+          <input value="{{ profName }}" onChange="{{ onProfName }}" style="width:100%;box-sizing:border-box;height:46px;border-radius:12px;border:1.5px solid #E6DFD3;padding:0 14px;font-size:15px;font-family:Inter,system-ui,sans-serif;outline:none;background:#FBF8F3;transition:border-color .2s" style-focus="border-color:#C4552F" />
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:11px;font-weight:500;color:#8A837B">CLABE para que te paguen</span><span style="font-size:11px;font-weight:500;color:{{ clabeColor }}">{{ clabeHint }}</span></div>
+          <input value="{{ clabe }}" onChange="{{ onClabe }}" placeholder="18 dígitos" inputMode="numeric" style="width:100%;box-sizing:border-box;height:46px;border-radius:12px;border:1.5px solid {{ clabeBorder }};padding:0 14px;font-size:14px;font-family:ui-monospace,Menlo,monospace;outline:none;background:#FBF8F3;letter-spacing:0;transition:border-color .2s" />
+          <div style="margin-top:8px;font-size:12px;color:#6B6560;min-height:16px">{{ clabeBank }}</div>
+        </div>
+        <div style="height:46px;border-radius:14px;background:{{ profSaveBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;cursor:pointer;transition:background .3s">Guardar</div>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { primary:'idle', chips:{Luis:true,Ana:true,Manuel:false,Sofía:true}, step:1, ring:1, barsKey:0, paidCard:false, sheet:'closed', copy:'idle', toast:false, onb:0, tier:0, profName:'Diego', clabe:'012 180 0154 9876 5', };
+  demoPrimary(){ if(this.state.primary!=='idle')return; this.setState({primary:'loading'}); setTimeout(()=>this.setState({primary:'done'}),900); setTimeout(()=>this.setState({primary:'idle'}),2600); }
+  renderVals(){
+    const s=this.state;
+    const icons=[
+      ['Gasto','<path d="M12 5v14M5 12h14"/>'],['Atrás','<path d="M15 5l-7 7 7 7"/>'],['Listo','<path d="M5 12.5l4.5 4.5L19 7"/>'],['Copiar','<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>'],
+      ['QR','<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h3v3M20 14v6h-3"/>'],['Compartir','<path d="M12 15V4M8 8l4-4 4 4M5 13v6h14v-6"/>'],
+      ['Ticket','<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'],['Recordar','<path d="M12 6a5 5 0 0 1 5 5v3l2 3H5l2-3v-3a5 5 0 0 1 5-5zM10 20h4"/>'],
+      ['Personas','<circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5a3.5 3.5 0 0 1 0 7M21 20a6 6 0 0 0-5-5.9"/>'],['Cambio','<path d="M4 8h13l-3-3M20 16H7l3 3"/>'],
+      ['Editar','<path d="M4 20l4-1L19 8l-3-3L5 16z"/>'],['Cerrar evento','<path d="M6 18V10M12 18V6M18 18v-8"/><path d="M4 21h16"/>'],
+    ].map(([name,svg])=>({name,svg:{__html:svg}}));
+    const chipNames=Object.keys(s.chips);
+    const stepTexts=['El link vive. Cualquiera puede ver.','Gastos entrando. Se recalcula solo.','Cerrado. Se puede cerrar aunque falte alguien.','Todas las transferencias marcadas. Resumen listo.'];
+    const ringTexts=['Nadie ha pagado','1 transferencia pagada','2 de 4 pagadas','Falta una · toca para ver','Todo liquidado'];
+    const tiers=[{label:'Hasta 8 personas',sub:'Un fin de semana, una cena',price:49,people:8},{label:'Hasta 20 personas',sub:'El viaje grande',price:99,people:20},{label:'Sin límite',sub:'Bodas, despedidas',price:199,people:40}];
+    const tier=tiers[s.tier];
+    const digits=s.clabe.replace(/\D/g,'');
+    const clabeOk=digits.length===18;
+    const banks={'012':'BBVA','014':'Santander','021':'HSBC','072':'Banorte','002':'Banamex','646':'STP'};
+    return {
+      icons,
+      primaryBg: s.primary==='done'?'#2F7A4F':'#C4552F', primaryIdle:s.primary==='idle', primaryLoading:s.primary==='loading', primaryDone:s.primary==='done', demoPrimary:()=>this.demoPrimary(),
+      chips: chipNames.map(n=>{const on=s.chips[n];return {name:n,border:on?'#C4552F':'#E6DFD3',bg:on?'#C4552F':'#fff',fg:on?'#fff':'#6B6560',toggle:()=>this.setState({chips:{...s.chips,[n]:!on}})};}),
+      steps:[0,1,2,3].map(i=>{const done=i<=s.step;return {n:i+1,flex:i<3?1:'none',line:i<3,fill:i<s.step?1:0,bg:done?'#C4552F':'#fff',fg:done?'#fff':'#8A837B',border:done?'#C4552F':'#E6DFD3',go:()=>this.setState({step:i})};}),
+      stepText: stepTexts[s.step],
+      ringNum:String(s.ring), ringOffset: 326.7*(1-s.ring/4), ringColor:s.ring===4?'#2F7A4F':'#C4552F', ringText:ringTexts[s.ring], ringNext:()=>this.setState({ring:(s.ring+1)%5}),
+      bars:[['24px','.0s'],['68px','.08s'],['44px','.16s'],['80px','.24s'],['36px','.32s']].map(([h,delay],i)=>({h,delay,state:'running',key:s.barsKey+'-'+i})),
+      replayBars:()=>this.setState({barsKey:s.barsKey+1}),
+      paidCard:s.paidCard, paidCardNot:!s.paidCard, togglePaidCard:()=>this.setState({paidCard:!s.paidCard}), paidOpacity:s.paidCard?.6:1, paidColor:s.paidCard?'#2F7A4F':'#8A837B', paidStatus:s.paidCard?'Pagado ✓ · toca para deshacer':'Pendiente · toca para marcar', paidDeco:s.paidCard?'line-through':'none',
+      sheetVisible:s.sheet!=='closed', sheetAnim:s.sheet==='open'?'rp-up':'rp-down', backdropAnim:s.sheet==='open'?'rp-fade':'rp-fadeout',
+      openSheet:()=>this.setState({sheet:'open',copy:'idle'}), closeSheet:()=>{this.setState({sheet:'closing'});setTimeout(()=>this.setState({sheet:'closed'}),300);},
+      copyBg:s.copy==='done'?'#2F7A4F':'#C4552F', copyLabel:s.copy==='done'?'✓ Copiado · abriendo tu banco':'Copiar todo y abrir mi banco', copyAll:()=>{this.setState({copy:'done'});setTimeout(()=>this.setState({copy:'idle'}),1600);},
+      toastOn:s.toast, fireToast:()=>{clearTimeout(this._t);this.setState({toast:true});this._t=setTimeout(()=>this.setState({toast:false}),3200);}, undoToast:()=>{clearTimeout(this._t);this.setState({toast:false});},
+      onbSteps:[0,1,2].map(i=>({bg:i<=s.onb?'#C4552F':'#EAE3D8',go:()=>this.setState({onb:i})})), onb0:s.onb===0, onb1:s.onb===1, onb2:s.onb===2,
+      onbText:['1 · El link llega por WhatsApp con vista previa: nombre del evento, cuántos son, y la promesa "sin cuenta".','2 · Abres y ves el evento completo con los gastos. Nadie te pide nada todavía.','3 · Solo al tocar "+ Gasto" aparece la única pregunta: tu nombre. Y ya estás dentro.'][s.onb],
+      onbNext:()=>this.setState({onb:(s.onb+1)%3}),
+      tiers:tiers.map((t,i)=>{const on=i===s.tier;return {label:t.label,sub:t.sub,price:'$\u2009'+t.price,border:on?'#C4552F':'#EAE3D8',bg:on?'#FDF6F2':'#fff',dot:on?'#C4552F':'#D9D2C6',dotScale:on?1:0,pick:()=>this.setState({tier:i})};}),
+      tierPrice:'$'+tier.price, tierPeople:tier.people===40?'todos':tier.people, tierReal:'$'+Math.ceil(tier.price/(tier.people===40?25:tier.people)),
+      profName:s.profName, onProfName:e=>this.setState({profName:e.target.value}), profInitial:(s.profName.trim()[0]||'?').toUpperCase(),
+      clabe:s.clabe, onClabe:e=>{const d=e.target.value.replace(/\D/g,'').slice(0,18); this.setState({clabe:d.replace(/(\d{3})(\d{0,3})(\d{0,4})(\d{0,4})(\d{0,4})/,(m,a,b,c,e2,f)=>[a,b,c,e2,f].filter(Boolean).join(' '))});},
+      clabeHint: clabeOk?'✓ válida':digits.length+' / 18', clabeColor:clabeOk?'#2F7A4F':digits.length>18?'#B3392B':'#8A837B', clabeBorder:clabeOk?'#2F7A4F':'#E6DFD3',
+      clabeBank: digits.length>=3?(banks[digits.slice(0,3)]?'Banco detectado: '+banks[digits.slice(0,3)]:'Banco no reconocido — revisa los primeros 3 dígitos'):'',
+      profSaveBg: clabeOk&&s.profName.trim()?'#C4552F':'#D9B9AD',
+    };
+  }
+}
+</script>
+</body>
+</html>

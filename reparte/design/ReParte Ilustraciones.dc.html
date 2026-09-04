@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F1E9;font-family:Inter,system-ui,sans-serif;color:#1C1917}
+a{color:#C4552F}a:hover{color:#9E4224}
+@keyframes drift{0%,100%{transform:translate(0,0)}50%{transform:translate(0,-4px)}}
+@keyframes sway{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+@keyframes roll{0%,100%{transform:translateX(-3px)}50%{transform:translateX(3px)}}
+@keyframes breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.08)}}
+@keyframes tick{0%,100%{transform:rotate(0)}50%{transform:rotate(12deg)}}
+</style>
+</helmet>
+<div style="max-width:1000px;margin:0 auto;padding:44px 32px 88px;display:flex;flex-direction:column;gap:40px">
+
+  <div>
+    <div style="font-size:12px;font-weight:500;color:#8A837B;text-transform:uppercase;letter-spacing:.08em">ReParte · Ilustración e iconografía</div>
+    <h1 style="font-family:'Instrument Serif',serif;font-weight:400;font-size:46px;line-height:1.02;margin:10px 0 12px">Iconos dibujados a línea</h1>
+    <p style="margin:0;max-width:680px;font-size:15px;line-height:1.55;color:#6B6560;text-wrap:pretty">Objetos, no personajes: línea negra uniforme y una sola tinta terracota que se sale del contorno. Dos familias con reglas opuestas: los <b style="color:#1C1917">tipos de evento</b> conviven todos (el organizador elige uno al crear), y los <b style="color:#1C1917">estados</b> son uno solo cada uno — ahí sí hay que decidir.</p>
+  </div>
+
+  <!-- REGLAS -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 20px">
+      <div style="font-family:'Instrument Serif',serif;font-size:28px">Reglas del estilo</div>
+      <p style="margin:0;font-size:13px;line-height:1.5;color:#6B6560;max-width:600px;flex:1;min-width:240px">Cinco reglas. Si un icono nuevo las cumple, entra al set sin discusión.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+      <div style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+        <div style="height:64px;display:flex;align-items:center;justify-content:center">
+          <svg width="80" height="60" viewBox="0 0 80 60" fill="none"><rect x="23" y="19" width="40" height="30" rx="4" fill="#C4552F"></rect><rect x="18" y="14" width="40" height="30" rx="4" fill="#fff" stroke="#1C1917" stroke-width="2.5"></rect></svg>
+        </div>
+        <b style="font-size:13px">Tinta desfasada 5px</b><span style="font-size:12px;color:#6B6560;line-height:1.5">El terracota se sale abajo-derecha, como si lo pintaron aparte. Es lo único que hace que se vea dibujado.</span>
+      </div>
+      <div style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+        <div style="height:64px;display:flex;align-items:center;justify-content:center">
+          <svg width="80" height="60" viewBox="0 0 80 60" fill="none"><circle cx="40" cy="26" r="16" stroke="#1C1917" stroke-width="2.5"></circle><line x1="12" y1="46" x2="68" y2="46" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line></svg>
+        </div>
+        <b style="font-size:13px">Todos sobre la misma línea</b><span style="font-size:12px;color:#6B6560;line-height:1.5">Una línea base compartida y márgenes iguales. Por eso el set se ve parejo aunque los objetos sean distintos.</span>
+      </div>
+      <div style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+        <div style="height:64px;display:flex;align-items:center;justify-content:center;gap:10px">
+          <div style="width:26px;height:26px;border-radius:50%;background:#1C1917"></div><div style="width:26px;height:26px;border-radius:50%;background:#C4552F"></div><div style="width:26px;height:26px;border-radius:50%;background:#F6F1E9;border:1px solid #EAE3D8"></div><div style="width:26px;height:26px;border-radius:50%;background:#fff;border:1px solid #EAE3D8"></div>
+        </div>
+        <b style="font-size:13px">Cuatro colores, nunca más</b><span style="font-size:12px;color:#6B6560;line-height:1.5">Negro de línea, terracota de tinta, crema y blanco. Verde y rojo quedan reservados para dinero.</span>
+      </div>
+      <div style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+        <div style="height:64px;display:flex;align-items:center;justify-content:center">
+          <svg width="80" height="60" viewBox="0 0 80 60" fill="none" style="animation:sway 5s ease-in-out infinite;transform-origin:40px 46px"><rect x="26" y="16" width="28" height="30" rx="4" fill="#C4552F" transform="translate(5,5)"></rect><rect x="26" y="16" width="28" height="30" rx="4" fill="#fff" stroke="#1C1917" stroke-width="2.5"></rect></svg>
+        </div>
+        <b style="font-size:13px">Movimiento lento, un solo eje</b><span style="font-size:12px;color:#6B6560;line-height:1.5">Ciclos de 5 a 13 s con curva suave, un solo gesto por icono. Nada de saltos ni de dos cosas moviéndose a la vez.</span>
+      </div>
+      <div style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+        <div style="height:64px;display:flex;align-items:center;justify-content:center">
+          <svg width="80" height="60" viewBox="0 0 80 60" fill="none"><rect x="20" y="14" width="40" height="30" rx="4" fill="#fff" stroke="#1C1917" stroke-width="2.5"></rect><line x1="12" y1="46" x2="68" y2="46" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line><circle cx="70" cy="12" r="7" fill="none" stroke="#C9C1B4" stroke-width="2" stroke-dasharray="3 3"></circle></svg>
+        </div>
+        <b style="font-size:13px">Sin adornos</b><span style="font-size:12px;color:#6B6560;line-height:1.5">Solo el objeto y, como máximo, un detalle que lo identifique. Cero confeti, vapor o puntitos decorativos.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- DÓNDE SE USAN -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px">
+    <div style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:16px 18px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;border:1.5px solid #C4552F;background:#FDF6F2;font-size:12px;font-weight:500">
+          <div style="width:24px;height:24px;flex:none" dangerouslySetInnerHTML="{{ chipCena }}"></div>Cena
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;border:1.5px solid #EAE3D8;font-size:12px;color:#6B6560">
+          <div style="width:24px;height:24px;flex:none" dangerouslySetInnerHTML="{{ chipViaje }}"></div>Viaje
+        </div>
+        <div style="padding:6px 10px;border-radius:999px;border:1.5px solid #EAE3D8;font-size:12px;color:#6B6560">+ 6</div>
+      </div>
+      <b style="font-size:13px">1 · Al crear el evento</b>
+      <div style="font-size:12px;color:#6B6560;line-height:1.5;margin-top:3px">Se elige el tipo en una fila de pastillas, con el icono a 24px en línea. Es opcional: si no eliges, el evento no lleva icono.</div>
+    </div>
+    <div style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:16px 18px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="width:34px;height:34px;border-radius:10px;background:#EFE8DC;display:flex;align-items:center;justify-content:center">
+          <div style="width:24px;height:24px" dangerouslySetInnerHTML="{{ chipHeader }}"></div>
+        </div>
+        <div><div style="font-family:'Instrument Serif',serif;font-size:20px;line-height:1">Las Vegas</div><div style="font-size:11px;color:#8A837B">5 personas · abierto</div></div>
+      </div>
+      <b style="font-size:13px">2 · Junto al nombre, a 24px</b>
+      <div style="font-size:12px;color:#6B6560;line-height:1.5;margin-top:3px">En el encabezado y en la lista de eventos guardados. Aquí el icono solo identifica, no decora.</div>
+    </div>
+    <div style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:16px 18px">
+      <div style="height:52px;border-radius:10px;background:#F6F1E9;display:flex;align-items:center;gap:10px;padding:0 12px;margin-bottom:12px">
+        <div style="width:30px;height:30px;flex:none" dangerouslySetInnerHTML="{{ chipCerrado }}"></div>
+        <div style="font-size:11px;line-height:1.35"><b>Evento cerrado</b><br><span style="color:#8A837B">Todos quedaron parejos</span></div>
+      </div>
+      <b style="font-size:13px">3 · Estados, a 96px</b>
+      <div style="font-size:12px;color:#6B6560;line-height:1.5;margin-top:3px">Grandes y centrados: lista vacía, esperando pago y resumen final. Uno solo por estado.</div>
+    </div>
+  </div>
+
+  <!-- TIPOS DE EVENTO -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 20px">
+      <div style="font-family:'Instrument Serif',serif;font-size:28px">Tipos de evento</div>
+      <p style="margin:0;font-size:13px;line-height:1.5;color:#6B6560;max-width:600px;flex:1;min-width:240px">Los ocho conviven. No se decide entre ellos: se decide si la lista debe crecer o recortarse. Toca uno para verlo en las tres escalas de uso.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+
+      <div onClick="{{ s_cena }}" style="background:#fff;border:1.5px solid {{ b_cena }};border-radius:16px;overflow:hidden;cursor:pointer">
+        <div style="height:120px;background:#F6F1E9">
+          <svg viewBox="10 30 140 100" width="100%" height="100%" style="display:block">
+            <circle cx="85" cy="79" r="34" fill="#C4552F"></circle>
+            <circle cx="80" cy="74" r="34" fill="#fff" stroke="#1C1917" stroke-width="2.5"></circle>
+            <path d="M27 52v14M35 52v14M43 52v14" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></path>
+            <path d="M27 66h16a8 8 0 0 1-8 8 8 8 0 0 1-8-8z" fill="#fff" stroke="#1C1917" stroke-width="2.5" stroke-linejoin="round"></path>
+            <line x1="35" y1="74" x2="35" y2="98" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+            <path d="M121 52c5 4 7 12 7 20v6h-7z" fill="#fff" stroke="#1C1917" stroke-width="2.5" stroke-linejoin="round"></path>
+            <line x1="124.5" y1="78" x2="124.5" y2="98" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+            <line x1="20" y1="118" x2="140" y2="118" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+          </svg>
+        </div>
+        <div style="padding:11px 14px;font-size:12px;color:#6B6560"><b style="color:#1C1917;font-size:13px">Cena</b><br>restaurante, comida</div>
+      </div>
+
+      <div onClick="{{ s_viaje }}" style="background:#fff;border:1.5px solid {{ b_viaje }};border-radius:16px;overflow:hidden;cursor:pointer">
+        <div style="height:120px;background:#F6F1E9">
+          <svg viewBox="10 30 140 100" width="100%" height="100%" style="display:block">
+            <g style="animation:roll 6s ease-in-out infinite">
+              <rect x="61" y="55" width="54" height="58" rx="7" fill="#C4552F"></rect>
+              <rect x="56" y="50" width="54" height="58" rx="7" fill="#fff" stroke="#1C1917" stroke-width="2.5"></rect>
+              <path d="M72 50v-8h22v8" fill="none" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></path>
+              <circle cx="68" cy="115" r="5" fill="#fff" stroke="#1C1917" stroke-width="2.5"></circle>
+              <circle cx="98" cy="115" r="5" fill="#fff" stroke="#1C1917" stroke-width="2.5"></circle>
+            </g>
+            <line x1="20" y1="118" x2="140" y2="118" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+          </svg>
+        </div>
+        <div style="padding:11px 14px;font-size:12px;color:#6B6560"><b style="color:#1C1917;font-size:13px">Viaje</b><br>vuelo, carretera, hotel</div>
+      </div>
+
+      <div onClick="{{ s_concierto }}" style="background:#fff;border:1.5px solid {{ b_concierto }};border-radius:16px;overflow:hidden;cursor:pointer">
+        <div style="height:120px;background:#F6F1E9">
+          <svg viewBox="10 30 140 100" width="100%" height="100%" style="display:block">
+            <g style="animation:sway 5.4s ease-in-out infinite;transform-origin:80px 118px">
+              <path d="M50 62h70a5 5 0 0 1 5 5v11a6 6 0 0 0 0 12v11a5 5 0 0 1-5 5H50a5 5 0 0 1-5-5V90a6 6 0 0 0 0-12V67a5 5 0 0 1 5-5z" fill="#C4552F"></path>
+              <path d="M45 57h70a5 5 0 0 1 5 5v11a6 6 0 0 0 0 12v11a5 5 0 0 1-5 5H45a5 5 0 0 1-5-5V85a6 6 0 0 0 0-12V62a5 5 0 0 1 5-5z" fill="#fff" stroke="#1C1917" stroke-width="2.5" stroke-linejoin="round"></path>
+              <line x1="97" y1="60" x2="97" y2="98" stroke="#1C1917" stroke-width="2.5" stroke-dasharray="5 6"></line>
+            </g>
+            <line x1="20" y1="118" x2="140" y2="118" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+          </svg>
+        </div>
+        <div style="padding:11px 14px;font-size:12px;color:#6B6560"><b style="color:#1C1917;font-size:13px">Concierto</b><br>festival, evento con boleto</div>
+      </div>
+
+      <div onClick="{{ s_casa }}" style="background:#fff;border:1.5px solid {{ b_casa }};border-radius:16px;overflow:hidden;cursor:pointer">
+        <div style="height:120px;background:#F6F1E9">
+          <svg viewBox="10 30 140 100" width="100%" height="100%" style="display:block">
+            <path d="M45 74L85 41l40 33v44H45z" fill="#C4552F"></path>
+            <path d="M40 69L80 36l40 33v44H40z" fill="#fff" stroke="#1C1917" stroke-width="2.5" stroke-linejoin="round"></path>
+            <path d="M70 113V88h20v25" fill="#F6F1E9" stroke="#1C1917" stroke-width="2.5" stroke-linejoin="round"></path>
+            <rect x="94" y="66" width="16" height="16" fill="#F6F1E9" stroke="#1C1917" stroke-width="2.5"></rect>
+            <line x1="20" y1="118" x2="140" y2="118" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+          </svg>
+        </div>
+        <div style="padding:11px 14px;font-size:12px;color:#6B6560"><b style="color:#1C1917;font-size:13px">Casa / finde</b><br>casa rentada, reunión</div>
+      </div>
+
+      <div onClick="{{ s_boda }}" style="background:#fff;border:1.5px solid {{ b_boda }};border-radius:16px;overflow:hidden;cursor:pointer">
+        <div style="height:120px;background:#F6F1E9">
+          <svg viewBox="10 30 140 100" width="100%" height="100%" style="display:block">
+            <g style="animation:sway 4.4s ease-in-out infinite;transform-origin:58px 118px">
+              <path d="M46 46h28l-10 26h-8z" fill="#C4552F" transform="translate(5,5)"></path>
+              <path d="M46 46h28l-10 26h-8z" fill="#fff" stroke="#1C1917" stroke-width="2.5"></path>
+              <line x1="60" y1="72" x2="60" y2="106" stroke="#1C1917" stroke-width="2.5"></line>
+              <line x1="50" y1="106" x2="70" y2="106" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+            </g>
+            <g style="animation:sway 4.4s ease-in-out .6s infinite;transform-origin:102px 118px">
+              <path d="M86 46h28l-10 26h-8z" fill="#C4552F" transform="translate(5,5)"></path>
+              <path d="M86 46h28l-10 26h-8z" fill="#fff" stroke="#1C1917" stroke-width="2.5"></path>
+              <line x1="100" y1="72" x2="100" y2="106" stroke="#1C1917" stroke-width="2.5"></line>
+              <line x1="90" y1="106" x2="110" y2="106" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+            </g>
+            <line x1="20" y1="118" x2="140" y2="118" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+          </svg>
+        </div>
+        <div style="padding:11px 14px;font-size:12px;color:#6B6560"><b style="color:#1C1917;font-size:13px">Boda / despedida</b><br>brindis, grupo grande</div>
+      </div>
+
+      <div onClick="{{ s_cumple }}" style="background:#fff;border:1.5px solid {{ b_cumple }};border-radius:16px;overflow:hidden;cursor:pointer">
+        <div style="height:120px;background:#F6F1E9">
+          <svg viewBox="10 30 140 100" width="100%" height="100%" style="display:block">
+            <rect x="55" y="61" width="56" height="57" rx="4" fill="#C4552F"></rect>
+            <rect x="50" y="56" width="56" height="57" rx="4" fill="#fff" stroke="#1C1917" stroke-width="2.5"></rect>
+            <line x1="50" y1="76" x2="106" y2="76" stroke="#1C1917" stroke-width="2.5"></line>
+            <rect x="63" y="42" width="7" height="14" fill="#fff" stroke="#1C1917" stroke-width="2.5"></rect>
+            <rect x="87" y="42" width="7" height="14" fill="#fff" stroke="#1C1917" stroke-width="2.5"></rect>
+            <g style="animation:drift 4.6s ease-in-out infinite"><path d="M66.5 38c4-3 4-8 0-11-4 3-4 8 0 11z" fill="#C4552F" stroke="#1C1917" stroke-width="2.5" stroke-linejoin="round"></path><path d="M90.5 38c4-3 4-8 0-11-4 3-4 8 0 11z" fill="#C4552F" stroke="#1C1917" stroke-width="2.5" stroke-linejoin="round"></path></g>
+            <line x1="20" y1="118" x2="140" y2="118" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+          </svg>
+        </div>
+        <div style="padding:11px 14px;font-size:12px;color:#6B6560"><b style="color:#1C1917;font-size:13px">Cumpleaños</b><br>pastel con velas</div>
+      </div>
+
+      <div onClick="{{ s_regalo }}" style="background:#fff;border:1.5px solid {{ b_regalo }};border-radius:16px;overflow:hidden;cursor:pointer">
+        <div style="height:120px;background:#F6F1E9">
+          <svg viewBox="10 30 140 100" width="100%" height="100%" style="display:block">
+            <rect x="53" y="65" width="60" height="53" rx="4" fill="#C4552F"></rect>
+            <rect x="48" y="60" width="60" height="53" rx="4" fill="#fff" stroke="#1C1917" stroke-width="2.5"></rect>
+            <line x1="78" y1="60" x2="78" y2="113" stroke="#1C1917" stroke-width="2.5"></line>
+            <line x1="48" y1="78" x2="108" y2="78" stroke="#1C1917" stroke-width="2.5"></line>
+            <g style="animation:drift 6s ease-in-out infinite"><path d="M78 58L56 44c-4 8-2 16 6 18z" fill="#C4552F" stroke="#1C1917" stroke-width="2.5" stroke-linejoin="round"></path><path d="M78 58l22-14c4 8 2 16-6 18z" fill="#C4552F" stroke="#1C1917" stroke-width="2.5" stroke-linejoin="round"></path><circle cx="78" cy="58" r="4.5" fill="#fff" stroke="#1C1917" stroke-width="2.5"></circle></g>
+            <line x1="20" y1="118" x2="140" y2="118" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+          </svg>
+        </div>
+        <div style="padding:11px 14px;font-size:12px;color:#6B6560"><b style="color:#1C1917;font-size:13px">Cooperacha</b><br>regalo entre varios</div>
+      </div>
+
+      <div onClick="{{ s_super }}" style="background:#fff;border:1.5px solid {{ b_super }};border-radius:16px;overflow:hidden;cursor:pointer">
+        <div style="height:120px;background:#F6F1E9">
+          <svg viewBox="10 30 140 100" width="100%" height="100%" style="display:block">
+            <path d="M57 61h62l7 57H50z" fill="#C4552F"></path>
+            <path d="M52 56h62l7 57H45z" fill="#fff" stroke="#1C1917" stroke-width="2.5" stroke-linejoin="round"></path>
+            <path d="M69 56v-8a14 14 0 0 1 28 0v8" fill="none" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></path>
+            <line x1="20" y1="118" x2="140" y2="118" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+          </svg>
+        </div>
+        <div style="padding:11px 14px;font-size:12px;color:#6B6560"><b style="color:#1C1917;font-size:13px">Despensa</b><br>súper, gasto de casa</div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #EAE3D8;border-radius:16px;padding:20px;display:flex;flex-wrap:wrap;align-items:center;gap:26px">
+      <div style="font-size:12px;color:#6B6560;line-height:1.5;min-width:160px;flex:1"><b style="color:#1C1917;font-size:13px">{{ selName }} en las tres escalas</b><br>A 24px se pierde el relleno desfasado: en ese tamaño el icono va solo en línea, sin tinta terracota.</div>
+      <div style="display:flex;align-items:flex-end;gap:26px">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:24px;height:24px" dangerouslySetInnerHTML="{{ svg24 }}"></div><span style="font-size:10px;color:#8A837B;font-family:ui-monospace,Menlo,monospace">24</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:40px;height:40px" dangerouslySetInnerHTML="{{ svg40 }}"></div><span style="font-size:10px;color:#8A837B;font-family:ui-monospace,Menlo,monospace">40</span></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:96px;height:96px" dangerouslySetInnerHTML="{{ svg96 }}"></div><span style="font-size:10px;color:#8A837B;font-family:ui-monospace,Menlo,monospace">96</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESTADOS -->
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 20px">
+      <div style="font-family:'Instrument Serif',serif;font-size:28px">Estados · aquí sí se decide</div>
+      <p style="margin:0;font-size:13px;line-height:1.5;color:#6B6560;max-width:600px;flex:1;min-width:240px">Tres momentos, un solo icono cada uno, siempre a 96px y centrado. Aquí los candidatos sí compiten: dicen lo mismo de dos maneras. Llevas <b style="color:#1C1917">{{ pickedCount }} de 3</b>.</p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:12px;font-weight:500;color:#8A837B;text-transform:uppercase;letter-spacing:.06em">Sin gastos todavía</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+        <div onClick="{{ p_vacio_a }}" style="background:#fff;border:1.5px solid {{ b_vacio_a }};border-radius:16px;overflow:hidden;cursor:pointer">
+          <div style="height:140px;background:#F6F1E9">
+            <svg viewBox="10 30 140 100" width="100%" height="100%" style="display:block">
+              <rect x="59" y="45" width="58" height="68" rx="5" fill="#C4552F"></rect>
+              <rect x="54" y="40" width="58" height="68" rx="5" fill="#fff" stroke="#1C1917" stroke-width="2.5"></rect>
+              <line x1="64" y1="58" x2="102" y2="58" stroke="#EAE3D8" stroke-width="4"></line>
+              <line x1="64" y1="71" x2="94" y2="71" stroke="#EAE3D8" stroke-width="4"></line>
+              <g style="animation:drift 6s ease-in-out infinite"><circle cx="112" cy="97" r="16" fill="#C4552F"></circle><circle cx="112" cy="97" r="16" fill="none" stroke="#1C1917" stroke-width="2.5"></circle><line x1="103" y1="97" x2="121" y2="97" stroke="#fff" stroke-width="3" stroke-linecap="round"></line><line x1="112" y1="88" x2="112" y2="106" stroke="#fff" stroke-width="3" stroke-linecap="round"></line></g>
+              <line x1="20" y1="118" x2="140" y2="118" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+            </svg>
+          </div>
+          <div style="padding:11px 14px;font-size:12px;color:#6B6560"><b style="color:#1C1917;font-size:13px">A · Ticket con +</b><br>Invita a capturar el primero.</div>
+        </div>
+        <div onClick="{{ p_vacio_b }}" style="background:#fff;border:1.5px solid {{ b_vacio_b }};border-radius:16px;overflow:hidden;cursor:pointer">
+          <div style="height:140px;background:#F6F1E9">
+            <svg viewBox="10 30 140 100" width="100%" height="100%" style="display:block">
+              <rect x="42" y="76" width="22" height="42" rx="3" fill="#C4552F"></rect>
+              <rect x="37" y="71" width="22" height="47" rx="3" fill="#fff" stroke="#1C1917" stroke-width="2.5"></rect>
+              <rect x="69" y="86" width="22" height="32" rx="3" fill="none" stroke="#1C1917" stroke-width="2.5" stroke-dasharray="6 6"></rect>
+              <rect x="101" y="86" width="22" height="32" rx="3" fill="none" stroke="#1C1917" stroke-width="2.5" stroke-dasharray="6 6"></rect>
+              <line x1="20" y1="118" x2="140" y2="118" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+            </svg>
+          </div>
+          <div style="padding:11px 14px;font-size:12px;color:#6B6560"><b style="color:#1C1917;font-size:13px">B · Barras por llenar</b><br>Habla el idioma del logo.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:12px;font-weight:500;color:#8A837B;text-transform:uppercase;letter-spacing:.06em">Esperando pago</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+        <div onClick="{{ p_espera_a }}" style="background:#fff;border:1.5px solid {{ b_espera_a }};border-radius:16px;overflow:hidden;cursor:pointer">
+          <div style="height:140px;background:#F6F1E9">
+            <svg viewBox="10 30 140 100" width="100%" height="100%" style="display:block">
+              <circle cx="85" cy="79" r="34" fill="#C4552F"></circle>
+              <circle cx="80" cy="74" r="34" fill="#fff" stroke="#1C1917" stroke-width="2.5"></circle>
+              <g style="animation:tick 5s ease-in-out infinite;transform-origin:80px 74px"><line x1="80" y1="74" x2="80" y2="54" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line></g>
+              <line x1="80" y1="74" x2="96" y2="82" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+              <line x1="20" y1="118" x2="140" y2="118" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+            </svg>
+          </div>
+          <div style="padding:11px 14px;font-size:12px;color:#6B6560"><b style="color:#1C1917;font-size:13px">A · Reloj</b><br>"Va tarde", sin regañar.</div>
+        </div>
+        <div onClick="{{ p_espera_b }}" style="background:#fff;border:1.5px solid {{ b_espera_b }};border-radius:16px;overflow:hidden;cursor:pointer">
+          <div style="height:140px;background:#F6F1E9">
+            <svg viewBox="10 30 140 100" width="100%" height="100%" style="display:block">
+              <rect x="53" y="57" width="60" height="42" rx="4" fill="#C4552F"></rect>
+              <rect x="48" y="52" width="60" height="42" rx="4" fill="#fff" stroke="#1C1917" stroke-width="2.5"></rect>
+              <path d="M48 56l30 22 30-22" fill="none" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></path>
+              <line x1="20" y1="118" x2="140" y2="118" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+            </svg>
+          </div>
+          <div style="padding:11px 14px;font-size:12px;color:#6B6560"><b style="color:#1C1917;font-size:13px">B · Sobre</b><br>"Ya se envió el recordatorio".</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:12px;font-weight:500;color:#8A837B;text-transform:uppercase;letter-spacing:.06em">Evento cerrado</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+        <div onClick="{{ p_cerrado_a }}" style="background:#fff;border:1.5px solid {{ b_cerrado_a }};border-radius:16px;overflow:hidden;cursor:pointer">
+          <div style="height:140px;background:#F6F1E9">
+            <svg viewBox="10 30 140 100" width="100%" height="100%" style="display:block">
+              <g style="animation:breathe 7s ease-in-out infinite;transform-origin:80px 118px">
+                <rect x="41" y="63" width="22" height="55" rx="3" fill="#C4552F"></rect>
+                <rect x="36" y="58" width="22" height="60" rx="3" fill="#fff" stroke="#1C1917" stroke-width="2.5"></rect>
+                <rect x="73" y="63" width="22" height="55" rx="3" fill="#C4552F"></rect>
+                <rect x="68" y="58" width="22" height="60" rx="3" fill="#fff" stroke="#1C1917" stroke-width="2.5"></rect>
+                <rect x="105" y="63" width="22" height="55" rx="3" fill="#C4552F"></rect>
+                <rect x="100" y="58" width="22" height="60" rx="3" fill="#fff" stroke="#1C1917" stroke-width="2.5"></rect>
+              </g>
+              <line x1="20" y1="118" x2="140" y2="118" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+            </svg>
+          </div>
+          <div style="padding:11px 14px;font-size:12px;color:#6B6560"><b style="color:#1C1917;font-size:13px">A · Barras parejas</b><br>Es el logo: cierra la historia.</div>
+        </div>
+        <div onClick="{{ p_cerrado_b }}" style="background:#fff;border:1.5px solid {{ b_cerrado_b }};border-radius:16px;overflow:hidden;cursor:pointer">
+          <div style="height:140px;background:#F6F1E9">
+            <svg viewBox="10 30 140 100" width="100%" height="100%" style="display:block">
+              <circle cx="85" cy="79" r="32" fill="#C4552F"></circle>
+              <circle cx="80" cy="74" r="32" fill="#fff" stroke="#1C1917" stroke-width="2.5"></circle>
+              <path d="M66 74l11 12 22-24" fill="none" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+              <line x1="20" y1="118" x2="140" y2="118" stroke="#1C1917" stroke-width="2.5" stroke-linecap="round"></line>
+            </svg>
+          </div>
+          <div style="padding:11px 14px;font-size:12px;color:#6B6560"><b style="color:#1C1917;font-size:13px">B · Palomita</b><br>Inequívoca, pero genérica.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#1C1917;border-radius:20px;padding:26px;display:flex;flex-direction:column;gap:12px;color:#F6F1E9">
+    <div style="font-family:'Instrument Serif',serif;font-size:24px">Decisiones de estado</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+      <sc-for list="{{ chosen }}" as="c" hint-placeholder-count="3">
+        <div style="background:#26221F;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;font-weight:600">{{ c.name }}</span><span style="font-size:11px;color:#A9A198">{{ c.pick }}</span></div>
+      </sc-for>
+    </div>
+    <p style="margin:0;font-size:12px;color:#A9A198;line-height:1.5">Los tipos de evento no se deciden: se agregan o se recortan. Si crees que ocho es mucho, los que quitaría primero son Cumpleaños y Despensa — el organizador puede usar Boda y Casa para esos casos.</p>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { type:'viaje', sel:{ vacio:'a', espera:null, cerrado:'a' } };
+  icons(){
+    const L='fill="none" stroke="#1C1917" stroke-linecap="round" stroke-linejoin="round"';
+    // [name, body(sw), viewBox]
+    return {
+      cena:['Cena', sw=>`<circle cx="80" cy="74" r="34" ${L} stroke-width="${sw}"/><path d="M27 52v14M35 52v14M43 52v14" ${L} stroke-width="${sw}"/><path d="M27 66h16a8 8 0 0 1-8 8 8 8 0 0 1-8-8z" ${L} stroke-width="${sw}"/><path d="M35 74v24" ${L} stroke-width="${sw}"/><path d="M121 52c5 4 7 12 7 20v6h-7z" ${L} stroke-width="${sw}"/><path d="M124.5 78v20" ${L} stroke-width="${sw}"/>`],
+      viaje:['Viaje', sw=>`<rect x="56" y="50" width="54" height="58" rx="7" ${L} stroke-width="${sw}"/><path d="M72 50v-8h22v8" ${L} stroke-width="${sw}"/><circle cx="68" cy="115" r="5" ${L} stroke-width="${sw}"/><circle cx="98" cy="115" r="5" ${L} stroke-width="${sw}"/>`],
+      concierto:['Concierto', sw=>`<path d="M45 57h70a5 5 0 0 1 5 5v11a6 6 0 0 0 0 12v11a5 5 0 0 1-5 5H45a5 5 0 0 1-5-5V85a6 6 0 0 0 0-12V62a5 5 0 0 1 5-5z" ${L} stroke-width="${sw}"/><path d="M97 60v38" ${L} stroke-width="${sw}" stroke-dasharray="5 6"/>`],
+      casa:['Casa / finde', sw=>`<path d="M40 69L80 36l40 33v44H40z" ${L} stroke-width="${sw}"/><path d="M70 113V88h20v25" ${L} stroke-width="${sw}"/><rect x="94" y="66" width="16" height="16" ${L} stroke-width="${sw}"/>`],
+      boda:['Boda / despedida', sw=>`<path d="M46 46h28l-10 26h-8z" ${L} stroke-width="${sw}"/><path d="M60 72v34M50 106h20" ${L} stroke-width="${sw}"/><path d="M86 46h28l-10 26h-8z" ${L} stroke-width="${sw}"/><path d="M100 72v34M90 106h20" ${L} stroke-width="${sw}"/>`],
+      cumple:['Cumpleaños', sw=>`<rect x="50" y="56" width="56" height="57" rx="4" ${L} stroke-width="${sw}"/><path d="M50 76h56" ${L} stroke-width="${sw}"/><rect x="63" y="42" width="7" height="14" ${L} stroke-width="${sw}"/><rect x="87" y="42" width="7" height="14" ${L} stroke-width="${sw}"/><path d="M66.5 38c4-3 4-8 0-11-4 3-4 8 0 11z" ${L} stroke-width="${sw}"/><path d="M90.5 38c4-3 4-8 0-11-4 3-4 8 0 11z" ${L} stroke-width="${sw}"/>`],
+      regalo:['Cooperacha', sw=>`<rect x="48" y="60" width="60" height="53" rx="4" ${L} stroke-width="${sw}"/><path d="M78 60v53M48 78h60" ${L} stroke-width="${sw}"/><path d="M78 58L56 44c-4 8-2 16 6 18z" ${L} stroke-width="${sw}"/><path d="M78 58l22-14c4 8 2 16-6 18z" ${L} stroke-width="${sw}"/>`],
+      super:['Despensa', sw=>`<path d="M52 56h62l7 57H45z" ${L} stroke-width="${sw}"/><path d="M69 56v-8a14 14 0 0 1 28 0v8" ${L} stroke-width="${sw}"/>`],
+    };
+  }
+  renderVals(){
+    const s=this.state, ic=this.icons(), t=ic[s.type];
+    const wrap=(sw,ink)=>({__html:`<svg viewBox="20 26 120 100" width="100%" height="100%" style="display:block">${ink?`<g transform="translate(5,5)">${t[1](sw).split('#1C1917').join('#C4552F')}</g>`:''}${t[1](sw)}</svg>`});
+    const meta={vacio:['Sin gastos',{a:'A · Ticket con +',b:'B · Barras por llenar'}],espera:['Esperando pago',{a:'A · Reloj',b:'B · Sobre'}],cerrado:['Evento cerrado',{a:'A · Barras parejas',b:'B · Palomita'}]};
+    const out={
+      selName:t[0], svg24:wrap(7,false), svg40:wrap(5,true), svg96:wrap(3,true),
+      chipCena:{__html:`<svg viewBox="20 26 120 100" width="100%" height="100%" style="display:block">${ic.cena[1](7)}</svg>`},
+      chipViaje:{__html:`<svg viewBox="20 26 120 100" width="100%" height="100%" style="display:block">${ic.viaje[1](7)}</svg>`},
+      chipHeader:{__html:`<svg viewBox="20 26 120 100" width="100%" height="100%" style="display:block">${ic.viaje[1](6)}</svg>`},
+      chipCerrado:{__html:`<svg viewBox="20 26 120 100" width="100%" height="100%" style="display:block"><g fill="none" stroke="#1C1917" stroke-width="6" stroke-linejoin="round"><rect x="36" y="58" width="22" height="60" rx="3"/><rect x="68" y="58" width="22" height="60" rx="3"/><rect x="100" y="58" width="22" height="60" rx="3"/></g></svg>`},
+      pickedCount:Object.values(s.sel).filter(Boolean).length,
+      chosen:Object.keys(meta).map(k=>({name:meta[k][0], pick:s.sel[k]?meta[k][1][s.sel[k]]:'— sin decidir —'})),
+    };
+    Object.keys(ic).forEach(k=>{ out['b_'+k]=s.type===k?'#C4552F':'#EAE3D8'; out['s_'+k]=()=>this.setState({type:k}); });
+    Object.keys(meta).forEach(k=>['a','b'].forEach(v=>{
+      out['b_'+k+'_'+v]=s.sel[k]===v?'#C4552F':'#EAE3D8';
+      out['p_'+k+'_'+v]=()=>this.setState({sel:{...s.sel,[k]:s.sel[k]===v?null:v}});
+    }));
+    return out;
+  }
+}
+</script>
+</body>
+</html>
