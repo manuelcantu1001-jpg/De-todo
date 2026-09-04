@@ -2,7 +2,7 @@ name: Publicar en GitHub Pages
 
 on:
   push:
-    branches: [claude/juego-pulelo-idea-dyz035]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -17,12 +17,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Preparar sitio (solo los archivos de la app)
+
+      # Sobremesa va en la RAIZ del sitio, no en /sobremesa/.
+      # No es capricho: la app instalada en los telefonos apunta a la raiz.
+      # Moverla de direccion desinstalaria de hecho las que ya existen.
+      - name: Sobremesa (raiz)
         run: |
           mkdir _site
-          cp index.html banco-es.js vocab-es.js lexico-es.txt.gz manifest.webmanifest sw.js _site/
-          cp -r icons comun juegos _site/
+          cp sobremesa/index.html sobremesa/banco-es.js sobremesa/vocab-es.js \
+             sobremesa/lexico-es.txt.gz sobremesa/manifest.webmanifest sobremesa/sw.js _site/
+          cp -r sobremesa/icons sobremesa/comun sobremesa/juegos _site/
+
+      - name: ReParte (/reparte/)
+        run: |
+          mkdir -p _site/reparte
+          cp reparte/index.html reparte/manifest.webmanifest reparte/sw.js _site/reparte/
+
+      - name: Tier list (/tier-list/)
+        run: |
+          mkdir -p _site/tier-list
+          cp tier-list/index.html _site/tier-list/
+
+      - name: Rematar
+        run: |
           touch _site/.nojekyll
+          echo "Publicando:"; find _site -maxdepth 2 -name index.html | sort
+
       - name: Publicar en la rama gh-pages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
