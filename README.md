@@ -21,3 +21,10 @@ Una tier list al estilo TierMaker, pero más fácil de usar: sin cuentas, sin pl
 - **Deshacer** con `Ctrl+Z`, **exportar** el resultado como imagen PNG, y todo **se guarda solo** en tu navegador.
 
 Sin dependencias: un solo archivo HTML.
+
+
+---
+
+## Otros proyectos en este repo
+
+- [`reparte/`](reparte/) — **ReParte**, webapp para dividir gastos de grupo sin app ni cuenta. Ver su [README](reparte/README.md).
