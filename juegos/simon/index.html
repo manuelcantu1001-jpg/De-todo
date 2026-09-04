@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Simón dice: memoriza la secuencia de luces y sonidos y repítela." />
+<title>Simón</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E◍%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Los pads viven en la mitad de abajo: son el mando, no un adorno. */
+  .simonwrap { display: flex; justify-content: center; margin-top: auto; padding: 16px 16px 0; }
+  .simon { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; width: min(84vw, 330px); }
+  /* Reposo: el color al 25 % sobre el crema con un filete del color pleno,
+     para que cada pad siga diciendo cuál es. Encendido: color pleno y halo.
+     Con opacidad .55 encendido y apagado solo se separaban ΔE 14–19; así
+     quedan a 23–37. El azul es tinta-2: --second se confundía con la
+     lavanda (ΔE 15). */
+  .pad {
+    aspect-ratio: 1; border-radius: 12px; cursor: pointer; padding: 0;
+    background: color-mix(in srgb, currentColor 25%, var(--bg));
+    border: var(--trazo) solid currentColor;
+    transition: background-color .08s var(--ease), transform .1s var(--ease);
+  }
+  .pad:active { opacity: .85; }
+  .pad.on { background: currentColor; transform: scale(1.03); box-shadow: 0 0 34px -4px currentColor; }
+  .pad.p0 { color: var(--accent); }
+  .pad.p1 { color: var(--tinta-2); }
+  .pad.p2 { color: var(--good); }
+  .pad.p3 { color: var(--tinta-6); }
+  .centro { text-align: center; margin: auto 0; padding: 18px 0 0; }
+  .centro .ronda { font-family: var(--font); font-size: 48px; font-weight: 400; letter-spacing: -0.02em; color: var(--bg-ink); line-height: 1; font-variant-numeric: tabular-nums; }
+  .centro .estado { font-family: var(--display); font-style: italic; font-size: 14.5px; color: var(--bg-sub); margin-top: 6px; min-height: 18px; }
+  /* Reloj de respuesta: se vacía en 2,5 s. */
+  .reloj {
+    width: min(84vw, 330px); height: 11px; margin: 10px auto 0; background: var(--soft);
+    border: var(--trazo) solid var(--linea-fuerte); border-radius: var(--pastilla); overflow: hidden;
+    opacity: 0; transition: opacity .12s var(--ease);
+  }
+  .reloj.viva { opacity: 1; }
+  .reloj i { display: block; height: 100%; width: 100%; background: var(--ink); }
+  .reloj.poco i { background: var(--bad); }
+  .tools { margin: 14px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
+  .tool:active { opacity: .6; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* `desde`: ronda a partir de la cual Simón deja de repetir el prefijo
+   entero y canta SOLO el paso nuevo. A partir de ahí el resto lo pones
+   tú de memoria, y la partida deja de ser una sala de espera. */
+const CFG = {
+  facil:   { vel: 700, inicio: 1, desde: Infinity },
+  normal:  { vel: 520, inicio: 1, desde: Infinity },
+  dificil: { vel: 440, inicio: 2, desde: 7 },
+  experto: { vel: 380, inicio: 3, desde: 4 },
+};
+const ACEL = 0.96;     // cada ronda canta un 4 % más rápido…
+const VEL_MIN = 180;   // …con este suelo por paso
+const LIMITE = 2500;   // reloj de respuesta: milisegundos por toque
+const FREQS = [329.63, 261.63, 220.0, 164.81];
+
+const S = {
+  diff: store.get('simon.diff', 'normal'),
+  seq: [], idx: 0, fase: 'espera',   // espera | muestra | repite
+  ronda: 0, relojId: 0,
+};
+
+/* Velocidad de la ronda actual: se aprieta un 4 % por ronda hasta el suelo. */
+function velRonda() {
+  return Math.max(VEL_MIN, Math.round(CFG[S.diff].vel * Math.pow(ACEL, Math.max(0, S.seq.length - 1))));
+}
+/* ¿Canta la secuencia entera o solo el paso nuevo? */
+function soloNuevo() {
+  return S.seq.length > CFG[S.diff].inicio && S.seq.length >= CFG[S.diff].desde;
+}
+
+const REGLAS = `<p>Los cuatro botones se encienden en una <b>secuencia</b> que crece de uno en uno. Obsérvala (y escúchala: cada color tiene su nota) y <b>repítela en el mismo orden</b>.</p>
+<p>Tienes <b>${(LIMITE / 1000).toFixed(1).replace('.', ',')} s por toque</b>: la barra bajo el marcador es tu reloj. Si se vacía, o si te equivocas, se acabó. Tu marca es la ronda más larga que lograste repetir.</p>
+<p>La secuencia se canta un <b>4 % más rápido cada ronda</b>. En <b>Difícil</b> (desde la ronda 7) y <b>Experto</b> (desde la 4) Simón ya no repite todo: solo canta <b>el paso nuevo</b> y el resto lo pones tú de memoria.</p>`;
+
+/* ── Sonido ──────────────────────────────────────────────────────────── */
+let actx = null;
+/* Arrancar el audio dentro del toque de «Jugar»: si se crea a media
+   secuencia el navegador se para un instante y se come un parpadeo. */
+function despertarAudio() {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+  } catch (e) {}
+}
+function beep(i, dur) {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = 'sine';
+    o.frequency.value = FREQS[i];
+    g.gain.setValueAtTime(0.0001, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.22, actx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur / 1000);
+    o.connect(g).connect(actx.destination);
+    o.start();
+    o.stop(actx.currentTime + dur / 1000 + 0.05);
+  } catch (e) {}
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  pararReloj();
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('simon.best.' + d, 0);
+    return `<div class="b"><div class="bn">${b || '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Simón', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Velocidad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Rondas más largas</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('simon.diff', v); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  despertarAudio();
+  pararReloj();
+  S.seq = [];
+  for (let i = 0; i < CFG[S.diff].inicio; i++) S.seq.push(randInt(4));
+  S.ronda = 0;
+  renderPlay();
+  setTimeout(mostrar, 600);
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Simón', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
+    <div class="centro">
+      <div class="ronda" id="ronda">—</div>
+      <div class="estado" id="estado">Mira la secuencia…</div>
+      <div class="reloj" id="reloj"><i></i></div>
+    </div>
+    <div class="simonwrap">
+      <div class="simon" id="simon">
+        ${[0, 1, 2, 3].map((i) => `<button class="pad p${i}" data-i="${i}" aria-label="Botón ${i + 1}"></button>`).join('')}
+      </div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  // pointerdown, no click: el toque cuenta en cuanto el dedo aterriza.
+  $('#simon').addEventListener('pointerdown', (e) => {
+    const p = e.target.closest('.pad');
+    if (!p) return;
+    e.preventDefault();
+    tocar(Number(p.dataset.i));
+  });
+  $('#t-salir').onclick = renderSetup;
+}
+
+/* ── Reloj de respuesta ──────────────────────────────────────────────── */
+function pararReloj() {
+  clearTimeout(S.relojId); S.relojId = 0;
+  const r = $('#reloj');
+  if (r) {
+    r.classList.remove('viva', 'poco');
+    const i = r.firstElementChild;
+    i.style.transition = 'none'; i.style.width = '100%';
+  }
+}
+function armarReloj() {
+  clearTimeout(S.relojId);
+  const r = $('#reloj');
+  if (r) {
+    const i = r.firstElementChild;
+    r.classList.add('viva'); r.classList.remove('poco');
+    i.style.transition = 'none'; i.style.width = '100%';
+    void i.offsetWidth;                       // fuerza el reinicio
+    i.style.transition = `width ${LIMITE}ms var(--ease)`;
+    i.style.width = '0%';
+    setTimeout(() => { if (S.fase === 'repite' && $('#reloj') === r) r.classList.add('poco'); }, LIMITE * 0.6);
+  }
+  S.relojId = setTimeout(() => { if (S.fase === 'repite') fallo('Se acabó el tiempo'); }, LIMITE);
+}
+
+function prender(i, dur) {
+  const el = $(`.pad[data-i="${i}"]`);
+  if (!el) return;
+  el.classList.add('on');
+  beep(i, dur);
+  setTimeout(() => el.classList.remove('on'), dur);
+}
+
+async function mostrar() {
+  // Si se salió del juego en el hueco entre rondas ya no hay tablero.
+  if (!$('#simon')) return;
+  S.fase = 'muestra';
+  pararReloj();
+  const vel = velRonda();
+  const corto = soloNuevo();
+  const trozo = corto ? S.seq.slice(-1) : S.seq;
+  $('#ronda').textContent = S.seq.length;
+  $('#estado').textContent = corto ? 'Solo el paso nuevo…' : 'Mira la secuencia…';
+  await delay(300);
+  for (const i of trozo) {
+    if (!$('#simon')) return;
+    prender(i, vel * .62);
+    await delay(vel);
+  }
+  if (!$('#simon')) return;
+  S.fase = 'repite';
+  S.idx = 0;
+  const est = $('#estado');
+  if (est) est.textContent = corto ? 'Ahora la secuencia entera' : 'Tu turno';
+  armarReloj();
+}
+
+function tocar(i) {
+  if (S.fase !== 'repite') return;
+  prender(i, 200);
+  if (i === S.seq[S.idx]) {
+    S.idx++;
+    vibrate(8);
+    if (S.idx === S.seq.length) {
+      S.ronda = S.seq.length;
+      S.fase = 'espera';
+      pararReloj();
+      $('#estado').textContent = '¡Bien!';
+      S.seq.push(randInt(4));
+      setTimeout(mostrar, 520);
+    } else {
+      armarReloj();   // el reloj se recarga con cada acierto
+    }
+  } else {
+    fallo('Ese no era');
+  }
+}
+
+function fallo(porque) {
+  if (S.fase === 'espera') return;
+  S.fase = 'espera';
+  pararReloj();
+  vibrate([80, 60, 80]);
+  try { beep(3, 500); } catch (e) {}
+  const best = store.get('simon.best.' + S.diff, 0);
+  const isRecord = S.ronda > best;
+  if (isRecord) {
+    store.set('simon.best.' + S.diff, S.ronda);
+    store.set('simon.hub', `Mejor ronda: ${S.ronda}`);
+  }
+  setTimeout(() => {
+    openModal(`
+      <h3>${isRecord && S.ronda > 0 ? '¡Récord!' : 'Se cortó la racha'}</h3>
+      <p style="text-align:center;">${esc(porque || 'Ese no era')}.</p>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${S.ronda}</div><div class="l">rondas</div></div>
+        <div class="stat"><div class="n">${Math.max(best, S.ronda)}</div><div class="l">mejor</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-diff">Cambiar velocidad</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+  }, 500);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

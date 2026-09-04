@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Ajedrez contra la app: reglas completas, con enroque, captura al paso, coronación y todas las tablas." />
+<title>Ajedrez</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Solo la pantalla de juego reparte el alto sobrante; la de inicio no. */
+  .aj-juego { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
+
+  /* ── Tablero ──────────────────────────────────────────────────────
+     Cuadrado, 96 % del ancho con tope por alto. Casilla clara = --card;
+     oscura = mezcla derivada de --soft con --sub (1,76:1 contra la clara:
+     se ve el damero sin gritar). Las piezas se recortan por su contorno:
+     las blancas van rellenas de --card con filete de tinta y las negras al
+     revés, así que en cualquiera de las dos casillas hay un borde de 7:1. */
+  .aj-twrap { display: flex; justify-content: center; padding: 0 6px; }
+  .aj-tab {
+    width: min(96vw, 420px, calc(100dvh - 300px));
+    aspect-ratio: 1; display: grid;
+    /* Las OCHO filas explícitas, no solo las columnas: con filas automáticas
+       el alto de la casilla salía del contenido (el 86 % del SVG no tiene
+       contra qué medirse), la casilla acababa en 46×67 y los puntos de
+       destino salían ovalados. min-height: 0 evita que el mínimo automático
+       del contenido vuelva a estirar la fila. */
+    grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+    border: var(--trazo) solid var(--linea-fuerte); border-radius: 6px; overflow: hidden;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  }
+  .aj-cas {
+    position: relative; border: none; padding: 0; margin: 0; cursor: pointer; min-width: 0; min-height: 0;
+    background: var(--card); display: flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .aj-cas.osc { background: color-mix(in srgb, var(--soft) 72%, var(--sub)); }
+  .aj-cas .aj-co {
+    position: absolute; font-family: var(--mono); font-size: 8px; letter-spacing: .04em;
+    color: var(--ink); opacity: .8; pointer-events: none;
+  }
+  .aj-cas .aj-co.f { left: 2px; top: 1px; }
+  .aj-cas .aj-co.c { right: 2px; bottom: 0; }
+  .aj-pz { width: 86%; height: 86%; display: block; pointer-events: none;
+    fill: var(--card); stroke: var(--ink); stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; }
+  .aj-pz.n { fill: var(--ink); stroke: var(--card); stroke-width: 1.3; }
+  .aj-pz.vacia { display: none; }
+
+  /* Marcas del tablero. Tres estados distintos tienen que distinguirse ENTRE
+     SÍ, no solo del damero: con terracota para la casilla elegida y rojo para
+     el jaque salían a ΔE 3,6 (el mismo tropiezo que ya dejó dos colores
+     iguales en Simón y en Bloques). Ahora van en tres familias: azul la
+     elegida, ocre la última jugada y rojo el jaque, con ΔE ≥ 17 entre
+     cualquier par y ≥ 18 contra la casilla sin marcar. */
+  .aj-cas.ult::before {
+    content: ''; position: absolute; inset: 0; background: var(--warn); opacity: .55;
+  }
+  .aj-cas.sel::before { content: ''; position: absolute; inset: 0; background: var(--tinta-2); opacity: .34; }
+  /* `inset` en vez de ancho y alto: el porcentaje sale del cuadro de la
+     casilla en los dos ejes y el punto sale redondo, no aplastado. */
+  /* Punto (destino libre) y aro (destino con captura): mismo color, distinta
+     forma, como en cualquier tablero. El tono es terracota rebajado con tinta
+     hasta que aguanta 3:1 en el peor fondo posible, que es la casilla oscura
+     ya teñida de última jugada (3,3:1 medido). */
+  .aj-cas .aj-marca {
+    position: absolute; inset: 37%; border-radius: 999px;
+    background: color-mix(in srgb, var(--accent-texto) 38%, var(--ink));
+    opacity: 0; pointer-events: none; transition: opacity var(--dur) var(--ease);
+  }
+  .aj-cas.dest .aj-marca { opacity: 1; }
+  .aj-cas.come .aj-marca {
+    inset: 4%; background: none; opacity: 1; border-radius: 999px;
+    border: 3px solid color-mix(in srgb, var(--accent-texto) 38%, var(--ink));
+  }
+  .aj-cas.jaque::before {
+    content: ''; position: absolute; inset: 0; background: var(--bad); opacity: .45;
+  }
+
+  /* ── Marcador: quién juega, piezas comidas y ventaja de material ── */
+  .aj-marc { display: flex; flex-direction: column; gap: 5px; padding: 0 12px; }
+  .aj-lado {
+    display: flex; align-items: center; gap: 8px; min-height: 26px;
+    padding: 3px 10px; border-radius: var(--pastilla); background: transparent;
+    transition: background var(--dur) var(--ease);
+  }
+  .aj-lado.turno { background: var(--panel); }
+  .aj-lado .aj-quien { font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--sub); flex-shrink: 0; }
+  .aj-comidas { display: flex; align-items: center; gap: 0; flex: 1; min-width: 0; overflow: hidden; }
+  .aj-comidas .aj-pz { width: 17px; height: 17px; margin-right: -3px; flex-shrink: 0; stroke-width: 2.4; }
+  .aj-comidas .aj-pz.n { stroke-width: 1.8; }
+  .aj-vent { font-size: 12.5px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+  .aj-estado { text-align: center; padding: 0 14px; font-family: var(--display); font-style: italic;
+    font-size: 15.5px; color: var(--bg-ink); min-height: 21px; }
+  .aj-estado b { font-style: normal; font-weight: 500; }
+  .aj-estado.aviso b { color: var(--bad); }
+
+  /* ── Lista de jugadas ────────────────────────────────────────────── */
+  .aj-lista {
+    margin: 0 12px; background: var(--panel); border-radius: var(--mano-2);
+    padding: 8px 10px; overflow-x: auto; overflow-y: hidden; white-space: nowrap;
+    -webkit-overflow-scrolling: touch; min-height: 34px;
+  }
+  .aj-lista .aj-par { display: inline-block; margin-right: 12px; font-size: 13px; color: var(--ink); }
+  .aj-lista .aj-num { font-family: var(--mono); font-size: 10.5px; color: var(--sub); margin-right: 4px; }
+  .aj-lista .aj-vacia { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--sub); }
+  /* La jugada de ahora, en píldora clara: el terracota sobre el beige del
+     bloque se quedaba en 4,07:1 y sobre la tarjeta llega a 4,91:1. */
+  .aj-lista .aj-ultima {
+    font-weight: 600; color: var(--accent-texto);
+    background: var(--card); border-radius: var(--pastilla); padding: 1px 6px;
+  }
+
+  /* ── Mandos ──────────────────────────────────────────────────────── */
+  .aj-tools { margin: 0 14px calc(6px + env(safe-area-inset-bottom)); display: flex; gap: 8px; justify-content: center; }
+  .aj-tool {
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 11px 15px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    min-height: 40px; flex: 1; max-width: 130px;
+  }
+  .aj-tool:active { opacity: .6; }
+  .aj-tool:disabled { color: var(--faint); border-color: var(--linea); background: transparent; cursor: default; }
+
+  .aj-hint { font-size: 12.5px; color: var(--sub); padding: 8px 2px 4px; }
+  .aj-coro { display: flex; gap: 10px; justify-content: center; margin: 6px 0 2px; }
+  .aj-coro button {
+    width: 62px; height: 62px; border-radius: var(--mano-2); border: var(--trazo) solid var(--linea-fuerte);
+    background: var(--card); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 6px;
+  }
+  .aj-coro button:active { background: var(--soft); }
+  .aj-coro .aj-pz { width: 100%; height: 100%; }
+  #modal .aj-reglas { max-height: 58vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #modal .aj-reglas p:last-child { margin-bottom: 0; }
+  #modal .aj-rot { font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--sub); text-align: center; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<!-- Piezas dibujadas a mano en SVG: nada de emoji ni de la fuente de ajedrez
+     del sistema, que no está en todos los teléfonos. Ni relleno ni trazo van
+     en las formas: los hereda el <svg> que las usa, y así el mismo dibujo
+     sirve para las blancas (relleno claro, filete de tinta) y para las
+     negras (relleno de tinta, filete claro). -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <g id="pz-1"><!-- peón -->
+    <circle cx="22.5" cy="14" r="5.2"/>
+    <path d="M17.4 21.8h10.2c-.4 2.6-1.8 4.2-1.8 6.6 0 2.9 2 4.7 4.2 6.6v2.5H15v-2.5c2.2-1.9 4.2-3.7 4.2-6.6 0-2.4-1.4-4-1.8-6.6z"/>
+    <rect x="9.4" y="36.6" width="26.2" height="4.6" rx="1.9"/>
+  </g>
+  <g id="pz-2"><!-- caballo -->
+    <path d="M26.4 9.2l1.5 3.9c2.6 1.7 4.5 4.7 5.2 8.7.6 3.7.6 8 .6 12.9v1.9H14.6v-1.9c0-3.4.8-6.2 2.3-8.7l3-4.9-2.5-1.4-2.1 3c-.9 1.2-2.3 1.6-3.4 1-1.1-.7-1.4-2-.9-3.4 1.7-4.7 5.2-8.7 9.9-10.6z"/>
+    <circle cx="17.5" cy="17.3" r="1" fill="none" stroke-width="1.7"/>
+    <path d="M27.9 13.1c-1.9.6-3.6 1.6-5 2.9" fill="none" stroke-width="1.2"/>
+    <rect x="9.4" y="36.6" width="26.2" height="4.6" rx="1.9"/>
+  </g>
+  <g id="pz-3"><!-- alfil -->
+    <circle cx="22.5" cy="9.4" r="2.3"/>
+    <path d="M22.5 11.6c4.5 2.2 7.2 6 7.2 10 0 3.2-1.6 5.4-3.4 6.9h-7.6c-1.8-1.5-3.4-3.7-3.4-6.9 0-4 2.7-7.8 7.2-10z"/>
+    <path d="M20 20.8l5-5" fill="none" stroke-width="1.3"/>
+    <path d="M17.3 29.8h10.4c.5 2.1 1.8 3.6 3.6 5.2v1.8H13.7v-1.8c1.8-1.6 3.1-3.1 3.6-5.2z"/>
+    <rect x="9.4" y="36.6" width="26.2" height="4.6" rx="1.9"/>
+  </g>
+  <g id="pz-4"><!-- torre -->
+    <path d="M13 12.5h4.4v3.2H21v-3.2h3v3.2h3.6v-3.2H32V20l-2.6 2.4v9.9l3 2.8v1.5H12.6v-1.5l3-2.8v-9.9L13 20z"/>
+    <path d="M15.6 22.4h13.8" fill="none" stroke-width="1.2"/>
+    <rect x="9.4" y="36.6" width="26.2" height="4.6" rx="1.9"/>
+  </g>
+  <g id="pz-5"><!-- dama -->
+    <path d="M10.8 15.5l2.9 6 2.95-8.3 2.95 6.8 2.9-7.8 2.9 7.8 2.95-6.8L31.3 21.5l2.9-6L32 25.5H13z"/>
+    <circle cx="10.8" cy="14.4" r="2.1"/><circle cx="16.65" cy="12.1" r="2.1"/>
+    <circle cx="22.5" cy="11.1" r="2.1"/><circle cx="28.35" cy="12.1" r="2.1"/>
+    <circle cx="34.2" cy="14.4" r="2.1"/>
+    <path d="M13 25.8h19l-1.4 4.6c1.2 1.5 3 2.9 4.4 4.1v2.1H10v-2.1c1.4-1.2 3.2-2.6 4.4-4.1z"/>
+    <rect x="9.4" y="36.6" width="26.2" height="4.6" rx="1.9"/>
+  </g>
+  <g id="pz-6"><!-- rey -->
+    <path d="M21.2 6.8h2.6v2.9h2.9v2.6h-2.9v2.9h-2.6v-2.9h-2.9V9.7h2.9z"/>
+    <path d="M22.5 15.4c-3.4 0-6 1.2-7.6 3.2-1.4 1.8-2 4.1-1.6 6.2.4 2.2 1.8 4.1 3.7 5.6h11c1.9-1.5 3.3-3.4 3.7-5.6.4-2.1-.2-4.4-1.6-6.2-1.6-2-4.2-3.2-7.6-3.2z"/>
+    <path d="M14.2 23.6h16.6" fill="none" stroke-width="1.7"/>
+    <path d="M17.2 27.8c2.6-1.4 8-1.4 10.6 0" fill="none" stroke-width="1.3"/>
+    <path d="M16 31.5h13c.4 2 1.8 3.4 3.5 4.6v1.1H12.5v-1.1c1.7-1.2 3.1-2.6 3.5-4.6z"/>
+    <rect x="9.4" y="36.6" width="26.2" height="4.6" rx="1.9"/>
+  </g>
+</defs></svg>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* @motor-inicio */
+function crearMotor() {
+  /* ── Representación ────────────────────────────────────────────────
+     Tablero 0x88: índice = fila*16 + columna, con fila 0 = octava fila
+     (arriba, la de las negras) y columna 0 = «a». Una casilla está dentro
+     del tablero si (s & 0x88) === 0, que es lo que hace barato salirse.
+     Pieza = tipo | (color << 3): blancas 1..6, negras 9..14, vacío 0. */
+  const PEON = 1, CABALLO = 2, ALFIL = 3, TORRE = 4, DAMA = 5, REY = 6;
+  const BLANCO = 0, NEGRO = 1;
+  const tipo = (p) => p & 7;
+  const colorDe = (p) => (p >> 3) & 1;
+  const dentro = (s) => (s & 0x88) === 0;
+  const fila = (s) => s >> 4;          // 0 = octava
+  const col = (s) => s & 7;
+
+  const DIR_C = [-33, -31, -18, -14, 14, 18, 31, 33];      // caballo
+  const DIR_A = [-17, -15, 15, 17];                        // alfil
+  const DIR_T = [-16, -1, 1, 16];                          // torre
+  const DIR_R = [-17, -16, -15, -1, 1, 15, 16, 17];        // rey y dama
+
+  // Banderas de jugada
+  const F_NORMAL = 0, F_DOBLE = 1, F_ENR_C = 2, F_ENR_L = 3, F_ALPASO = 4, F_CORONA = 5;
+  const jug = (de, a, f, pr) => de | (a << 8) | ((f || 0) << 16) | ((pr || 0) << 20);
+  const jDe = (m) => m & 255;
+  const jA = (m) => (m >> 8) & 255;
+  const jF = (m) => (m >> 16) & 15;
+  const jPr = (m) => (m >> 20) & 15;
+
+  // Derechos de enroque: 1 blanco corto, 2 blanco largo, 4 negro corto, 8 negro largo.
+  const MASCARA = new Int32Array(128).fill(15);
+  MASCARA[112] = 13; MASCARA[116] = 12; MASCARA[119] = 14;   // a1, e1, h1
+  MASCARA[0] = 7; MASCARA[4] = 3; MASCARA[7] = 11;           // a8, e8, h8
+
+  const MATE = 100000, INF = 1000000;
+  const VALOR = [0, 100, 320, 330, 500, 900, 20000];
+
+  /* ── Claves Zobrist (dos mitades de 32 bits) ──────────────────────
+     Se usan para las tablas y para detectar la repetición. El generador
+     es mulberry32 con semilla fija: la misma clave en cada arranque. */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const zr = mulberry32(20260902);
+  const z32 = () => (zr() * 4294967296) | 0;
+  const ZP = new Int32Array(15 * 128 * 2);
+  for (let i = 0; i < ZP.length; i++) ZP[i] = z32();
+  const ZTURNO = [z32(), z32()];
+  const ZENR = new Int32Array(16 * 2);
+  for (let i = 0; i < ZENR.length; i++) ZENR[i] = z32();
+  const ZEP = new Int32Array(8 * 2);
+  for (let i = 0; i < ZEP.length; i++) ZEP[i] = z32();
+
+  function claveDesdeCero(G) {
+    let h1 = 0, h2 = 0;
+    for (let s = 0; s < 128; s++) {
+      if (s & 0x88) continue;
+      const p = G.b[s];
+      if (!p) continue;
+      h1 ^= ZP[(p * 128 + s) * 2]; h2 ^= ZP[(p * 128 + s) * 2 + 1];
+    }
+    h1 ^= ZENR[G.enr * 2]; h2 ^= ZENR[G.enr * 2 + 1];
+    if (G.ep >= 0) { h1 ^= ZEP[col(G.ep) * 2]; h2 ^= ZEP[col(G.ep) * 2 + 1]; }
+    if (G.turno === NEGRO) { h1 ^= ZTURNO[0]; h2 ^= ZTURNO[1]; }
+    return [h1, h2];
+  }
+
+  /* ── Posición ─────────────────────────────────────────────────────
+     b: casillas; turno; enr: derechos de enroque; ep: casilla de captura
+     al paso (-1 si no hay); medio: medias jugadas sin peón ni captura
+     (regla de 50); pleno: número de jugada; reyes: dónde está cada rey.
+     pila/sp: deshacer. hist/nh: claves de las posiciones jugadas, para la
+     repetición triple. */
+  function nueva() {
+    const G = {
+      b: new Int8Array(128), turno: BLANCO, enr: 15, ep: -1, medio: 0, pleno: 1,
+      reyes: [116, 4], h1: 0, h2: 0,
+      pila: new Int32Array(2048 * 8), sp: 0,
+      hist: new Int32Array(2048 * 2), nh: 0,
+    };
+    const back = [TORRE, CABALLO, ALFIL, DAMA, REY, ALFIL, CABALLO, TORRE];
+    for (let f = 0; f < 8; f++) {
+      G.b[f] = back[f] | (NEGRO << 3);
+      G.b[16 + f] = PEON | (NEGRO << 3);
+      G.b[96 + f] = PEON;
+      G.b[112 + f] = back[f];
+    }
+    const k = claveDesdeCero(G);
+    G.h1 = k[0]; G.h2 = k[1];
+    G.hist[0] = G.h1; G.hist[1] = G.h2; G.nh = 1;
+    return G;
+  }
+
+  function clonar(G) {
+    const N = {
+      b: Int8Array.from(G.b), turno: G.turno, enr: G.enr, ep: G.ep, medio: G.medio, pleno: G.pleno,
+      reyes: G.reyes.slice(), h1: G.h1, h2: G.h2,
+      pila: new Int32Array(2048 * 8), sp: 0,
+      hist: new Int32Array(2048 * 2), nh: G.nh,
+    };
+    for (let i = 0; i < G.nh * 2; i++) N.hist[i] = G.hist[i];
+    return N;
+  }
+
+  /* Copia plana de la posición: para mandársela al Web Worker (que solo
+     acepta datos, no objetos vivos) y para las fotos del deshacer. */
+  function exportar(G) {
+    return { b: Array.from(G.b), turno: G.turno, enr: G.enr, ep: G.ep, medio: G.medio,
+      pleno: G.pleno, reyes: G.reyes.slice(), hist: Array.from(G.hist.subarray(0, G.nh * 2)) };
+  }
+  function importar(o) {
+    const G = nueva();
+    G.b.set(o.b); G.turno = o.turno; G.enr = o.enr; G.ep = o.ep; G.medio = o.medio; G.pleno = o.pleno;
+    G.reyes = o.reyes.slice(); G.sp = 0;
+    const k = claveDesdeCero(G);
+    G.h1 = k[0]; G.h2 = k[1];
+    G.nh = (o.hist.length / 2) | 0;
+    for (let i = 0; i < o.hist.length; i++) G.hist[i] = o.hist[i];
+    return G;
+  }
+
+  /* Lee una posición en notación FEN (para las pruebas de perft). */
+  function desdeFen(fen) {
+    const G = nueva();
+    G.b.fill(0);
+    const p = fen.trim().split(/\s+/);
+    const LETRA = { p: PEON, n: CABALLO, b: ALFIL, r: TORRE, q: DAMA, k: REY };
+    let s = 0;
+    for (const c of p[0]) {
+      if (c === '/') { s = (s + 16) & ~15; continue; }
+      if (c >= '1' && c <= '8') { s += +c; continue; }
+      const t = LETRA[c.toLowerCase()];
+      const cl = c === c.toLowerCase() ? NEGRO : BLANCO;
+      G.b[s] = t | (cl << 3);
+      if (t === REY) G.reyes[cl] = s;
+      s++;
+    }
+    G.turno = p[1] === 'b' ? NEGRO : BLANCO;
+    G.enr = 0;
+    if (p[2] && p[2] !== '-') {
+      if (p[2].includes('K')) G.enr |= 1;
+      if (p[2].includes('Q')) G.enr |= 2;
+      if (p[2].includes('k')) G.enr |= 4;
+      if (p[2].includes('q')) G.enr |= 8;
+    }
+    G.ep = (p[3] && p[3] !== '-') ? ((8 - Number(p[3][1])) * 16 + (p[3].charCodeAt(0) - 97)) : -1;
+    G.medio = p[4] ? +p[4] : 0;
+    G.pleno = p[5] ? +p[5] : 1;
+    const k = claveDesdeCero(G);
+    G.h1 = k[0]; G.h2 = k[1];
+    G.hist[0] = G.h1; G.hist[1] = G.h2; G.nh = 1;
+    return G;
+  }
+
+  /* ── ¿Ataca el color `c` la casilla `s`? ─────────────────────────── */
+  function atacada(b, s, c) {
+    const mio = c << 3;
+    // Peones: un peón blanco en x ataca x-17 y x-15, así que ataca s si está en s+17 o s+15.
+    if (c === BLANCO) {
+      let t = s + 17; if (dentro(t) && b[t] === (PEON | mio)) return true;
+      t = s + 15; if (dentro(t) && b[t] === (PEON | mio)) return true;
+    } else {
+      let t = s - 17; if (dentro(t) && b[t] === (PEON | mio)) return true;
+      t = s - 15; if (dentro(t) && b[t] === (PEON | mio)) return true;
+    }
+    for (let i = 0; i < 8; i++) {
+      const t = s + DIR_C[i];
+      if (dentro(t) && b[t] === (CABALLO | mio)) return true;
+    }
+    for (let i = 0; i < 8; i++) {
+      const t = s + DIR_R[i];
+      if (dentro(t) && b[t] === (REY | mio)) return true;
+    }
+    for (let i = 0; i < 4; i++) {
+      const d = DIR_A[i];
+      for (let t = s + d; dentro(t); t += d) {
+        const p = b[t];
+        if (!p) continue;
+        if (p === (ALFIL | mio) || p === (DAMA | mio)) return true;
+        break;
+      }
+    }
+    for (let i = 0; i < 4; i++) {
+      const d = DIR_T[i];
+      for (let t = s + d; dentro(t); t += d) {
+        const p = b[t];
+        if (!p) continue;
+        if (p === (TORRE | mio) || p === (DAMA | mio)) return true;
+        break;
+      }
+    }
+    return false;
+  }
+  const enJaque = (G, c) => atacada(G.b, G.reyes[c], 1 - c);
+
+  /* ── Generación pseudolegal ───────────────────────────────────────
+     `soloRuido` limita a capturas y coronaciones (para la búsqueda de
+     quietud). Las jugadas se validan después haciéndolas y mirando si el
+     rey queda en jaque: es lo más simple de verificar y perft lo confirma. */
+  function pseudo(G, soloRuido) {
+    const b = G.b, c = G.turno, o = 1 - c, mio = c << 3, suyo = o << 3, out = [];
+    const adelante = c === BLANCO ? -16 : 16;
+    const filaInicio = c === BLANCO ? 6 : 1;
+    const filaCorona = c === BLANCO ? 0 : 7;
+    for (let s = 0; s < 128; s++) {
+      if (s & 0x88) continue;
+      const p = b[s];
+      if (!p || colorDe(p) !== c) continue;
+      const t = tipo(p);
+      if (t === PEON) {
+        const a1 = s + adelante;
+        if (dentro(a1) && !b[a1]) {
+          if (fila(a1) === filaCorona) {
+            out.push(jug(s, a1, F_CORONA, DAMA));
+            if (!soloRuido) {
+              out.push(jug(s, a1, F_CORONA, TORRE));
+              out.push(jug(s, a1, F_CORONA, ALFIL));
+              out.push(jug(s, a1, F_CORONA, CABALLO));
+            }
+          } else if (!soloRuido) {
+            out.push(jug(s, a1, F_NORMAL, 0));
+            const a2 = a1 + adelante;
+            if (fila(s) === filaInicio && !b[a2]) out.push(jug(s, a2, F_DOBLE, 0));
+          }
+        }
+        for (const d of [adelante - 1, adelante + 1]) {
+          const a = s + d;
+          if (!dentro(a)) continue;
+          const q = b[a];
+          if (q && colorDe(q) === o) {
+            if (fila(a) === filaCorona) {
+              out.push(jug(s, a, F_CORONA, DAMA));
+              if (!soloRuido) {
+                out.push(jug(s, a, F_CORONA, TORRE));
+                out.push(jug(s, a, F_CORONA, ALFIL));
+                out.push(jug(s, a, F_CORONA, CABALLO));
+              }
+            } else out.push(jug(s, a, F_NORMAL, 0));
+          } else if (!q && a === G.ep) out.push(jug(s, a, F_ALPASO, 0));
+        }
+        continue;
+      }
+      if (t === CABALLO || t === REY) {
+        const dirs = t === CABALLO ? DIR_C : DIR_R;
+        for (let i = 0; i < 8; i++) {
+          const a = s + dirs[i];
+          if (!dentro(a)) continue;
+          const q = b[a];
+          if (q && colorDe(q) === c) continue;
+          if (soloRuido && !q) continue;
+          out.push(jug(s, a, F_NORMAL, 0));
+        }
+        continue;
+      }
+      const dirs = t === ALFIL ? DIR_A : t === TORRE ? DIR_T : DIR_R;
+      const n = dirs.length;
+      for (let i = 0; i < n; i++) {
+        const d = dirs[i];
+        for (let a = s + d; dentro(a); a += d) {
+          const q = b[a];
+          if (!q) { if (!soloRuido) out.push(jug(s, a, F_NORMAL, 0)); continue; }
+          if (colorDe(q) === o) out.push(jug(s, a, F_NORMAL, 0));
+          break;
+        }
+      }
+    }
+    // Enroque: sin haber movido rey ni torre (lo lleva G.enr), con las casillas
+    // de en medio vacías y sin que el rey pase por casilla atacada.
+    if (!soloRuido) {
+      const base = c === BLANCO ? 112 : 0;
+      const dCorto = c === BLANCO ? 1 : 4, dLargo = c === BLANCO ? 2 : 8;
+      const rey = base + 4;
+      if (b[rey] === (REY | mio) && !atacada(b, rey, o)) {
+        if ((G.enr & dCorto) && !b[rey + 1] && !b[rey + 2] && b[base + 7] === (TORRE | mio) &&
+            !atacada(b, rey + 1, o) && !atacada(b, rey + 2, o)) out.push(jug(rey, rey + 2, F_ENR_C, 0));
+        if ((G.enr & dLargo) && !b[rey - 1] && !b[rey - 2] && !b[rey - 3] && b[base] === (TORRE | mio) &&
+            !atacada(b, rey - 1, o) && !atacada(b, rey - 2, o)) out.push(jug(rey, rey - 2, F_ENR_L, 0));
+      }
+    }
+    void suyo;
+    return out;
+  }
+
+  /* ── Hacer y deshacer ─────────────────────────────────────────────
+     La pila guarda 8 enteros por jugada: jugada, pieza comida, casilla de
+     la comida, derechos de enroque, al paso, contador de 50, y las dos
+     mitades de la clave. Así deshacer no recalcula nada. */
+  function hacer(G, m) {
+    const b = G.b, c = G.turno, o = 1 - c, mio = c << 3;
+    const de = jDe(m), a = jA(m), f = jF(m), pr = jPr(m);
+    const p = b[de];
+    let comida = 0, casillaComida = -1;
+
+    const sp = G.sp * 8;
+    G.pila[sp] = m; G.pila[sp + 3] = G.enr; G.pila[sp + 4] = G.ep;
+    G.pila[sp + 5] = G.medio; G.pila[sp + 6] = G.h1; G.pila[sp + 7] = G.h2;
+
+    let h1 = G.h1, h2 = G.h2;
+    // fuera la clave vieja de enroque y al paso, y cambio de turno
+    h1 ^= ZENR[G.enr * 2]; h2 ^= ZENR[G.enr * 2 + 1];
+    if (G.ep >= 0) { h1 ^= ZEP[col(G.ep) * 2]; h2 ^= ZEP[col(G.ep) * 2 + 1]; }
+    h1 ^= ZTURNO[0]; h2 ^= ZTURNO[1];
+
+    if (f === F_ALPASO) {
+      casillaComida = a + (c === BLANCO ? 16 : -16);
+      comida = b[casillaComida];
+      b[casillaComida] = 0;
+      h1 ^= ZP[(comida * 128 + casillaComida) * 2]; h2 ^= ZP[(comida * 128 + casillaComida) * 2 + 1];
+    } else if (b[a]) {
+      casillaComida = a;
+      comida = b[a];
+      h1 ^= ZP[(comida * 128 + a) * 2]; h2 ^= ZP[(comida * 128 + a) * 2 + 1];
+    }
+    G.pila[sp + 1] = comida; G.pila[sp + 2] = casillaComida;
+
+    // mover la pieza
+    b[de] = 0;
+    h1 ^= ZP[(p * 128 + de) * 2]; h2 ^= ZP[(p * 128 + de) * 2 + 1];
+    const puesta = f === F_CORONA ? (pr | mio) : p;
+    b[a] = puesta;
+    h1 ^= ZP[(puesta * 128 + a) * 2]; h2 ^= ZP[(puesta * 128 + a) * 2 + 1];
+
+    if (tipo(p) === REY) G.reyes[c] = a;
+
+    if (f === F_ENR_C || f === F_ENR_L) {
+      const tDe = f === F_ENR_C ? a + 1 : a - 2;
+      const tA = f === F_ENR_C ? a - 1 : a + 1;
+      const t = b[tDe];
+      b[tDe] = 0; b[tA] = t;
+      h1 ^= ZP[(t * 128 + tDe) * 2] ^ ZP[(t * 128 + tA) * 2];
+      h2 ^= ZP[(t * 128 + tDe) * 2 + 1] ^ ZP[(t * 128 + tA) * 2 + 1];
+    }
+
+    G.enr &= MASCARA[de] & MASCARA[a];
+    G.ep = f === F_DOBLE ? (de + (c === BLANCO ? -16 : 16)) : -1;
+    G.medio = (tipo(p) === PEON || comida) ? 0 : G.medio + 1;
+    if (c === NEGRO) G.pleno++;
+    G.turno = o;
+
+    h1 ^= ZENR[G.enr * 2]; h2 ^= ZENR[G.enr * 2 + 1];
+    if (G.ep >= 0) { h1 ^= ZEP[col(G.ep) * 2]; h2 ^= ZEP[col(G.ep) * 2 + 1]; }
+    G.h1 = h1; G.h2 = h2;
+    G.sp++;
+    G.hist[G.nh * 2] = h1; G.hist[G.nh * 2 + 1] = h2; G.nh++;
+    return true;
+  }
+
+  function deshacer(G) {
+    G.sp--;
+    const sp = G.sp * 8;
+    const m = G.pila[sp], comida = G.pila[sp + 1], casillaComida = G.pila[sp + 2];
+    const de = jDe(m), a = jA(m), f = jF(m);
+    const c = 1 - G.turno, mio = c << 3;
+    const p = G.b[a];
+    G.b[de] = f === F_CORONA ? (PEON | mio) : p;
+    G.b[a] = 0;
+    if (comida) G.b[casillaComida] = comida;
+    if (tipo(p) === REY) G.reyes[c] = de;
+    if (f === F_ENR_C || f === F_ENR_L) {
+      const tDe = f === F_ENR_C ? a + 1 : a - 2;
+      const tA = f === F_ENR_C ? a - 1 : a + 1;
+      G.b[tDe] = G.b[tA]; G.b[tA] = 0;
+    }
+    G.enr = G.pila[sp + 3]; G.ep = G.pila[sp + 4]; G.medio = G.pila[sp + 5];
+    G.h1 = G.pila[sp + 6]; G.h2 = G.pila[sp + 7];
+    if (c === NEGRO) G.pleno--;
+    G.turno = c;
+    G.nh--;
+  }
+
+  /* ── Jugadas legales ──────────────────────────────────────────────
+     Pseudolegales filtradas: se hace la jugada y se descarta si el propio
+     rey queda atacado. Perft confirma que no sobra ni falta ninguna. */
+  function legales(G) {
+    const ms = pseudo(G, false), out = [];
+    const c = G.turno;
+    for (let i = 0; i < ms.length; i++) {
+      hacer(G, ms[i]);
+      if (!atacada(G.b, G.reyes[c], 1 - c)) out.push(ms[i]);
+      deshacer(G);
+    }
+    return out;
+  }
+  function legalesRuido(G) {
+    const ms = pseudo(G, true), out = [];
+    const c = G.turno;
+    for (let i = 0; i < ms.length; i++) {
+      hacer(G, ms[i]);
+      if (!atacada(G.b, G.reyes[c], 1 - c)) out.push(ms[i]);
+      deshacer(G);
+    }
+    return out;
+  }
+
+  /* ── Finales de partida ───────────────────────────────────────────
+     0 sigue; 1 mate (gana quien acaba de mover); 2 ahogado; 3 material
+     insuficiente; 4 repetición triple; 5 regla de 50 jugadas. */
+  function materialInsuficiente(G) {
+    const b = G.b;
+    const menores = [[], []];
+    let otros = false;
+    for (let s = 0; s < 128; s++) {
+      if (s & 0x88) continue;
+      const p = b[s];
+      if (!p) continue;
+      const t = tipo(p);
+      if (t === REY) continue;
+      if (t === ALFIL || t === CABALLO) menores[colorDe(p)].push(t === ALFIL ? ((fila(s) + col(s)) & 1) + 2 : 1);
+      else { otros = true; break; }
+    }
+    if (otros) return false;
+    const nb = menores[0].length, nn = menores[1].length;
+    if (nb === 0 && nn === 0) return true;                      // rey contra rey
+    if (nb + nn === 1) return true;                             // rey y pieza menor contra rey
+    // dos alfiles del mismo color de casilla (uno por bando) tampoco dan mate
+    if (nb === 1 && nn === 1 && menores[0][0] >= 2 && menores[1][0] >= 2 && menores[0][0] === menores[1][0]) return true;
+    return false;
+  }
+  function repeticiones(G) {
+    let n = 0;
+    for (let i = 0; i < G.nh; i++) if (G.hist[i * 2] === G.h1 && G.hist[i * 2 + 1] === G.h2) n++;
+    return n;
+  }
+  function estado(G) {
+    if (legales(G).length === 0) return enJaque(G, G.turno) ? 1 : 2;
+    if (materialInsuficiente(G)) return 3;
+    if (repeticiones(G) >= 3) return 4;
+    if (G.medio >= 100) return 5;
+    return 0;
+  }
+
+  /* ── Tablas de posición ───────────────────────────────────────────
+     Se calculan con fórmulas en vez de escribirlas a mano: anillo hacia el
+     centro para las piezas, avance para los peones, y dos tablas de rey
+     (medio juego atrás y a un lado, final en el centro) que se mezclan
+     según cuánto material queda. Índice 0..63 desde el punto de vista del
+     bando: 0 = esquina lejana izquierda, 56..63 = su propia fila. */
+  function hacerTablas() {
+    const T = {};
+    const anillo = (f, r) => Math.min(f, 7 - f, r, 7 - r);      // 0 borde .. 3 centro
+    const idx = (r, f) => r * 8 + f;
+    const AV = [0, 2, 6, 15, 28, 48, 82, 0];
+    const CF = [-7, -3, 3, 12, 12, 3, -3, -7];
+    T.peon = new Int32Array(64);
+    T.caballo = new Int32Array(64);
+    T.alfil = new Int32Array(64);
+    T.torre = new Int32Array(64);
+    T.dama = new Int32Array(64);
+    T.reyMedio = new Int32Array(64);
+    T.reyFinal = new Int32Array(64);
+    for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+      const av = 7 - r;              // 0 = fila propia, 6 = a punto de coronar
+      const an = anillo(f, r);
+      const i = idx(r, f);
+      T.peon[i] = AV[av] + (av <= 3 ? CF[f] : 0) + (av === 1 && (f === 5 || f === 6) ? 8 : 0);
+      T.caballo[i] = -42 + 21 * an + (av === 0 ? -8 : 0);
+      T.alfil[i] = -18 + 9 * an + (av === 0 ? -8 : 0) + (f === r || f + r === 7 ? 5 : 0);
+      T.torre[i] = (av === 6 ? 16 : 0) + (f >= 2 && f <= 5 ? 4 : 0) + (av === 0 && (f === 3 || f === 4) ? 6 : 0);
+      T.dama[i] = -12 + 4 * an + (av >= 2 && av <= 5 ? -4 : 0);
+      T.reyMedio[i] = [12, -10, -32, -44, -50, -54, -56, -58][av] + (av <= 1 ? [10, 16, 6, -12, -14, 2, 16, 10][f] : 0);
+      T.reyFinal[i] = -50 + 18 * an;
+    }
+    return T;
+  }
+  const T = hacerTablas();
+  const idxBlanco = (s) => fila(s) * 8 + col(s);
+  const idxNegro = (s) => (7 - fila(s)) * 8 + col(s);
+
+  /* ── Evaluación ───────────────────────────────────────────────────
+     Devuelve la puntuación desde el punto de vista de quien mueve.
+     `conTablas` falso deja solo el material: es lo que usa el nivel Normal. */
+  const CENTRO = [3, 2, 1, 0, 0, 1, 2, 3];
+  const _mat = new Int32Array(2), _pos = new Int32Array(2), _alf = new Int32Array(2);
+  const _peones = [new Int32Array(8), new Int32Array(8)];
+  function evaluar(G, conTablas) {
+    const b = G.b;
+    const mat = _mat, pos = _pos, alfiles = _alf, peones = _peones;
+    mat[0] = mat[1] = pos[0] = pos[1] = alfiles[0] = alfiles[1] = 0;
+    peones[0].fill(0); peones[1].fill(0);
+    let noPeon = 0;
+    for (let s = 0; s < 128; s++) {
+      if (s & 0x88) continue;
+      const p = b[s];
+      if (!p) continue;
+      const c = colorDe(p), t = tipo(p);
+      mat[c] += VALOR[t];
+      if (t !== PEON && t !== REY) noPeon += VALOR[t];
+      if (t === PEON) peones[c][col(s)]++;
+      if (t === ALFIL) alfiles[c]++;
+      if (!conTablas) continue;
+      const i = c === BLANCO ? idxBlanco(s) : idxNegro(s);
+      if (t === PEON) pos[c] += T.peon[i];
+      else if (t === CABALLO) pos[c] += T.caballo[i];
+      else if (t === ALFIL) pos[c] += T.alfil[i];
+      else if (t === TORRE) pos[c] += T.torre[i];
+      else if (t === DAMA) pos[c] += T.dama[i];
+    }
+    let s = (mat[BLANCO] - mat[NEGRO]);
+    if (conTablas) {
+      s += pos[BLANCO] - pos[NEGRO];
+      // fase: 1 con todas las piezas, 0 con solo reyes y peones
+      const fase = Math.max(0, Math.min(1, noPeon / 6400));
+      for (const c of [BLANCO, NEGRO]) {
+        const i = c === BLANCO ? idxBlanco(G.reyes[c]) : idxNegro(G.reyes[c]);
+        const v = Math.round(fase * T.reyMedio[i] + (1 - fase) * T.reyFinal[i]);
+        s += c === BLANCO ? v : -v;
+      }
+      if (alfiles[BLANCO] >= 2) s += 28;
+      if (alfiles[NEGRO] >= 2) s -= 28;
+      for (const c of [BLANCO, NEGRO]) {
+        let d = 0, ais = 0;
+        for (let f = 0; f < 8; f++) {
+          const n = peones[c][f];
+          if (n > 1) d += n - 1;
+          if (n > 0 && (f === 0 || !peones[c][f - 1]) && (f === 7 || !peones[c][f + 1])) ais++;
+        }
+        const v = -13 * d - 14 * ais;
+        s += c === BLANCO ? v : -v;
+      }
+      // Final ganado: empujar al rey débil al borde y acercar el propio.
+      const dif = mat[BLANCO] - mat[NEGRO];
+      if (noPeon <= 1300 && Math.abs(dif) >= 350) {
+        const gana = dif > 0 ? BLANCO : NEGRO;
+        const rd = G.reyes[1 - gana], rg = G.reyes[gana];
+        const borde = 6 - CENTRO[col(rd)] - CENTRO[fila(rd)];
+        const dist = Math.abs(fila(rg) - fila(rd)) + Math.abs(col(rg) - col(rd));
+        const v = 14 * borde + 6 * (14 - dist);
+        s += gana === BLANCO ? v : -v;
+      }
+    }
+    return G.turno === BLANCO ? s : -s;
+  }
+
+  /* ── Búsqueda ─────────────────────────────────────────────────────
+     Negamax con poda alfa-beta, ordenación MVV-LVA y matacaballos
+     («killers»), búsqueda de quietud opcional (solo capturas y coronaciones)
+     y freno por tiempo o por número de nodos. */
+  let nodos = 0, limiteNodos = 0, plazo = 0, abortado = false, killers = null;
+
+  /* Orden de las jugadas: primero las capturas por víctima gorda y atacante
+     flaco (MVV-LVA), luego las coronaciones y luego las dos jugadas tranquilas
+     que ya provocaron un corte a esta misma altura («killers»). Cuanto antes
+     aparezca la mejor, más poda la alfa-beta. */
+  function puntuarJugada(G, m, ply) {
+    const a = jA(m), f = jF(m);
+    const victima = f === F_ALPASO ? PEON : tipo(G.b[a]);
+    if (victima) return 1000000 + victima * 100 - tipo(G.b[jDe(m)]);
+    if (f === F_CORONA) return 900000 + jPr(m);
+    if (ply < 128 && (killers[ply * 2] === m || killers[ply * 2 + 1] === m)) return 800000;
+    return 0;
+  }
+  function ordenar(G, ms, ply) {
+    const n = ms.length;
+    const sc = new Int32Array(n);
+    for (let i = 0; i < n; i++) sc[i] = puntuarJugada(G, ms[i], ply);
+    for (let i = 1; i < n; i++) {
+      const m = ms[i], s = sc[i];
+      let j = i - 1;
+      while (j >= 0 && sc[j] < s) { ms[j + 1] = ms[j]; sc[j + 1] = sc[j]; j--; }
+      ms[j + 1] = m; sc[j + 1] = s;
+    }
+    return ms;
+  }
+
+  function seAcabo() {
+    if (limiteNodos && nodos >= limiteNodos) return true;
+    if (plazo && (nodos & 127) === 0 && Date.now() > plazo) return true;
+    return false;
+  }
+
+  function quietud(G, alfa, beta, ply) {
+    nodos++;
+    if (seAcabo()) { abortado = true; return 0; }
+    // En jaque la posición no está quieta: se miran TODAS las salidas, no solo
+    // las capturas; si no, la búsqueda «se planta» en una posición perdida.
+    const jaque = ply < 32 && enJaque(G, G.turno);
+    let mejor;
+    let ms;
+    if (jaque) {
+      ms = ordenar(G, legales(G), ply);
+      if (!ms.length) return -MATE + ply;
+      mejor = -INF;
+    } else {
+      mejor = evaluar(G, true);
+      if (mejor >= beta) return mejor;
+      if (mejor > alfa) alfa = mejor;
+      ms = ordenar(G, legalesRuido(G), ply);
+    }
+    for (let i = 0; i < ms.length; i++) {
+      hacer(G, ms[i]);
+      const v = -quietud(G, -beta, -alfa, ply + 1);
+      deshacer(G);
+      if (abortado) return 0;
+      if (v > mejor) mejor = v;
+      if (v > alfa) alfa = v;
+      if (alfa >= beta) break;
+    }
+    return mejor;
+  }
+
+  function negamax(G, prof, alfa, beta, ply, opc) {
+    nodos++;
+    if (seAcabo()) { abortado = true; return 0; }
+    if (ply > 0) {
+      if (G.medio >= 100) return 0;
+      if (repeticiones(G) >= 2) return 0;      // repetir ya es tablas dentro de la búsqueda
+    }
+    // Extensión de jaque: sin ella, un mate justo en el horizonte se evalúa
+    // como material y la app no lo ve ni lo evita.
+    if (opc.extender && ply < 24 && enJaque(G, G.turno)) prof++;
+    if (prof <= 0) return opc.quietud ? quietud(G, alfa, beta, ply) : evaluar(G, opc.tablas);
+    const ms = ordenar(G, legales(G), ply);
+    if (!ms.length) return enJaque(G, G.turno) ? -MATE + ply : 0;
+    let mejor = -INF;
+    for (let i = 0; i < ms.length; i++) {
+      const m = ms[i];
+      hacer(G, m);
+      const v = -negamax(G, prof - 1, -beta, -alfa, ply + 1, opc);
+      deshacer(G);
+      if (abortado) return 0;
+      if (v > mejor) mejor = v;
+      if (v > alfa) {
+        alfa = v;
+        if (alfa >= beta) {
+          if (ply < 128 && !tipo(G.b[jA(m)]) && jF(m) !== F_CORONA) {
+            killers[ply * 2 + 1] = killers[ply * 2];
+            killers[ply * 2] = m;
+          }
+          break;
+        }
+      }
+    }
+    return mejor;
+  }
+
+  /* Una pasada desde la raíz. Devuelve la lista de jugadas con su valor.
+     El pellizco de azar (`ruido`) va DENTRO de la ventana, no sumado después:
+     con la ventana estrecha una jugada que se poda vuelve con el valor de
+     corte, y sumarle azar encima la hacía «ganar» a la mejor. Ese fallo hacía
+     que el nivel más hondo jugara peor que el de abajo. */
+  function raiz(G, ms, prof, opc, ruido) {
+    let alfa = -INF;
+    const vals = new Map();
+    let mejor = ms[0], mejorV = -INF;
+    for (let i = 0; i < ms.length; i++) {
+      const m = ms[i];
+      const r = ruido.get(m) || 0;
+      hacer(G, m);
+      const v = -negamax(G, prof - 1, -INF, alfa === -INF ? INF : -(alfa - r), 1, opc) + r;
+      deshacer(G);
+      if (abortado) return null;
+      vals.set(m, v);
+      if (v > mejorV) { mejorV = v; mejor = m; }
+      if (v > alfa) alfa = v;
+    }
+    return { m: mejor, v: mejorV, vals };
+  }
+
+  let ultimaInfo = null;
+  function buscar(G, rnd, opc) {
+    const ms = legales(G);
+    if (!ms.length) return -1;
+    if (ms.length === 1) { ultimaInfo = { prof: 0, nodos: 0, ms: 0 }; return ms[0]; }
+    nodos = 0; abortado = false;
+    limiteNodos = opc.nodos || 0;
+    plazo = opc.plazo ? Date.now() + opc.plazo : 0;
+    killers = new Int32Array(256);        // dos por altura, hasta 128 de hondo
+    const ruido = new Map();
+    for (const m of ms) ruido.set(m, rnd() * (opc.ruido == null ? 6 : opc.ruido));
+    const t0 = Date.now();
+    let res = null, hecha = 0;
+    let orden = ordenar(G, ms.slice(), 0);
+    const profMax = opc.profMax || opc.prof;
+    for (let d = opc.prof || 1; d <= profMax; d++) {
+      const r = raiz(G, orden, d, opc, ruido);
+      if (!r) break;
+      res = r; hecha = d;
+      if (Math.abs(r.v) > MATE - 200) break;
+      orden = orden.slice().sort((x, y) => r.vals.get(y) - r.vals.get(x));
+    }
+    ultimaInfo = { prof: hecha, nodos, ms: Date.now() - t0 };
+    return res ? res.m : ms[0];
+  }
+
+  /* ── Niveles ──────────────────────────────────────────────────────
+     Fácil: mucha suerte y sesgo a capturas. Normal: dos jugadas por delante
+     contando solo material. Difícil: alfa-beta a cuatro con tablas de
+     posición y ordenación. Experto: profundización iterativa con búsqueda
+     de quietud y un presupuesto (tiempo en el juego, nodos al medir). */
+  function facil(G, ms, rnd) {
+    if (rnd() < 0.4) return ms[(rnd() * ms.length) | 0];
+    let mejor = ms[0], mejorS = -Infinity;
+    for (let k = 0; k < 3; k++) {
+      const m = ms[(rnd() * ms.length) | 0];
+      const a = jA(m), f = jF(m);
+      const victima = f === F_ALPASO ? PEON : tipo(G.b[a]);
+      const s = VALOR[victima] + (f === F_CORONA ? VALOR[jPr(m)] : 0) + rnd() * 90;
+      if (s > mejorS) { mejorS = s; mejor = m; }
+    }
+    return mejor;
+  }
+  function elegir(G, nivel, rnd, opc) {
+    const ms = legales(G);
+    if (!ms.length) return -1;
+    const o = opc || {};
+    if (nivel === 'facil') return facil(G, ms, rnd);
+    if (nivel === 'normal') return buscar(G, rnd, { prof: 2, profMax: 2, tablas: false, quietud: false, ruido: 28 });
+    if (nivel === 'dificil') return buscar(G, rnd, { prof: 4, profMax: 4, tablas: true, quietud: false, extender: true, ruido: 5 });
+    return buscar(G, rnd, {
+      prof: 1, profMax: o.profMax || 24, tablas: true, quietud: true, extender: true, ruido: 4,
+      plazo: o.plazo || 0, nodos: o.nodos || 0,
+    });
+  }
+
+  /* ── Notación algebraica abreviada ────────────────────────────────
+     Necesita la lista de legales de la posición para saber si hace falta
+     desambiguar por columna o por fila. */
+  const LETRA_PIEZA = ['', '', 'C', 'A', 'T', 'D', 'R'];
+  const nombreCasilla = (s) => String.fromCharCode(97 + col(s)) + (8 - fila(s));
+  function notacion(G, m) {
+    const de = jDe(m), a = jA(m), f = jF(m), pr = jPr(m);
+    if (f === F_ENR_C) return coronaSufijo(G, m, 'O-O');
+    if (f === F_ENR_L) return coronaSufijo(G, m, 'O-O-O');
+    const p = G.b[de], t = tipo(p);
+    const come = !!G.b[a] || f === F_ALPASO;
+    let s = '';
+    if (t === PEON) {
+      if (come) s += String.fromCharCode(97 + col(de)) + 'x';
+      s += nombreCasilla(a);
+      if (f === F_CORONA) s += '=' + LETRA_PIEZA[pr];
+    } else {
+      s += LETRA_PIEZA[t];
+      let mismaCol = false, mismaFila = false, hayOtra = false;
+      for (const o of legales(G)) {
+        if (o === m) continue;
+        if (jA(o) !== a) continue;
+        const q = G.b[jDe(o)];
+        if (tipo(q) !== t || colorDe(q) !== colorDe(p)) continue;
+        hayOtra = true;
+        if (col(jDe(o)) === col(de)) mismaCol = true;
+        if (fila(jDe(o)) === fila(de)) mismaFila = true;
+      }
+      if (hayOtra) {
+        if (!mismaCol) s += String.fromCharCode(97 + col(de));
+        else if (!mismaFila) s += String(8 - fila(de));
+        else s += nombreCasilla(de);
+      }
+      if (come) s += 'x';
+      s += nombreCasilla(a);
+    }
+    return coronaSufijo(G, m, s);
+  }
+  function coronaSufijo(G, m, s) {
+    hacer(G, m);
+    const hayLegales = legales(G).length > 0;
+    const jaque = enJaque(G, G.turno);
+    deshacer(G);
+    if (jaque) return s + (hayLegales ? '+' : '#');
+    return s;
+  }
+
+  return {
+    PEON, CABALLO, ALFIL, TORRE, DAMA, REY, BLANCO, NEGRO, VALOR, MATE,
+    F_NORMAL, F_DOBLE, F_ENR_C, F_ENR_L, F_ALPASO, F_CORONA,
+    tipo, colorDe, dentro, fila, col, jug, jDe, jA, jF, jPr, nombreCasilla,
+    nueva, clonar, exportar, importar, desdeFen, atacada, enJaque, pseudo, legales, legalesRuido,
+    hacer, deshacer, estado, materialInsuficiente, repeticiones, evaluar,
+    buscar, elegir, notacion, claveDesdeCero, info: () => ultimaInfo,
+  };
+}
+/* @motor-fin */
+
+const M = crearMotor();
+const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+const LADO = { blancas: 'blancas', negras: 'negras', alterna: 'alterna' };
+
+const S = {
+  nivel: NIVELES.includes(store.get('aje.nivel', 'normal')) ? store.get('aje.nivel', 'normal') : 'normal',
+  lado: LADO[store.get('aje.lado', 'blancas')] ? store.get('aje.lado', 'blancas') : 'blancas',
+  G: null, miColor: M.BLANCO, volteado: false,
+  gen: 0, timers: [], jugando: false, pensando: false,
+  sel: -1, destinos: [], ultimo: null, jugadas: [], fotos: [],
+  fin: null, alterna: false,
+  worker: null, pid: 0, pendientes: new Map(),
+};
+
+/* El texto va dentro de .aj-reglas: en una pantalla de 667 px la hoja del
+   modal crece hacia arriba hasta salirse, y con el tope y el desplazamiento
+   propio no se pierde ni el título ni el botón. */
+const REGLAS = `<div class="aj-reglas">
+<p>Ajedrez completo, con <b>enroque</b> corto y largo (solo si ni el rey ni esa torre se han movido, sin piezas en medio y sin que el rey esté en jaque ni cruce casilla atacada), <b>captura al paso</b> y <b>coronación</b> a la pieza que elijas.</p>
+<p>Toca una pieza tuya y se marcan sus destinos legales. La última jugada queda sombreada, el rey se pinta en rojo si está en jaque y <b>Deshacer</b> retrocede tu jugada y la respuesta de la app.</p>
+<p><b>Tablas</b> por ahogado, por material insuficiente (rey contra rey, o contra rey y una pieza menor, y un alfil por bando en casillas del mismo color), por <b>repetición triple</b> y por la <b>regla de 50 jugadas</b> sin mover peón ni capturar.</p>
+<p><b>Fácil</b> juega casi al azar. <b>Normal</b> mira dos jugadas y solo cuenta material. <b>Difícil</b> busca cuatro con tablas de posición. <b>Experto</b> profundiza mientras le dura el plazo y remata las capturas. Tus victorias se guardan por nivel.</p>
+</div>`;
+
+/* ── Marcas ────────────────────────────────────────────────────────── */
+const victorias = (n) => store.get('aje.wins.' + n, 0);
+function anotaVictoria(nivel) {
+  const n = victorias(nivel) + 1;
+  store.set('aje.wins.' + nivel, n);
+  let alto = null;
+  for (const v of NIVELES) if (victorias(v) > 0) alto = v;
+  if (alto) {
+    const k = victorias(alto);
+    store.set('aje.hub', `${DIFF_LABEL[alto]}: ${k} victoria${k === 1 ? '' : 's'}`);
+  }
+  return n;
+}
+function bestsHTML() {
+  return NIVELES.map((v) =>
+    `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
+}
+
+/* ── Ciclo de vida ─────────────────────────────────────────────────── */
+function limpiar() {
+  S.gen++;
+  for (const t of S.timers) clearTimeout(t);
+  S.timers = [];
+  S.jugando = false; S.pensando = false;
+  S.sel = -1; S.destinos = []; S.ultimo = null; S.fin = null;
+}
+const espera = (ms) => new Promise((r) => { const t = setTimeout(r, ms); S.timers.push(t); });
+const vivo = (g) => g === S.gen && !!$('#aj-tab');
+
+/* ── La app piensa en un Web Worker hecho con el propio motor ────────
+   Si el navegador no lo permite (o falla), se calcula aquí con un plazo
+   corto para no congelar la pantalla. */
+function crearWorker() {
+  try {
+    if (typeof Worker === 'undefined' || typeof Blob === 'undefined') return null;
+    const src = crearMotor.toString() + `
+      const M = crearMotor();
+      self.onmessage = (e) => {
+        const d = e.data;
+        const G = M.importar(d.pos);
+        const m = M.elegir(G, d.nivel, Math.random, { plazo: d.plazo });
+        self.postMessage({ id: d.id, m });
+      };`;
+    const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+    const w = new Worker(url);
+    w.onmessage = (e) => {
+      const r = S.pendientes.get(e.data.id);
+      if (r) { S.pendientes.delete(e.data.id); r(e.data.m); }
+    };
+    w.onerror = () => {
+      try { w.terminate(); } catch (err) { /* nada */ }
+      S.worker = null;
+      for (const [id, r] of S.pendientes) { S.pendientes.delete(id); r(null); }
+    };
+    return w;
+  } catch (e) { return null; }
+}
+// Difícil y Experto piensan en el worker: son los que cuestan (105 y 900 ms
+// medidos aquí). Fácil y Normal tardan un milisegundo y no vale la pena
+// mandarlos fuera. Sin worker, el respaldo síncrono lleva plazo corto.
+const EN_WORKER = { facil: false, normal: false, dificil: true, experto: true };
+const PLAZO = { facil: 0, normal: 0, dificil: 0, experto: 900 };
+const PLAZO_SINC = { facil: 0, normal: 0, dificil: 0, experto: 260 };
+function pedirJugada(G, nivel) {
+  const sinc = () => M.elegir(G, nivel, Math.random, { plazo: PLAZO_SINC[nivel] });
+  if (!S.worker || !EN_WORKER[nivel]) return Promise.resolve(sinc());
+  return new Promise((res) => {
+    const id = ++S.pid;
+    S.pendientes.set(id, (m) => res(m == null ? sinc() : m));
+    S.worker.postMessage({ id, pos: M.exportar(G), nivel, plazo: PLAZO[nivel] });
+  });
+}
+
+/* ── Pantalla de inicio ────────────────────────────────────────────── */
+function ladoSegHTML() {
+  const op = [['blancas', 'Blancas'], ['negras', 'Negras'], ['alterna', 'Alterna']];
+  return `<div class="seg" id="seg-l">` + op.map(([v, t]) =>
+    `<button data-v="${v}" class="${v === S.lado ? 'sel' : ''}">${t}</button>`).join('') + `</div>`;
+}
+function renderSetup() {
+  limpiar();
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Ajedrez', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
+        ${diffSegHTML('seg-d', S.nivel, NIVELES)}
+        <div class="aj-hint" id="d-hint"></div>
+      </div>
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Tus piezas</div></div>
+        ${ladoSegHTML()}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Victorias, por nivel</div>
+      <div class="bests">${bestsHTML()}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const PISTA = {
+    facil: 'Juega casi al azar; se lanza a comer en cuanto puede.',
+    normal: 'Mira dos jugadas contando solo material: te regala piezas.',
+    dificil: 'Busca cuatro jugadas y valora también dónde está cada pieza.',
+    experto: 'Profundiza mientras le dura el plazo y remata las capturas.',
+  };
+  const hint = () => { const el = $('#d-hint'); if (el) el.textContent = PISTA[S.nivel]; };
+  hint();
+  bindSeg('seg-d', (v) => { S.nivel = v; store.set('aje.nivel', v); hint(); });
+  bindSeg('seg-l', (v) => { S.lado = v; store.set('aje.lado', v); });
+  $('#new').onclick = nuevaPartida;
+  bindHowto(REGLAS);
+}
+
+/* ── Partida ───────────────────────────────────────────────────────── */
+function nuevaPartida() {
+  limpiar();
+  if (!S.worker) S.worker = crearWorker();
+  S.G = M.nueva();
+  if (S.lado === 'blancas') S.miColor = M.BLANCO;
+  else if (S.lado === 'negras') S.miColor = M.NEGRO;
+  else { S.miColor = S.alterna ? M.NEGRO : M.BLANCO; S.alterna = !S.alterna; }
+  S.volteado = S.miColor === M.NEGRO;
+  S.jugadas = []; S.fotos = []; S.ultimo = null; S.fin = null;
+  S.jugando = true;
+  renderPlay();
+  if (S.G.turno !== S.miColor) turnoApp(); else pintaEstado();
+}
+
+const FILAS = '87654321', COLS = 'abcdefgh';
+const casillaDe = (d) => {
+  const r = d >> 3, f = d & 7;
+  return S.volteado ? (7 - r) * 16 + (7 - f) : r * 16 + f;
+};
+
+function renderPlay() {
+  let cas = '';
+  for (let d = 0; d < 64; d++) {
+    const s = casillaDe(d);
+    const oscura = ((s >> 4) + (s & 7)) & 1;
+    const r = d >> 3, f = d & 7;
+    const etiquetas =
+      (f === 0 ? `<span class="aj-co f">${S.volteado ? FILAS[7 - r] : FILAS[r]}</span>` : '') +
+      (r === 7 ? `<span class="aj-co c">${S.volteado ? COLS[7 - f] : COLS[f]}</span>` : '');
+    cas += `<button class="aj-cas${oscura ? ' osc' : ''}" data-i="${d}" aria-label="${COLS[s & 7]}${FILAS[s >> 4]}">` +
+      `${etiquetas}<span class="aj-marca"></span>` +
+      `<svg class="aj-pz vacia" viewBox="0 0 45 45"><use href="#pz-1"></use></svg></button>`;
+  }
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Ajedrez', `<span class="chip">${DIFF_LABEL[S.nivel]}</span>`)}
+    <div class="aj-juego">
+      <div class="aj-marc">
+        <div class="aj-lado" id="lado-app">
+          <span class="aj-quien">App · ${S.miColor === M.BLANCO ? 'negras' : 'blancas'}</span>
+          <span class="aj-comidas" id="com-app"></span>
+          <span class="aj-vent" id="vent-app"></span>
+        </div>
+      </div>
+      <div class="aj-twrap">
+        <div class="aj-tab" id="aj-tab" aria-label="Tablero de ajedrez">${cas}</div>
+      </div>
+      <div class="aj-marc">
+        <div class="aj-lado" id="lado-yo">
+          <span class="aj-quien">Tú · ${S.miColor === M.BLANCO ? 'blancas' : 'negras'}</span>
+          <span class="aj-comidas" id="com-yo"></span>
+          <span class="aj-vent" id="vent-yo"></span>
+        </div>
+      </div>
+      <div class="aj-estado" id="aj-estado"></div>
+      <div class="aj-lista" id="aj-lista"></div>
+      <div class="aj-tools">
+        <button class="aj-tool" id="t-deshacer">Deshacer</button>
+        <button class="aj-tool" id="t-nueva">Nueva</button>
+        <button class="aj-tool" id="t-salir">Salir</button>
+      </div>
+    </div>
+  </div>`;
+  $('#aj-tab').onclick = (e) => {
+    const b = e.target.closest('.aj-cas');
+    if (b) toque(Number(b.dataset.i));
+  };
+  $('#t-deshacer').onclick = deshacerJugada;
+  $('#t-nueva').onclick = nuevaPartida;
+  $('#t-salir').onclick = renderSetup;
+  pinta();
+}
+
+/* ── Pintado ───────────────────────────────────────────────────────── */
+function pinta() {
+  if (!$('#aj-tab')) return;                 // el jugador ya se fue de la pantalla
+  const G = S.G, b = G.b;
+  const dest = new Set(S.destinos.map((m) => M.jA(m)));
+  const comer = new Set(S.destinos.filter((m) => b[M.jA(m)] || M.jF(m) === M.F_ALPASO).map((m) => M.jA(m)));
+  const reyEnJaque = M.enJaque(G, G.turno) ? G.reyes[G.turno] : -1;
+  const casillas = $$('.aj-cas');
+  for (let d = 0; d < 64; d++) {
+    const el = casillas[d];
+    if (!el) continue;
+    const s = casillaDe(d), p = b[s];
+    const svg = el.lastElementChild;
+    if (p) {
+      const href = '#pz-' + M.tipo(p);
+      const uso = svg.firstElementChild;
+      if (uso.getAttribute('href') !== href) uso.setAttribute('href', href);
+      svg.classList.toggle('n', M.colorDe(p) === M.NEGRO);
+      svg.classList.remove('vacia');
+    } else svg.classList.add('vacia');
+    el.classList.toggle('sel', s === S.sel);
+    el.classList.toggle('dest', dest.has(s) && !comer.has(s));
+    el.classList.toggle('come', comer.has(s));
+    el.classList.toggle('ult', !!S.ultimo && (s === S.ultimo[0] || s === S.ultimo[1]));
+    el.classList.toggle('jaque', s === reyEnJaque);
+  }
+  pintaMarcador();
+  pintaLista();
+  const un = $('#t-deshacer');
+  // Solo se puede deshacer si al retroceder se llega a un turno tuyo: jugando
+  // con negras, la primera foto es la jugada de apertura de la app y volver
+  // ahí dejaría la partida parada esperando a nadie.
+  if (un) un.disabled = S.pensando || !S.jugando || !hayVuelta();
+}
+
+function pintaMarcador() {
+  const G = S.G;
+  const INICIAL = [0, 8, 2, 2, 2, 1];
+  const enTablero = [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]];
+  const mat = [0, 0];
+  for (let s = 0; s < 128; s++) {
+    if (s & 0x88) continue;
+    const p = G.b[s];
+    if (!p) continue;
+    const t = M.tipo(p), c = M.colorDe(p);
+    if (t === M.REY) continue;
+    enTablero[c][t]++;
+    mat[c] += M.VALOR[t];
+  }
+  /* Lo que le falta a un color son las piezas que se comió el otro. Ojo con la
+     coronación: deja un peón de menos y una pieza de más, y sin descontarlo el
+     marcador enseñaría un peón comido que nadie comió. La ventaja se saca
+     directamente del material que hay en el tablero, no de los huecos. */
+  const faltan = [[], []];
+  for (const c of [0, 1]) {
+    let coronadas = 0;
+    for (let t = 2; t <= 5; t++) coronadas += Math.max(0, enTablero[c][t] - INICIAL[t]);
+    for (let t = 1; t <= 5; t++) {
+      faltan[c][t] = Math.max(0, INICIAL[t] - enTablero[c][t] - (t === 1 ? coronadas : 0));
+    }
+  }
+  const tira = (colorComido) => {
+    let h = '';
+    for (const t of [5, 4, 3, 2, 1]) {
+      for (let k = 0; k < faltan[colorComido][t]; k++) {
+        h += `<svg class="aj-pz${colorComido === M.NEGRO ? ' n' : ''}" viewBox="0 0 45 45"><use href="#pz-${t}"></use></svg>`;
+      }
+    }
+    return h;
+  };
+  const set = (id, html) => { const el = $(id); if (el) el.innerHTML = html; };
+  set('#com-yo', tira(1 - S.miColor));
+  set('#com-app', tira(S.miColor));
+  const dif = Math.round((mat[S.miColor] - mat[1 - S.miColor]) / 100);
+  const vy = $('#vent-yo'), va = $('#vent-app');
+  if (vy) vy.textContent = dif > 0 ? '+' + dif : '';
+  if (va) va.textContent = dif < 0 ? '+' + (-dif) : '';
+  const ly = $('#lado-yo'), la = $('#lado-app');
+  if (ly) ly.classList.toggle('turno', S.jugando && G.turno === S.miColor);
+  if (la) la.classList.toggle('turno', S.jugando && G.turno !== S.miColor);
+}
+
+function pintaLista() {
+  const el = $('#aj-lista');
+  if (!el) return;
+  if (!S.jugadas.length) { el.innerHTML = '<span class="aj-vacia">Sin jugadas aún</span>'; return; }
+  let h = '';
+  for (let i = 0; i < S.jugadas.length; i += 2) {
+    const n = (i >> 1) + 1;
+    const bl = S.jugadas[i], ne = S.jugadas[i + 1];
+    const ultBl = i === S.jugadas.length - 1, ultNe = i + 1 === S.jugadas.length - 1;
+    h += `<span class="aj-par"><span class="aj-num">${n}.</span>` +
+      `<span class="${ultBl ? 'aj-ultima' : ''}">${esc(bl)}</span>` +
+      (ne ? ` <span class="${ultNe ? 'aj-ultima' : ''}">${esc(ne)}</span>` : '') + `</span>`;
+  }
+  el.innerHTML = h;
+  el.scrollLeft = el.scrollWidth;
+}
+
+function estado(html, aviso) {
+  const el = $('#aj-estado');
+  if (!el) return;
+  el.innerHTML = html;
+  el.classList.toggle('aviso', !!aviso);
+}
+function pintaEstado() {
+  const G = S.G;
+  if (S.fin) return;
+  if (G.turno !== S.miColor) return estado(M.enJaque(G, G.turno) ? '<b>Jaque</b> · la app piensa…' : 'La app piensa…');
+  if (M.enJaque(G, S.miColor)) return estado('<b>Estás en jaque</b>', true);
+  return estado(S.sel >= 0 ? 'Elige el destino' : '<b>Te toca</b>');
+}
+
+/* ── Tu turno ──────────────────────────────────────────────────────── */
+function foto() {
+  const G = S.G;
+  return {
+    pos: M.exportar(G),
+    jugadas: S.jugadas.slice(),
+    ultimo: S.ultimo ? S.ultimo.slice() : null,
+  };
+}
+function restaura(f) {
+  S.G = M.importar(f.pos);
+  S.jugadas = f.jugadas.slice();
+  S.ultimo = f.ultimo ? f.ultimo.slice() : null;
+}
+
+function toque(d) {
+  if (!S.jugando || S.fin || S.pensando) return;
+  const G = S.G;
+  if (G.turno !== S.miColor) return;
+  const s = casillaDe(d), p = G.b[s];
+  if (S.sel >= 0) {
+    const cands = S.destinos.filter((m) => M.jA(m) === s);
+    if (cands.length) {
+      if (cands.length > 1) return pideCorona(cands);       // cuatro coronaciones al mismo destino
+      return juegaMia(cands[0]);
+    }
+  }
+  if (p && M.colorDe(p) === S.miColor) {
+    if (S.sel === s) { S.sel = -1; S.destinos = []; }
+    else { S.sel = s; S.destinos = M.legales(G).filter((m) => M.jDe(m) === s); }
+    vibrate(5);
+  } else { S.sel = -1; S.destinos = []; }
+  pinta(); pintaEstado();
+}
+
+function pideCorona(cands) {
+  const orden = [M.DAMA, M.TORRE, M.ALFIL, M.CABALLO];
+  const NOM = { 5: 'Dama', 4: 'Torre', 3: 'Alfil', 2: 'Caballo' };
+  const negras = S.miColor === M.NEGRO;
+  const botones = orden.map((t) => {
+    const m = cands.find((x) => M.jPr(x) === t);
+    if (m == null) return '';
+    return `<button data-m="${m}" aria-label="${NOM[t]}">` +
+      `<svg class="aj-pz${negras ? ' n' : ''}" viewBox="0 0 45 45"><use href="#pz-${t}"></use></svg></button>`;
+  }).join('');
+  // Tocar fuera cancela: la jugada aún no está hecha y nadie debería quedarse
+  // atrapado en el selector por haberlo abierto sin querer.
+  openModal(`<h3>Coronas</h3><p>Elige en qué se convierte el peón.</p>
+    <div class="aj-coro">${botones}</div>
+    <div class="aj-rot">Dama · Torre · Alfil · Caballo</div>`, closeModal);
+  $$('.aj-coro button').forEach((b) => b.onclick = () => {
+    closeModal();
+    juegaMia(Number(b.dataset.m));
+  });
+}
+
+function juegaMia(m) {
+  const G = S.G;
+  S.fotos.push(foto());
+  S.jugadas.push(M.notacion(G, m));
+  S.ultimo = [M.jDe(m), M.jA(m)];
+  M.hacer(G, m);
+  S.sel = -1; S.destinos = [];
+  vibrate(8);
+  pinta();
+  if (revisaFin()) return;
+  turnoApp();
+}
+
+const hayVuelta = () => S.fotos.some((f) => f.pos.turno === S.miColor);
+function deshacerJugada() {
+  if (S.pensando || !S.jugando || !hayVuelta()) return;
+  // Retrocede hasta que vuelva a ser tu turno: tu jugada y la respuesta.
+  do { restaura(S.fotos.pop()); } while (S.G.turno !== S.miColor);
+  S.sel = -1; S.destinos = []; S.fin = null; S.jugando = true;
+  vibrate(6);
+  pinta(); pintaEstado();
+}
+
+/* ── El turno de la app ────────────────────────────────────────────── */
+async function turnoApp() {
+  const g = S.gen;
+  if (!vivo(g) || !S.jugando) return;
+  S.pensando = true;
+  estado(M.enJaque(S.G, S.G.turno) ? '<b>Jaque</b> · la app piensa…' : 'La app piensa…');
+  pinta();
+  const t0 = Date.now();
+  const m = await pedirJugada(S.G, S.nivel);
+  if (!vivo(g) || g !== S.gen) return;
+  const falta = 380 - (Date.now() - t0);
+  if (falta > 0) { await espera(falta); if (!vivo(g) || g !== S.gen) return; }
+  S.pensando = false;
+  if (m == null || m < 0) { pinta(); revisaFin(); return; }
+  S.fotos.push(foto());
+  S.jugadas.push(M.notacion(S.G, m));
+  S.ultimo = [M.jDe(m), M.jA(m)];
+  M.hacer(S.G, m);
+  vibrate(6);
+  pinta();
+  if (revisaFin()) return;
+  pintaEstado();
+}
+
+/* ── Final de partida ──────────────────────────────────────────────── */
+function revisaFin() {
+  if (!$('#aj-tab')) return true;
+  const G = S.G, st = M.estado(G);
+  if (!st) return false;
+  S.jugando = false; S.pensando = false;
+  let titulo, porque, gane = false;
+  if (st === 1) {
+    gane = G.turno !== S.miColor;
+    titulo = gane ? '¡Jaque mate!' : 'Jaque mate';
+    porque = gane ? 'Le diste mate a la app.' : 'La app te dio mate.';
+  } else if (st === 2) { titulo = 'Tablas'; porque = 'Ahogado: hay que mover y no hay jugada legal.'; }
+  else if (st === 3) { titulo = 'Tablas'; porque = 'Material insuficiente para dar mate.'; }
+  else if (st === 4) { titulo = 'Tablas'; porque = 'La misma posición se repitió tres veces.'; }
+  else { titulo = 'Tablas'; porque = 'Cincuenta jugadas sin mover peón ni capturar.'; }
+  S.fin = { titulo, porque, gane };
+  let pie = '';
+  if (gane) {
+    const n = anotaVictoria(S.nivel);
+    pie = `<p style="text-align:center;">Llevas <b>${n}</b> victoria${n === 1 ? '' : 's'} en <b>${DIFF_LABEL[S.nivel]}</b></p>`;
+    confetti(); vibrate([30, 60, 30]);
+  }
+  pinta();
+  estado(`<b>${titulo}</b>`, !gane && st === 1);
+  const t = setTimeout(() => {
+    if (!$('#aj-tab')) return;
+    openModal(`<h3>${titulo}</h3>
+      <p style="text-align:center;">${porque}</p>
+      <div class="stats" style="margin:12px 0;">
+        <div class="stat"><div class="n">${Math.ceil(S.jugadas.length / 2)}</div><div class="l">jugadas</div></div>
+        <div class="stat"><div class="n">${DIFF_LABEL[S.nivel]}</div><div class="l">nivel</div></div>
+      </div>
+      ${pie}
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>`);
+    $('#m-again').onclick = () => { closeModal(); nuevaPartida(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 850);
+  S.timers.push(t);
+  return true;
+}
+
+renderSetup();
+</script>
+</body>
+</html>

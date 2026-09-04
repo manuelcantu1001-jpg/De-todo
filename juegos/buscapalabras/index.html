@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Buscapalabras: forma palabras uniendo letras vecinas antes de que acabe el tiempo." />
+<title>Buscapalabras</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EB%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .bwrap { display: flex; justify-content: center; padding: 12px 16px 0; }
+  .bgrid { display: grid; gap: 8px; width: min(88vw, 360px); }
+  .bgrid button {
+    aspect-ratio: 1; border: 1px solid var(--tile-border); border-radius: 12px; cursor: pointer;
+    background: var(--tile-bg); color: var(--tile-ink);
+    box-shadow: none;
+    font-family: var(--title-font); font-size: 26px; font-weight: 600; padding: 0;
+    transition: background .1s var(--ease), transform .1s var(--ease);
+  }
+  .bgrid button.sel { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); box-shadow: none; }
+  .bgrid button.last { transform: scale(1.06); }
+  .palabra { text-align: center; min-height: 34px; padding-top: 12px; font-family: var(--title-font); font-size: 26px; font-weight: 500; letter-spacing: 2px; color: var(--bg-ink); text-transform: uppercase; }
+  .accions { display: flex; gap: 10px; justify-content: center; padding: 10px 16px 0; }
+  .halladas { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 16px 8px; justify-content: center; max-height: 92px; overflow-y: auto; }
+  .halladas .h { font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--ink); }
+  .marcador { display: flex; justify-content: center; gap: 20px; padding-top: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--bg-sub); }
+  .marcador b { color: var(--bg-ink); font-size: 14px; font-weight: 500; }
+  .tools { margin: auto 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 10px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    box-shadow: var(--shadow-sutil); }
+  .tool:active { opacity: .6; }
+  .m-lista { font-size: 13.5px; color: var(--sub); text-align: center; line-height: 1.7; }
+  .m-lista b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../banco-es.js"></script>
+<script src="../../vocab-es.js"></script>
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const CFG = {
+  facil:   { n: 4, tiempo: 150, minLen: 3, meta: 28 },
+  normal:  { n: 4, tiempo: 100, minLen: 3, meta: 28 },
+  dificil: { n: 5, tiempo: 100, minLen: 4, meta: 30 },
+  experto: { n: 5, tiempo: 70,  minLen: 4, meta: 30 },
+};
+const PUNTOS = (len) => len <= 4 ? 1 : len === 5 ? 2 : len === 6 ? 3 : len === 7 ? 5 : 8;
+const VOCALES = 'aaaaaeeeeeeooooiiiuu';
+const CONSON = 'sssssrrrrrnnnnnlllldddccccttttmmmpppbbggvhfjzyñ';
+
+const lex = crearLexico('../../lexico-es.txt.gz');
+
+const S = {
+  diff: store.get('buscapalabras.diff', 'normal'),
+  n: 4, board: [], path: [], found: [], score: 0,
+  posibles: null, restan: 0, timerId: null, jugando: false,
+};
+
+const REGLAS = `<p>Forma palabras <b>uniendo letras vecinas</b> (también en diagonal) sin repetir casilla: toca las letras en orden y luego <b>Probar</b>. Toca la última letra para deshacerla.</p>
+<p>Valen las palabras del diccionario con el <b>largo mínimo</b> de la dificultad. Las largas dan más puntos: 5 letras 2 pts, 6 letras 3, 7 letras 5, 8 o más 8.</p>
+<p>Cuando el reloj llegue a cero se acabó: junta la mayor puntuación que puedas.</p>`;
+
+/* ── Tablero: letras al azar con buen reparto de vocales y suficientes palabras ── */
+function generarTablero(n) {
+  const total = n * n;
+  const nVoc = Math.round(total * 0.42);
+  const letras = [];
+  for (let i = 0; i < nVoc; i++) letras.push(VOCALES[randInt(VOCALES.length)]);
+  for (let i = nVoc; i < total; i++) letras.push(CONSON[randInt(CONSON.length)]);
+  return shuffle(letras);
+}
+
+function vecinos(i, n) {
+  const r = Math.floor(i / n), c = i % n, out = [];
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    if (!dr && !dc) continue;
+    const rr = r + dr, cc = c + dc;
+    if (rr >= 0 && rr < n && cc >= 0 && cc < n) out.push(rr * n + cc);
+  }
+  return out;
+}
+
+/* Las palabras que la app da por escondidas en el tablero salen del banco
+   curado: son las que enseña al final. Lo que teclea el jugador se valida
+   aparte contra el diccionario y el léxico completo, así que puede encontrar
+   muchas más. */
+let CAND = null, PREF = null;
+function prepararDicc(minLen) {
+  CAND = new Set(); PREF = new Set();
+  for (const e of Banco.list) {
+    const w = e.n;
+    // solo palabras que se escriben sin tilde: en el tablero no hay acentos
+    if (e.w !== e.n) continue;
+    if (w.length < minLen || w.length > 9 || CAND.has(w)) continue;
+    CAND.add(w);
+    for (let i = 1; i <= w.length; i++) PREF.add(w.slice(0, i));
+  }
+}
+
+// Todas las palabras del diccionario que se pueden trazar en el tablero.
+function resolver(board, n, minLen) {
+  const out = new Set();
+  const NB = board.map((_, i) => vecinos(i, n));
+  const used = new Array(n * n).fill(false);
+  function dfs(i, w) {
+    const w2 = w + board[i];
+    if (!PREF.has(w2)) return;
+    used[i] = true;
+    if (w2.length >= minLen && CAND.has(w2)) out.add(w2);
+    if (w2.length < 9) for (const j of NB[i]) if (!used[j]) dfs(j, w2);
+    used[i] = false;
+  }
+  for (let i = 0; i < n * n; i++) dfs(i, '');
+  return out;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  clearInterval(S.timerId);
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('buscapalabras.best.' + d, 0);
+    return `<div class="b"><div class="bn">${b || '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Buscapalabras', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div><div class="row-hint" id="d-hint"></div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores puntuaciones</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => {
+    const c = CFG[S.diff];
+    $('#d-hint').textContent = `${c.n}×${c.n} · ${fmtTime(c.tiempo)} · mín. ${c.minLen} letras`;
+  };
+  hint();
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('buscapalabras.diff', v); hint(); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  const c = CFG[S.diff];
+  lex.ready();
+  prepararDicc(c.minLen);
+  // Busca un tablero con suficientes palabras encontrables.
+  let best = null, bestCount = -1;
+  for (let t = 0; t < 40; t++) {
+    const b = generarTablero(c.n);
+    const sol = resolver(b, c.n, c.minLen);
+    if (sol.size > bestCount) { bestCount = sol.size; best = { b, sol }; }
+    if (sol.size >= c.meta) break;
+  }
+  S.n = c.n; S.board = best.b; S.posibles = best.sol;
+  S.path = []; S.found = []; S.score = 0; S.restan = c.tiempo; S.jugando = true;
+  renderPlay();
+  S.timerId = setInterval(() => {
+    S.restan--;
+    const el = $('#clk');
+    if (el) { el.textContent = fmtTime(Math.max(0, S.restan)); if (S.restan <= 10) el.style.color = 'var(--bad)'; }
+    if (S.restan <= 0) terminar();
+  }, 1000);
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Buscapalabras', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clk">${fmtTime(S.restan)}</span>`)}
+    <div class="marcador"><span>Puntos <b id="pts">0</b></span><span>Palabras <b id="cnt">0</b></span></div>
+    <div class="palabra" id="palabra">&nbsp;</div>
+    <div class="bwrap">
+      <div class="bgrid" id="bgrid" style="grid-template-columns: repeat(${S.n}, 1fr);">
+        ${S.board.map((l, i) => `<button data-i="${i}">${l === 'ñ' ? 'Ñ' : l.toUpperCase()}</button>`).join('')}
+      </div>
+    </div>
+    <div class="accions">
+      <button class="btn btn-soft btn-sm" id="b-borrar">Borrar</button>
+      <button class="btn btn-primary btn-sm" id="b-ok" style="min-width: 130px;">Probar</button>
+    </div>
+    <div class="msg" id="msg" style="padding-top:10px;"></div>
+    <div class="halladas" id="halladas"></div>
+    <div class="tools">
+      <button class="tool" id="t-fin">Terminar</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#bgrid').onclick = (e) => {
+    const b = e.target.closest('button');
+    if (b) tap(Number(b.dataset.i));
+  };
+  $('#b-borrar').onclick = () => { S.path = []; paint(); };
+  $('#b-ok').onclick = probar;
+  $('#t-fin').onclick = () => terminar();
+  $('#t-salir').onclick = () => { S.jugando = false; renderSetup(); };
+}
+
+function paint() {
+  if (!$('#palabra')) return;  // el jugador ya se fue de la pantalla
+  $$('#bgrid button').forEach((el) => {
+    const i = Number(el.dataset.i);
+    el.classList.toggle('sel', S.path.includes(i));
+    el.classList.toggle('last', S.path[S.path.length - 1] === i);
+  });
+  const w = S.path.map((i) => S.board[i]).join('');
+  $('#palabra').textContent = w || ' ';
+  $('#pts').textContent = S.score;
+  $('#cnt').textContent = S.found.length;
+}
+
+function tap(i) {
+  if (!S.jugando) return;
+  const last = S.path[S.path.length - 1];
+  if (i === last) S.path.pop();
+  else if (S.path.includes(i)) return;
+  else if (!S.path.length || vecinos(last, S.n).includes(i)) S.path.push(i);
+  else return;
+  vibrate(6);
+  paint();
+}
+
+function setMsg(t, cls) {
+  const el = $('#msg');
+  el.textContent = t; el.className = 'msg ' + (cls || '');
+}
+
+function probar() {
+  if (!S.jugando || !S.path.length) return;
+  const w = S.path.map((i) => S.board[i]).join('');
+  const c = CFG[S.diff];
+  if (w.length < c.minLen) { setMsg(`Mínimo ${c.minLen} letras`, 'err'); return; }
+  if (S.found.includes(w)) { setMsg('Esa ya la tenías', 'check'); S.path = []; paint(); return; }
+  const valida = Banco.has(w) || Vocab.has(w) || (lex.loaded() && lex.has(w));
+  if (!valida) {
+    setMsg('No la conozco', 'err');
+    $('#palabra').classList.add('shake');
+    setTimeout(() => { const el = $('#palabra'); if (el) el.classList.remove('shake'); }, 420);
+    return;
+  }
+  const pts = PUNTOS(w.length);
+  S.score += pts; S.found.push(w); S.path = [];
+  vibrate(12);
+  paint();
+  setMsg(`¡${w.toUpperCase()}! +${pts}`, 'ok');
+  $('#halladas').innerHTML = S.found.map((f) => `<span class="h">${f}</span>`).join('');
+}
+
+function terminar() {
+  if (!S.jugando) return;
+  S.jugando = false;
+  clearInterval(S.timerId);
+  const best = store.get('buscapalabras.best.' + S.diff, 0);
+  const isRecord = S.score > best;
+  if (isRecord && S.score > 0) {
+    store.set('buscapalabras.best.' + S.diff, S.score);
+    store.set('bus.hub', `Mejor: ${S.score} pts`);
+    confetti();
+  }
+  const perdidas = [...S.posibles].filter((w) => !S.found.includes(w))
+    .sort((a, b) => b.length - a.length).slice(0, 8);
+  openModal(`
+    <h3>${isRecord && S.score > 0 ? '¡Récord!' : (S.restan > 0 ? 'Fin de la partida' : 'Se acabó el tiempo')}</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${S.score}</div><div class="l">puntos</div></div>
+      <div class="stat"><div class="n">${S.found.length}</div><div class="l">palabras</div></div>
+      <div class="stat"><div class="n">${Math.max(best, S.score)}</div><div class="l">mejor</div></div>
+    </div>
+    ${perdidas.length ? `<p class="m-lista">Se te escondían: ${perdidas.map((w) => `<b>${w}</b>`).join(' · ')}</p>` : ''}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otro tablero</button>
+      <button class="btn btn-ghost" id="m-out">Salir</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>

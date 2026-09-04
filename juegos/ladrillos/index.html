@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Rompe-ladrillos: rebota la bola con la paleta y limpia todos los niveles." />
+<title>Ladrillos</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E▬%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* La zona de juego reparte el alto sobrante: el lienzo (que es el mando)
+     baja hacia el pulgar en vez de dejar ~150 px muertos sobre «Salir». */
+  .juego { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
+  .lwrap { display: flex; justify-content: center; padding: 10px 12px 0; }
+  canvas#juego {
+    border: var(--trazo) solid var(--linea-fuerte); border-radius: 12px;
+    background: var(--card); touch-action: none; width: min(94vw, 380px);
+  }
+  /* Marcador: etiqueta técnica en monoespaciada, número en sans a peso 500. */
+  .marcador { display: flex; justify-content: center; gap: 22px; padding-top: 8px; }
+  .marcador span { display: flex; align-items: baseline; gap: 7px; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--sub); }
+  .marcador b { font-family: var(--font); color: var(--bg-ink); font-size: 17px; font-weight: 500; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+  .marcador #h-vidas { color: var(--accent); letter-spacing: 2px; }
+  .tools { margin: 0 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 12px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
+  .tool:active { opacity: .6; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const W = 360, H = 500;
+/* La velocidad va en píxeles por PASO de 16,67 ms (60 pasos por segundo),
+   no por cuadro: el bucle la normaliza con delta time, así que la bola
+   corre igual en una pantalla de 60 Hz que en una de 120 Hz. */
+const PASO_MS = 1000 / 60;
+const CFG = { facil: 3.2, normal: 4.0, dificil: 4.8, experto: 5.6 };
+const ANG_MAX = Math.PI / 3;   // ±60° respecto de la vertical: nunca un rebote rasante
+const VY_MIN = 0.45;           // la bola siempre sube o baja al menos a este ritmo
+const SENS = 1.4;              // cuánto corre la paleta por cada píxel de dedo
+
+const S = {
+  diff: store.get('ladrillos.diff', 'normal'),
+  x: W / 2, y: 0, vx: 0, vy: 0, px: W / 2, pw: 86,
+  ladrillos: [], nivel: 1, vidas: 3, score: 0,
+  lanzada: false, jugando: false, rafId: 0, ultimo: 0,
+};
+
+const REGLAS = `<p><b>Arrastra</b> el dedo por cualquier parte del tablero para mover la paleta: se mueve <b>lo que se mueva tu dedo</b>, así que no hace falta taparla. <b>Un toque</b> (sin arrastrar) saca la bola.</p>
+<p>El punto de la paleta donde pega la bola cambia el ángulo del rebote: úsalo para apuntar. Si la bola cae abajo, pierdes una de tus <b>3 vidas</b>.</p>
+<p>Cada nivel limpio trae un patrón nuevo y más velocidad (la paleta también se encoge un poco). Tu marca es la puntuación.</p>`;
+
+function armarNivel() {
+  S.ladrillos = [];
+  const filas = Math.min(4 + S.nivel, 8), cols = 8;
+  const bw = (W - 24) / cols, bh = 18;
+  const patron = (S.nivel - 1) % 3;
+  for (let r = 0; r < filas; r++) for (let c = 0; c < cols; c++) {
+    if (patron === 1 && (r + c) % 2) continue;
+    if (patron === 2 && Math.abs(c - 3.5) > filas - r) continue;
+    S.ladrillos.push({ x: 12 + c * bw, y: 46 + r * (bh + 6), w: bw - 5, h: bh, t: r % 5 });
+  }
+  S.lanzada = false;
+  S.pw = Math.max(56, 92 - (S.nivel - 1) * 5);
+}
+
+function resetBola() {
+  S.x = S.px; S.y = H - 46;
+  const vel = CFG[S.diff] + (S.nivel - 1) * 0.35;
+  const ang = -Math.PI / 2 + (Math.random() * 0.7 - 0.35);
+  S.vx = Math.cos(ang) * vel; S.vy = Math.sin(ang) * vel;
+  enderezar();
+}
+
+/* Nunca dejes que la bola viaje casi horizontal: los finales de nivel
+   se volvían eternos persiguiendo los dos últimos ladrillos. */
+function enderezar() {
+  const vel = Math.hypot(S.vx, S.vy);
+  if (!vel) return;
+  const min = vel * VY_MIN;
+  if (Math.abs(S.vy) < min) {
+    S.vy = (S.vy < 0 ? -1 : 1) * min;
+    S.vx = (S.vx < 0 ? -1 : 1) * Math.sqrt(Math.max(0, vel * vel - S.vy * S.vy));
+  }
+}
+
+/* ── Bucle ───────────────────────────────────────────────────────────── */
+let ctx = null, COLORES = [], INK = '', dpr = 1;
+
+/* Un sub-paso de física. `f` es la fracción de paso de 16,67 ms que avanza. */
+function avanzar(f) {
+  S.x += S.vx * f; S.y += S.vy * f;
+  if (S.x < 8) { S.x = 8; S.vx = -S.vx; }
+  if (S.x > W - 8) { S.x = W - 8; S.vx = -S.vx; }
+  if (S.y < 8) { S.y = 8; S.vy = -S.vy; }
+  // paleta
+  const py = H - 30;
+  if (S.vy > 0 && S.y > py - 8 && S.y < py + 10 && Math.abs(S.x - S.px) < S.pw / 2 + 8) {
+    const rel = Math.max(-1, Math.min(1, (S.x - S.px) / (S.pw / 2)));
+    const vel = Math.hypot(S.vx, S.vy);
+    const ang = -Math.PI / 2 + rel * ANG_MAX;
+    S.vx = Math.cos(ang) * vel; S.vy = Math.sin(ang) * vel;
+    enderezar();
+    S.y = py - 9;
+    vibrate(4);
+  }
+  // ladrillos
+  for (let i = 0; i < S.ladrillos.length; i++) {
+    const b = S.ladrillos[i];
+    if (S.x > b.x - 8 && S.x < b.x + b.w + 8 && S.y > b.y - 8 && S.y < b.y + b.h + 8) {
+      const dx = Math.min(S.x - (b.x - 8), (b.x + b.w + 8) - S.x);
+      const dy = Math.min(S.y - (b.y - 8), (b.y + b.h + 8) - S.y);
+      if (dx < dy) S.vx = -S.vx; else S.vy = -S.vy;
+      S.ladrillos.splice(i, 1);
+      S.score += 10 * S.nivel;
+      vibrate(6);
+      break;
+    }
+  }
+  if (!S.ladrillos.length) {
+    S.nivel++;
+    S.score += 100;
+    armarNivel();
+    resetBola();
+    aviso(`Nivel ${S.nivel}`);
+    return false;   // corta los sub-pasos: el nivel es otro
+  }
+  if (S.y > H + 10) {
+    S.vidas--;
+    if (S.vidas <= 0) { terminar(); return false; }
+    S.lanzada = false;
+    aviso('Se fue la bola');
+    return false;
+  }
+  return true;
+}
+
+function paso(ts) {
+  if (!S.jugando) return;
+  if (!S.ultimo) S.ultimo = ts;
+  // Delta time contra el paso fijo de 16,67 ms. Con el tope de 3 pasos,
+  // volver de segundo plano no teletransporta la bola.
+  let dt = (ts - S.ultimo) / PASO_MS;
+  S.ultimo = ts;
+  if (!(dt > 0)) dt = 0;
+  if (dt > 3) dt = 3;
+  if (S.lanzada) {
+    // Sub-pasos de 4 px como mucho: a 120 Hz o a 30 Hz la bola nunca
+    // atraviesa un ladrillo ni la paleta.
+    const vel = Math.hypot(S.vx, S.vy) || 1;
+    const n = Math.max(1, Math.ceil(vel * dt / 4));
+    for (let k = 0; k < n; k++) if (!avanzar(dt / n)) break;
+  } else {
+    S.x = S.px; S.y = H - 46;
+  }
+  if (!S.jugando) return;
+  dibujar();
+  hud();
+  S.rafId = requestAnimationFrame(paso);
+}
+
+function dibujar() {
+  ctx.clearRect(0, 0, W, H);
+  for (const b of S.ladrillos) {
+    ctx.fillStyle = COLORES[b.t];
+    ctx.beginPath();
+    ctx.roundRect(b.x, b.y, b.w, b.h, 5);
+    ctx.fill();
+  }
+  ctx.fillStyle = INK;   // la paleta es de tinta: nunca se confunde con un ladrillo
+  ctx.beginPath();
+  ctx.roundRect(S.px - S.pw / 2, H - 30, S.pw, 12, 6);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(S.x, S.y, 8, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/* Se llama en cada cuadro, así que solo toca el DOM cuando algo cambió:
+   reescribir tres textos 60 veces por segundo era trabajo de disposición inútil. */
+const HUD = { score: -1, nivel: -1, vidas: -1 };
+function hud() {
+  if (!$('#h-score')) return;
+  if (HUD.score !== S.score) { HUD.score = S.score; $('#h-score').textContent = S.score; }
+  if (HUD.nivel !== S.nivel) { HUD.nivel = S.nivel; $('#h-nivel').textContent = S.nivel; }
+  if (HUD.vidas !== S.vidas) { HUD.vidas = S.vidas; $('#h-vidas').textContent = '●'.repeat(S.vidas) || '—'; }
+}
+
+function aviso(t) {
+  const el = $('#aviso');
+  if (el) { el.textContent = t; setTimeout(() => { if ($('#aviso') === el) el.textContent = ''; }, 1400); }
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  cancelAnimationFrame(S.rafId);
+  S.jugando = false;
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('ladrillos.best.' + d, 0);
+    return `<div class="b"><div class="bn">${b || '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Ladrillos', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Velocidad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores puntuaciones</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('ladrillos.diff', v); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  S.nivel = 1; S.vidas = 3; S.score = 0; S.px = W / 2; S.ultimo = 0;
+  HUD.score = HUD.nivel = HUD.vidas = -1;   // la pantalla es nueva: repintar todo
+  armarNivel();
+  S.jugando = true;
+  renderPlay();
+  resetBola();
+  dibujar();
+  hud();
+  S.rafId = requestAnimationFrame(paso);
+}
+
+function renderPlay() {
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Ladrillos', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
+    <div class="marcador"><span>Puntos <b id="h-score">0</b></span><span>Nivel <b id="h-nivel">1</b></span><span>Vidas <b id="h-vidas"></b></span></div>
+    <div class="msg" id="aviso" style="padding-top:6px;">Toca para sacar · arrastra para mover</div>
+    <div class="juego">
+      <div class="lwrap">
+        <canvas id="juego" width="${W * dpr}" height="${H * dpr}"></canvas>
+      </div>
+      <div class="tools">
+        <button class="tool" id="t-salir">Salir</button>
+      </div>
+    </div>
+  </div>`;
+  const cv = $('#juego');
+  ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  // Cinco filas, cinco tintas. En este orden ninguna pareja baja de ΔE 24
+  // (con ocre y salvia juntas medían 21). Los colores salen de color(), que cachea.
+  COLORES = ['--tinta-1', '--tinta-3', '--tinta-2', '--tinta-7', '--tinta-5'].map(color);
+  INK = color('--ink');
+  /* Arrastre RELATIVO: la paleta se mueve lo que se mueve el dedo, esté
+     donde esté. Así el pulgar nunca la tapa y el primer toque no la
+     teletransporta. Un toque limpio (sin arrastrar) es «sacar la bola». */
+  let gesto = null;
+  cv.onpointerdown = (e) => {
+    e.preventDefault();
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    // El ancho se mide UNA vez al posar el dedo: medirlo en cada movimiento
+    // obliga al navegador a recalcular la disposición 60 veces por segundo.
+    gesto = { id: e.pointerId, ultimo: e.clientX, recorrido: 0, ancho: cv.getBoundingClientRect().width };
+  };
+  cv.onpointermove = (e) => {
+    if (!gesto || e.pointerId !== gesto.id) return;
+    const d = (e.clientX - gesto.ultimo) / gesto.ancho * W * SENS;
+    gesto.recorrido += Math.abs(e.clientX - gesto.ultimo);
+    gesto.ultimo = e.clientX;
+    S.px = Math.max(S.pw / 2, Math.min(W - S.pw / 2, S.px + d));
+  };
+  const suelta = (e) => {
+    if (!gesto || e.pointerId !== gesto.id) return;
+    const toque = gesto.recorrido < 9;   // no arrastró: es un toque
+    gesto = null;
+    if (toque && !S.lanzada) {
+      S.lanzada = true; resetBola();
+      const a = $('#aviso'); if (a) a.textContent = '';
+    }
+  };
+  cv.onpointerup = suelta;
+  cv.onpointercancel = suelta;
+  $('#t-salir').onclick = renderSetup;
+}
+
+function terminar() {
+  S.jugando = false;
+  cancelAnimationFrame(S.rafId);
+  const best = store.get('ladrillos.best.' + S.diff, 0);
+  const isRecord = S.score > best;
+  if (isRecord && S.score > 0) {
+    store.set('ladrillos.best.' + S.diff, S.score);
+    store.set('lad.hub', `Mejor: ${S.score} pts`);
+    confetti();
+  }
+  vibrate([80, 60, 80]);
+  setTimeout(() => {
+    openModal(`
+      <h3>${isRecord && S.score > 0 ? '¡Récord!' : 'Fin del juego'}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${S.score}</div><div class="l">puntos</div></div>
+        <div class="stat"><div class="n">${S.nivel}</div><div class="l">nivel</div></div>
+        <div class="stat"><div class="n">${Math.max(best, S.score)}</div><div class="l">mejor</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 500);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Memorama: encuentra las parejas en el menor número de movimientos." />
+<title>Memorama</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* El tablero flota en el centro del alto sobrante: en un teléfono alto quedaban
+     ~260 px de papel muerto entre las cartas y los botones. Con margin auto (y no
+     justify-content) el contenido no se recorta por arriba si no cabe (Experto). */
+  .scroll:not(.g-setup) { display: flex; flex-direction: column; }
+  .boardwrap { display: flex; justify-content: center; padding: 10px 12px 6px; margin: auto 0; }
+  .board { display: grid; gap: 8px; }
+  .cardk { perspective: 600px; cursor: pointer; }
+  .inner {
+    position: relative; width: 100%; height: 100%;
+    transform-style: preserve-3d; transition: transform .38s var(--ease);
+  }
+  .cardk.up .inner { transform: rotateY(180deg); }
+  .face {
+    position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  }
+  .face.back {
+    background: var(--accent); color: color-mix(in srgb, var(--accent-ink) 60%, transparent);
+    box-shadow: var(--shadow); border: 1px solid var(--linea-fuerte); }
+  .face.front {
+    background: var(--card); color: var(--ink); transform: rotateY(180deg);
+    border: 1px solid var(--border); box-shadow: var(--shadow);
+  }
+  .cardk.matched .face.front { background: var(--accent-soft); color: var(--ink); border-color: transparent; }
+  .cardk.matched { cursor: default; }
+  .cardk.matched .inner { animation: matchPop .4s var(--ease); }
+  @keyframes matchPop { 40% { transform: rotateY(180deg) scale(1.12); } 100% { transform: rotateY(180deg) scale(1); } }
+  /* Etiquetas en mono mayúscula, como los datos del resto de la colección. El
+     --sub da 4,32:1 sobre el papel; con un poco más de tinta pasa de 5:1. */
+  .statusrow { display: flex; justify-content: center; align-items: baseline; gap: 22px; padding: 8px 0 0;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: color-mix(in srgb, var(--sub) 85%, var(--ink)); }
+  .statusrow b { font-family: var(--font); font-size: 16px; font-weight: 500; letter-spacing: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    box-shadow: var(--shadow-sutil); }
+  .tool:active { opacity: .6; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* Iconos de las cartas (trazo, 24px) */
+const ICONS = [
+  '<circle cx="12" cy="12" r="4.5"></circle><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2.1 2.1M16.9 16.9L19 19M19 5l-2.1 2.1M7.1 16.9L5 19"></path>',
+  '<path d="M20 13.5A8.5 8.5 0 0 1 10.5 4 8.5 8.5 0 1 0 20 13.5z"></path>',
+  '<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5l-5.4 3 1.2-6-4.5-4.2 6.1-.7z"></path>',
+  '<path d="M12 20s-7-4.6-9.3-8.6C1.4 8.6 2.2 5.4 4.9 4.5c1.9-.6 3.8.1 7.1 3.2 3.3-3.1 5.2-3.8 7.1-3.2 2.7.9 3.5 4.1 2.2 6.9C19 15.4 12 20 12 20z"></path>',
+  '<path d="M4 11l8-7 8 7"></path><path d="M6 9.5V20h12V9.5"></path><path d="M10 20v-6h4v6"></path>',
+  '<path d="M12 21v-6"></path><path d="M12 15c-4 0-6.5-2.6-6.5-6.2C5.5 5.6 8.3 3 12 3s6.5 2.6 6.5 5.8C18.5 12.4 16 15 12 15z"></path>',
+  '<path d="M3 12s3.5-5 8-5c2.8 0 5.1 1.6 7 3l3-2-1 4 1 4-3-2c-1.9 1.4-4.2 3-7 3-4.5 0-8-5-8-5z"></path><circle cx="9" cy="11.5" r="0.8" fill="currentColor" stroke="none"></circle>',
+  '<path d="M4 8h12v8a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"></path><path d="M16 10h2.5a2.5 2.5 0 0 1 0 5H16"></path><path d="M7 4.5c0 1 .8 1 .8 2M11 4.5c0 1 .8 1 .8 2"></path>',
+  '<circle cx="7.5" cy="15.5" r="4"></circle><path d="M10.5 12.5L20 3M15 8l3 3M18 5l2 2"></path>',
+  '<path d="M12 3a6 6 0 0 0-6 6c0 5-2 6-2 6h16s-2-1-2-6a6 6 0 0 0-6-6z"></path><path d="M10 19a2 2 0 0 0 4 0"></path>',
+  '<path d="M6.5 17A4.5 4.5 0 0 1 6 8a6 6 0 0 1 11.6 1.6A4 4 0 0 1 17 17z"></path>',
+  '<path d="M13 2L4.5 13.5H11l-1 8.5L18.5 10H12z"></path>',
+  '<circle cx="12" cy="12" r="3"></circle><path d="M12 5.5c1.5-2.5 5-2.5 5.5 0 .4 1.8-1.8 3-3.5 3.2M12 5.5C10.5 3 7 3 6.5 5.5c-.4 1.8 1.8 3 3.5 3.2M12 18.5c1.5 2.5 5 2.5 5.5 0 .4-1.8-1.8-3-3.5-3.2M12 18.5c-1.5 2.5-5 2.5-5.5 0-.4-1.8 1.8-3 3.5-3.2M5.5 12c-2.5-1.5-2.5-5 0-5.5M18.5 12c2.5 1.5 2.5 5 0 5.5"></path>',
+  '<path d="M12 4v13"></path><circle cx="12" cy="6" r="2"></circle><path d="M5 12c0 4 3 7 7 7s7-3 7-7"></path><path d="M3.5 12H7M17 12h3.5"></path>',
+  '<circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3.5 2"></path>',
+  '<path d="M4 20c0-8 4-14 16-16-2 12-8 16-16 16z"></path><path d="M4 20c4-6 8-9 12-11"></path>',
+];
+/* El reloj es el dibujo del dorso: si además saliera como pareja (en Experto se
+   usaban los 15 dibujos), una carta descubierta se parecería a una tapada. */
+const DORSO = 14;
+const iconSVG = (i, size) =>
+  `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${ICONS[i]}</svg>`;
+
+const CFG = {
+  facil:   { cols: 4, rows: 3 },
+  normal:  { cols: 4, rows: 4 },
+  dificil: { cols: 5, rows: 4 },
+  experto: { cols: 5, rows: 6 },
+};
+
+const S = {
+  diff: store.get('memo.diff', 'normal'),
+  deck: [],           // [{icon, up, matched}]
+  open: [],           // índices boca arriba sin pareja
+  moves: 0, matchedPairs: 0, lock: false, done: false,
+  reloj: 0,           // el temporizador que vuelve a tapar la pareja fallada
+};
+// Si empiezas otra partida o te sales antes de que se tapen, ese volteo sobra.
+function cancelaVolteo() { clearTimeout(S.reloj); S.reloj = 0; S.lock = false; }
+const clock = makeClock(() => $('#clock'));
+
+const REGLAS = `<p>Todas las cartas están boca abajo. <b>Voltea dos</b>: si tienen el mismo dibujo, se quedan descubiertas; si no, se vuelven a ocultar.</p>
+<p>Memoriza dónde viste cada dibujo para ir juntando las parejas.</p>
+<p>La marca es el <b>tiempo</b>, no los movimientos: los primeros volteos son a ciegas y contarlos premiaba la suerte. Los movimientos se siguen viendo, pero quien manda es el reloj. Se guarda por dificultad.</p>`;
+
+function renderSetup() {
+  clock.stop();
+  cancelaVolteo();
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Memorama', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="bests" id="bests"></div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const paintBests = () => {
+    const b = store.get('memo.best.' + S.diff, null);
+    $('#bests').innerHTML = `<div class="b"><div class="bn">${b ? fmtTime(b.secs) : '—'}</div><div class="bl">Mejor tiempo</div></div>
+      <div class="b"><div class="bn">${b ? b.moves : '—'}</div><div class="bl">Sus movimientos</div></div>`;
+  };
+  const hint = () => {
+    const c = CFG[S.diff];
+    $('#d-hint').textContent = `${c.cols * c.rows / 2} parejas (${c.cols}×${c.rows})`;
+  };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('memo.diff', v); hint(); paintBests(); });
+  hint(); paintBests();
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  cancelaVolteo();
+  const c = CFG[S.diff];
+  const pairs = c.cols * c.rows / 2;
+  const icons = shuffle(Array.from({ length: ICONS.length }, (_, i) => i).filter((i) => i !== DORSO)).slice(0, pairs);
+  S.deck = shuffle([...icons, ...icons]).map((icon) => ({ icon, up: false, matched: false }));
+  S.open = [];
+  S.moves = 0; S.matchedPairs = 0; S.lock = false; S.done = false;
+  renderPlay();
+  clock.start();
+}
+
+function renderPlay() {
+  const c = CFG[S.diff];
+  const cardW = Math.min(86, Math.floor((Math.min(400, innerWidth * .96) - (c.cols - 1) * 8) / c.cols));
+  const cardH = Math.round(cardW * 1.15);
+  const icon = Math.round(cardW * .52);
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Memorama', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="statusrow">
+      <span>Movimientos <b id="movn">0</b></span>
+      <span>Parejas <b id="pairn">0</b> / ${c.cols * c.rows / 2}</span>
+    </div>
+    <div class="scroll">
+      <div class="boardwrap">
+        <div class="board" id="board" style="grid-template-columns: repeat(${c.cols}, ${cardW}px);">
+          ${S.deck.map((k, i) => `
+            <div class="cardk" data-i="${i}" style="width:${cardW}px;height:${cardH}px;">
+              <div class="inner">
+                <div class="face back">${iconSVG(DORSO, Math.round(icon * .7)).replace('stroke-width="1.9"', 'stroke-width="1.6"')}</div>
+                <div class="face front">${iconSVG(k.icon, icon)}</div>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-nueva">Nueva</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#board').onclick = (e) => {
+    const el = e.target.closest('.cardk');
+    if (el) flip(Number(el.dataset.i));
+  };
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+}
+
+function flip(i) {
+  const k = S.deck[i];
+  if (!k || S.lock || S.done || k.up || k.matched) return;
+  k.up = true;
+  cardEl(i).classList.add('up');
+  vibrate(10);
+  S.open.push(i);
+  if (S.open.length === 2) {
+    S.moves++;
+    $('#movn').textContent = S.moves;
+    const [a, b] = S.open;
+    if (S.deck[a].icon === S.deck[b].icon) {
+      S.deck[a].matched = S.deck[b].matched = true;
+      S.matchedPairs++;
+      $('#pairn').textContent = S.matchedPairs;
+      cardEl(a).classList.add('matched');
+      cardEl(b).classList.add('matched');
+      S.open = [];
+      vibrate([15, 30, 15]);
+      if (S.matchedPairs === S.deck.length / 2) win();
+    } else {
+      S.lock = true;
+      S.reloj = setTimeout(() => {
+        S.reloj = 0;
+        if (!S.deck[a] || !S.deck[b]) return;
+        S.deck[a].up = S.deck[b].up = false;
+        if (cardEl(a)) cardEl(a).classList.remove('up');
+        if (cardEl(b)) cardEl(b).classList.remove('up');
+        S.open = [];
+        S.lock = false;
+      }, 750);
+    }
+  }
+}
+
+const cardEl = (i) => $(`.cardk[data-i="${i}"]`);
+
+function win() {
+  S.done = true;
+  clock.stop();
+  const secs = clock.seconds;
+  const key = 'memo.best.' + S.diff;
+  const prev = store.get(key, null);
+  // La marca es el tiempo: los primeros volteos son ciegos y contar movimientos
+  // premiaba la suerte. Los movimientos solo desempatan.
+  const isRecord = !prev || secs < prev.secs || (secs === prev.secs && S.moves < prev.moves);
+  if (isRecord) {
+    store.set(key, { moves: S.moves, secs });
+    store.set('memo.hub', `Mejor ${fmtTime(secs)} · ${DIFF_LABEL[S.diff]}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡Completado!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.moves}</div><div class="l">movimientos</div></div>
+    </div>
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Mejor tiempo!</span></p>'
+      : (prev ? `<p style="text-align:center;">Tu mejor: <b>${fmtTime(prev.secs)}</b></p>` : '')}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otra partida</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>

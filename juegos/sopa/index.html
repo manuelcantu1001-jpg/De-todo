@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Sopa de letras en español con cuatro dificultades y palabras del diccionario." />
+<title>Sopa de letras</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* El lado definitivo lo pone fitBoard() midiendo lo que ocupan tema, lista y
+     mandos: con palabras largas la lista crece y el tablero tiene que ceder. */
+  .board {
+    margin: 6px auto 0; width: min(96vw, 400px); aspect-ratio: 1;
+    background: var(--card); border-radius: 12px; box-shadow: var(--shadow);
+    display: grid; padding: 6px; gap: 0; touch-action: none; user-select: none; -webkit-user-select: none;
+    position: relative; border: 1px solid var(--linea-fuerte); }
+  .lc {
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; color: var(--ink); border-radius: 7px; position: relative; z-index: 1;
+  }
+  .lc.selpath { background: var(--accent); color: var(--accent-ink); }
+  /* Palabras encontradas: el color va en el fondo (tintas de la paleta al 65 %
+     sobre la tarjeta) y la letra se queda en tinta parda, que a 13px en experto
+     las letras coloreadas no llegaban a 3:1. Las cinco tintas son las que más
+     se separan entre sí una vez aclaradas (CIE76 ≥ 22). */
+  .lc.f0 { background: color-mix(in srgb, var(--tinta-1) 65%, var(--card)); }
+  .lc.f1 { background: color-mix(in srgb, var(--tinta-3) 65%, var(--card)); }
+  .lc.f2 { background: color-mix(in srgb, var(--tinta-6) 65%, var(--card)); }
+  .lc.f3 { background: color-mix(in srgb, var(--tinta-7) 65%, var(--card)); }
+  .lc.f4 { background: color-mix(in srgb, var(--tinta-8) 65%, var(--card)); }
+  .lc.flash { animation: flashHint 1.2s var(--ease); }
+  @keyframes flashHint { 0%, 60% { background: var(--warn-soft); color: var(--warn); } 100% { } }
+  .tema { text-align: center; font-family: var(--title-font); font-size: 13.5px; color: var(--sub); padding: 4px 16px 0; letter-spacing: var(--title-track); }
+  .tema b { color: var(--ink); }
+  .words { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 4px 12px; }
+  .wchip {
+    font-size: 14px; font-weight: 500; color: var(--ink); background: var(--card);
+    border-radius: 999px; padding: 7px 12px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 6px; border: 1px solid var(--linea-fuerte); }
+  .wchip.hit { color: var(--sub); text-decoration: line-through; box-shadow: none; background: var(--panel); border-color: transparent; }
+  /* El punto está siempre (anillo tenue si falta, tinta si se encontró) para que
+     la ficha no cambie de ancho al tacharse y la lista no salte de fila. */
+  .wchip .dot { width: 8px; height: 8px; border-radius: 999px; border: 1px solid var(--faint); flex-shrink: 0; }
+  .wchip.hit .dot { border-color: transparent; }
+  .tools { margin: 0 16px calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
+  .tool {
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600; font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); box-shadow: var(--shadow-sutil);
+  }
+  .tool:active { opacity: .6; }
+  .tool:disabled { opacity: .4; cursor: default; }
+  /* El área de juego reparte el alto sobrante: los mandos bajan al fondo,
+     donde está el pulgar, en vez de dejar pantalla muerta debajo. */
+  .scroll:not(.g-setup) { display: flex; flex-direction: column; justify-content: space-evenly; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script src="../../banco-es.js"></script>
+<script>
+'use strict';
+
+/* ── Configuración por dificultad ────────────────────────────────────── */
+const CFG = {
+  facil:   { size: 8,  n: 6,  dirs: [[0, 1], [1, 0]], maxRank: 1500, minLen: 3, maxLen: 7 },
+  normal:  { size: 10, n: 8,  dirs: [[0, 1], [1, 0], [0, -1], [-1, 0]], maxRank: 3000, minLen: 4, maxLen: 9 },
+  dificil: { size: 12, n: 10, dirs: [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1]], maxRank: 5500, minLen: 4, maxLen: 10 },
+  experto: { size: 14, n: 12, dirs: [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]], maxRank: 9999, minLen: 5, maxLen: 11 },
+};
+const FILLER = 'AAAAEEEEEIIIOOOUSSRRNNLLDCCTUMPBGVYQHFZJ';
+const FCOLORS = 5;
+// Tinta de cada color de palabra (la misma que tiñe sus casillas, ver .lc.fN)
+const FTINTA = ['--tinta-1', '--tinta-3', '--tinta-6', '--tinta-7', '--tinta-8'];
+
+/* ── Estado ──────────────────────────────────────────────────────────── */
+const S = {
+  diff: store.get('sopa.diff', 'normal'),
+  tema: '', temaN: '',
+  size: 0, grid: [], words: [],    // words: [{n, cells:[i...], found, color}]
+  drag: null, foundCount: 0, pistas: 3, done: false,
+};
+const clock = makeClock(() => $('#clock'));
+
+/* ── Generación ──────────────────────────────────────────────────────── */
+/* Cada sopa tiene un tema (TEMAS_ES). Si el tema no da para llenar el tablero,
+   se completa con palabras del banco curado. En la cuadrícula solo caben letras
+   sin tilde, así que se trabaja siempre con la forma normalizada. */
+function pickWords(cfg) {
+  const tema = Banco.temaAzar();
+  const cabe = (n) => n.length >= 3 && n.length <= Math.min(cfg.maxLen, cfg.size);
+  const out = [];
+  const used = new Set();
+  const meter = (n) => {
+    if (!n || used.has(n) || !cabe(n)) return false;
+    if (out.some((o) => o.n.includes(n) || n.includes(o.n))) return false;
+    used.add(n);
+    out.push({ n });
+    return true;
+  };
+  // 1) palabras del tema, en orden distinto cada vez
+  for (const n of shuffle(Banco.tema(tema).map(Banco.norm))) {
+    if (out.length >= cfg.n) break;
+    meter(n);
+  }
+  // 2) relleno del banco si el tema se queda corto
+  let guard = 0;
+  while (out.length < cfg.n && guard++ < 3000) {
+    // sin tilde: así la palabra de la lista se escribe igual que en la cuadrícula
+    const e = Banco.random({ minLen: cfg.minLen, maxLen: Math.min(cfg.maxLen, cfg.size), maxRank: cfg.maxRank, filtro: (x) => x.w === x.n });
+    if (e) meter(e.n);
+  }
+  return { tema, words: out.sort((a, b) => b.n.length - a.n.length) };
+}
+
+function generate() {
+  const cfg = CFG[S.diff];
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const size = cfg.size;
+    const grid = new Array(size * size).fill('');
+    const { tema, words } = pickWords(cfg);
+    let ok = true;
+    for (const wd of words) {
+      const L = wd.n.length;
+      let placed = false;
+      for (let t = 0; t < 300 && !placed; t++) {
+        const [dr, dc] = cfg.dirs[randInt(cfg.dirs.length)];
+        const r0 = randInt(size), c0 = randInt(size);
+        const rEnd = r0 + dr * (L - 1), cEnd = c0 + dc * (L - 1);
+        if (rEnd < 0 || rEnd >= size || cEnd < 0 || cEnd >= size) continue;
+        const cells = [];
+        let fits = true;
+        for (let k = 0; k < L; k++) {
+          const i = (r0 + dr * k) * size + (c0 + dc * k);
+          const ch = wd.n[k].toUpperCase();
+          if (grid[i] && grid[i] !== ch) { fits = false; break; }
+          cells.push(i);
+        }
+        if (!fits) continue;
+        cells.forEach((i, k) => { grid[i] = wd.n[k].toUpperCase(); });
+        wd.cells = cells;
+        placed = true;
+      }
+      if (!placed) { ok = false; break; }
+    }
+    if (!ok) continue;
+    for (let i = 0; i < grid.length; i++) {
+      if (!grid[i]) grid[i] = FILLER[randInt(FILLER.length)];
+    }
+    S.size = size;
+    S.grid = grid;
+    S.tema = tema;
+    S.temaN = (window.TEMAS_ES_NOMBRE || {})[tema] || cap(tema);
+    S.words = words.map((w, k) => ({ ...w, found: false, color: k % FCOLORS }));
+    return true;
+  }
+  return false;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+const REGLAS = `<p>Cada sopa tiene un <b>tema</b> (frutas, animales, oficios…) que se enseña encima del tablero: casi todas las palabras escondidas son de ese tema.</p>
+<p>Las palabras de la lista están escondidas en el tablero: en horizontal, en vertical y, según la dificultad, también al revés o en diagonal.</p>
+<p><b>Arrastra el dedo</b> desde la primera letra hasta la última para marcar una palabra. Si acertaste, se pinta de color y se tacha de la lista.</p>
+<p>Encuéntralas todas: el reloj corre y tu mejor tiempo por dificultad queda guardado. El botón <b>Pista</b> ilumina un instante la primera letra de una palabra pendiente (tienes 3).</p>`;
+
+function renderSetup() {
+  clock.stop();
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('sopa.best.' + d, null);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Sopa de letras', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => {
+    const c = CFG[S.diff];
+    $('#d-hint').textContent = `Tablero ${c.size}×${c.size} · ${c.n} palabras · ${c.dirs.length} direcciones`;
+  };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('sopa.diff', v); hint(); });
+  hint();
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  if (!generate()) { openModal('<h3>Vaya</h3><p>No pude armar el tablero, intenta de nuevo.</p><div class="m-actions"><button class="btn btn-primary" onclick="closeModal()">Cerrar</button></div>'); return; }
+  S.foundCount = 0; S.pistas = 3; S.done = false; S.drag = null;
+  renderPlay();
+  clock.start();
+}
+
+function renderPlay() {
+  const size = S.size;
+  const fs = Math.max(12, Math.floor(340 / size * 0.55));
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Sopa de letras', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="scroll">
+      <div class="tema">Tema · <b>${esc(S.temaN)}</b></div>
+      <div class="board" id="board" style="grid-template-columns: repeat(${size}, 1fr); font-size: ${fs}px;">
+        ${S.grid.map((ch, i) => `<div class="lc" data-i="${i}">${ch}</div>`).join('')}
+      </div>
+      <div class="words" id="words"></div>
+      <div class="tools">
+        <button class="tool" id="t-pista">Pista · <span id="pistas-n">3</span></button>
+        <button class="tool" id="t-nueva">Nueva</button>
+        <button class="tool" id="t-salir">Salir</button>
+      </div>
+    </div>
+  </div>`;
+  paintWords();
+  fitBoard();
+  bindDrag();
+  $('#t-pista').onclick = usePista;
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+}
+
+/* Lado del tablero: lo que quede de alto tras tema, lista de palabras y mandos
+   (sin bajar de 240px; si aun así no cabe, el área se desplaza). En 375×667
+   una lista de seis filas dejaba los mandos fuera de la vista. */
+function fitBoard() {
+  const board = $('#board'), sc = $('.scroll');
+  if (!board || !sc) return;
+  const otros = ['.tema', '#words', '.tools'].reduce((a, q) => a + ($(q) ? $(q).offsetHeight : 0), 0);
+  const libre = sc.clientHeight - otros - 22;   // márgenes del tablero y de los mandos
+  const lado = Math.max(240, Math.min(sc.clientWidth * .96, 400, libre));
+  board.style.width = lado + 'px';
+}
+addEventListener('resize', fitBoard);
+
+function paintWords() {
+  $('#words').innerHTML = S.words.map((w, k) => `
+    <span class="wchip ${w.found ? 'hit' : ''}" data-k="${k}">
+      <span class="dot" ${w.found ? `style="background: var(${FTINTA[w.color]});"` : ''}></span>${esc(cap(w.n))}
+    </span>`).join('');
+}
+
+/* ── Selección por arrastre ──────────────────────────────────────────── */
+function cellFromPoint(x, y) {
+  const b = $('#board').getBoundingClientRect();
+  const pad = 6;
+  const cw = (b.width - pad * 2) / S.size;
+  const c = Math.floor((x - b.left - pad) / cw);
+  const r = Math.floor((y - b.top - pad) / cw);
+  if (r < 0 || r >= S.size || c < 0 || c >= S.size) return -1;
+  return r * S.size + c;
+}
+
+function pathBetween(a, b) {
+  const size = S.size;
+  const r0 = Math.floor(a / size), c0 = a % size;
+  const r1 = Math.floor(b / size), c1 = b % size;
+  let dr = r1 - r0, dc = c1 - c0;
+  // ajusta al eje/diagonal más cercano
+  if (dr !== 0 && dc !== 0 && Math.abs(Math.abs(dr) - Math.abs(dc)) > 0) {
+    if (Math.abs(dr) > Math.abs(dc) * 2) dc = 0;
+    else if (Math.abs(dc) > Math.abs(dr) * 2) dr = 0;
+    else { const L = Math.min(Math.abs(dr), Math.abs(dc)); dr = Math.sign(dr) * L; dc = Math.sign(dc) * L; }
+  }
+  const L = Math.max(Math.abs(dr), Math.abs(dc));
+  const sr = Math.sign(dr), sc = Math.sign(dc);
+  const cells = [];
+  for (let k = 0; k <= L; k++) {
+    const r = r0 + sr * k, c = c0 + sc * k;
+    if (r < 0 || r >= size || c < 0 || c >= size) break;
+    cells.push(r * size + c);
+  }
+  return cells;
+}
+
+function bindDrag() {
+  const board = $('#board');
+  board.addEventListener('pointerdown', (e) => {
+    const i = cellFromPoint(e.clientX, e.clientY);
+    if (i < 0 || S.done) return;
+    S.drag = { from: i, cells: [i] };
+    board.setPointerCapture(e.pointerId);
+    paintPath();
+  });
+  board.addEventListener('pointermove', (e) => {
+    if (!S.drag) return;
+    const i = cellFromPoint(e.clientX, e.clientY);
+    if (i < 0) return;
+    S.drag.cells = pathBetween(S.drag.from, i);
+    paintPath();
+  });
+  const finish = () => {
+    if (!S.drag) return;
+    const cells = S.drag.cells;
+    S.drag = null;
+    tryMatch(cells);
+    paintPath();
+  };
+  board.addEventListener('pointerup', finish);
+  board.addEventListener('pointercancel', finish);
+}
+
+function paintPath() {
+  const on = new Set(S.drag ? S.drag.cells : []);
+  $$('.lc').forEach((el) => el.classList.toggle('selpath', on.has(Number(el.dataset.i))));
+}
+
+function tryMatch(cells) {
+  if (!cells || cells.length < 2) return;
+  const sFwd = cells.map((i) => S.grid[i]).join('').toLowerCase();
+  const sBck = sFwd.split('').reverse().join('');
+  for (const w of S.words) {
+    if (w.found) continue;
+    if (w.n === sFwd || w.n === sBck) {
+      w.found = true;
+      S.foundCount++;
+      for (const i of cells) {
+        const el = $(`.lc[data-i="${i}"]`);
+        el.classList.remove('f0', 'f1', 'f2', 'f3', 'f4');
+        el.classList.add('f' + w.color);
+      }
+      vibrate(25);
+      paintWords();
+      if (S.foundCount === S.words.length) win();
+      return;
+    }
+  }
+  vibrate(50);
+}
+
+function usePista() {
+  if (S.pistas <= 0 || S.done) return;
+  const left = S.words.filter((w) => !w.found);
+  if (!left.length) return;
+  const w = left[randInt(left.length)];
+  S.pistas--;
+  $('#pistas-n').textContent = S.pistas;
+  if (S.pistas <= 0) $('#t-pista').disabled = true;
+  const el = $(`.lc[data-i="${w.cells[0]}"]`);
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  vibrate(20);
+}
+
+function win() {
+  S.done = true;
+  clock.stop();
+  const secs = clock.seconds;
+  const key = 'sopa.best.' + S.diff;
+  const best = store.get(key, null);
+  const isRecord = !best || secs < best;
+  if (isRecord) {
+    store.set(key, secs);
+    store.set('sopa.hub', `Mejor ${fmtTime(secs)} · ${DIFF_LABEL[S.diff]}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡Todas encontradas!</h3>
+    <p style="text-align:center; margin-top:-4px;">Tema · <b>${esc(S.temaN)}</b></p>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.words.length}</div><div class="l">palabras</div></div>
+    </div>
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Nuevo mejor tiempo!</span></p>'
+      : (best ? `<p style="text-align:center;">Tu mejor tiempo: <b>${fmtTime(best)}</b></p>` : '')}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otra sopa</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>

@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Texas Hold'em mano a mano contra la app: ciegas, faroles y todo el bote." />
+<title>Texas Hold'em</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E♠%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .zona { padding: 10px 16px 0; }
+  /* Etiquetas en mono (como .dato) y las fichas de cada quien en mono a peso medio
+     (antes el <b> heredaba «bolder» sobre 700 y salía en 900). Las zonas se
+     reparten el espacio libre con margin-top auto: la app arriba, la mesa en
+     medio y tus cartas junto a los botones. */
+  .zona + .zona { margin-top: auto; }
+  .zona .quien { font-family: var(--mono); font-size: 10.5px; font-weight: 400; letter-spacing: .12em; text-transform: uppercase; color: var(--bg-sub); display: flex; justify-content: space-between; align-items: center; }
+  .zona .quien b { color: var(--bg-ink); font-size: 15px; font-weight: 500; text-transform: none; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+  /* Botón del dealer: ficha clara con tinta (12:1). En blanco sobre --warn daba 3,4:1 a 11 px. */
+  .boton-d { display: inline-block; width: 18px; height: 18px; border-radius: 999px; background: var(--card); color: var(--ink); border: 1px solid var(--linea-fuerte); font-family: var(--font); font-size: 11px; font-weight: 600; letter-spacing: 0; text-align: center; line-height: 16px; margin-left: 6px; }
+  .cartas { display: flex; gap: 7px; padding-top: 7px; min-height: 74px; }
+  .cartas.centro { justify-content: center; min-height: 80px; }
+  .carta {
+    width: 50px; height: 70px; border-radius: 12px; background: var(--tile-bg);
+    border: 1px solid var(--tile-border); box-shadow: none;
+    display: flex; flex-direction: column; justify-content: space-between; padding: 5px 6px;
+    font-weight: 600; color: var(--ink); animation: popIn .22s var(--ease);
+  }
+  .carta .r { font-size: 17px; line-height: 1; }
+  .carta .s { font-size: 18px; line-height: 1; align-self: flex-end; }
+  .carta.roja { color: var(--bad); }
+  .carta.dorso { background: repeating-linear-gradient(45deg, var(--accent), var(--accent) 5px, color-mix(in srgb, var(--accent) 80%, black) 5px, color-mix(in srgb, var(--accent) 80%, black) 10px); border-color: transparent; }
+  .bote { text-align: center; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--bg-sub); padding-top: 6px; }
+  .bote b { color: var(--bg-ink); font-size: 16px; font-weight: 500; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+  /* La narración en serif cursiva y tinta: en acento daba 3,85:1 a 13,5 px. */
+  .narra { text-align: center; min-height: 22px; padding-top: 8px; font-family: var(--display); font-style: italic; font-size: 15px; font-weight: 400; color: var(--ink); }
+  .acciones { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; padding-top: 12px; }
+  .acciones .fila { display: flex; gap: 10px; }
+  .acciones .fila .btn { flex: 1; padding: 14px 10px; font-size: 15px; }
+  .acciones .apuestas .btn { padding: 12px 4px; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const SB = 10, BB = 20, STACK = 1000;
+const PALOS = ['♠', '♥', '♦', '♣'];
+const NOMBRE = ['Carta alta', 'Par', 'Doble par', 'Trío', 'Escalera', 'Color', 'Full', 'Póker', 'Escalera de color'];
+/* margen alto = se retira de más (fácil de exprimir); farol = cuánto se tira faroles.
+   En Fácil la app es miedosa y transparente; en Experto aguanta y te farolea. */
+const IA = {
+  facil:   { n: 40,  margen: 0.20, sube: 0.86, farol: 0.00, abre: 0.74 },
+  normal:  { n: 110, margen: 0.08, sube: 0.74, farol: 0.04, abre: 0.62 },
+  dificil: { n: 200, margen: 0.03, sube: 0.66, farol: 0.10, abre: 0.55 },
+  experto: { n: 320, margen: 0.00, sube: 0.60, farol: 0.16, abre: 0.50 },
+};
+
+const S = {
+  diff: store.get('holdem.diff', 'normal'),
+  stack: { yo: STACK, app: STACK },
+  dealer: 'yo', hole: { yo: [], app: [] }, board: [], mazo: [],
+  street: 0, pot: 0, cont: { yo: 0, app: 0 }, acted: { yo: false, app: false },
+  raises: 0, enMano: false, muestraApp: false, pensando: false,
+};
+
+const REGLAS = `<p>Texas Hold'em <b>mano a mano</b>: dos cartas tuyas, cinco comunes, y la mejor mano de cinco gana el bote. Ciegas de $${SB}/$${BB}, fichas iniciales $${STACK}.</p>
+<p>En tu turno puedes <b>retirarte</b>, <b>pasar / igualar</b> o subir — y <b>tú eliges cuánto</b>: media apuesta del bote, el bote entero o todas tus fichas. Ahí está el juego: con una mano buena sacas valor, y con una mala una apuesta grande puede echar a la app.</p>
+<p>Hay cuatro rondas de apuestas: antes del flop, en el flop, en el turn y en el river.</p>
+<p>El duelo se acaba cuando alguien se queda <b>sin fichas</b>. La dificultad cambia qué tan fino calcula (y qué tanto farolea) el rival. Tu marca: duelos ganados.</p>`;
+
+/* ── Cartas y evaluación ─────────────────────────────────────────────── */
+const cartaHTML = (c, oculta) => oculta
+  ? '<div class="carta dorso" data-k="dorso"></div>'
+  : `<div class="carta ${c.s === 1 || c.s === 2 ? 'roja' : ''}" data-k="${c.r}-${c.s}"><span class="r">${c.r === 14 ? 'A' : c.r === 13 ? 'K' : c.r === 12 ? 'Q' : c.r === 11 ? 'J' : c.r}</span><span class="s">${PALOS[c.s]}</span></div>`;
+
+/* Pinta sin rehacer lo ya puesto: solo se anima la carta que acaba de caer. */
+function pintaMano(sel, cartas, ocultas) {
+  const cont = $(sel);
+  if (!cont) return;
+  const fijas = [...cont.children].filter((e) => e.classList.contains('carta'));
+  fijas.slice(cartas.length).forEach((e) => e.remove());
+  // Solo el hijo directo: sin :scope el primer «no carta» era el <span> del rango
+  // de la primera carta, y cada pintado borraba un span hasta dejarlas en blanco.
+  const vacio = cont.querySelector(':scope > :not(.carta)');
+  if (vacio && cartas.length) vacio.remove();
+  cartas.forEach((c, i) => {
+    const clave = ocultas ? 'dorso' : `${c.r}-${c.s}`;
+    const hijo = [...cont.children].filter((e) => e.classList.contains('carta'))[i];
+    if (!hijo) cont.insertAdjacentHTML('beforeend', cartaHTML(c, ocultas));
+    else if (hijo.dataset.k !== clave) hijo.outerHTML = cartaHTML(c, ocultas);
+  });
+}
+
+function eval5(cs) {
+  const rs = cs.map((c) => c.r).sort((a, b) => b - a);
+  const flush = cs.every((c) => c.s === cs[0].s);
+  const cnt = {};
+  for (const r of rs) cnt[r] = (cnt[r] || 0) + 1;
+  const g = Object.entries(cnt).map(([r, n]) => [+r, n]).sort((a, b) => b[1] - a[1] || b[0] - a[0]);
+  const uniq = [...new Set(rs)];
+  let esc = 0;
+  if (uniq.length === 5) {
+    if (uniq[0] - uniq[4] === 4) esc = uniq[0];
+    else if (uniq[0] === 14 && uniq[1] === 5) esc = 5;
+  }
+  let cat, tb;
+  if (esc && flush) { cat = 8; tb = [esc]; }
+  else if (g[0][1] === 4) { cat = 7; tb = [g[0][0], g[1][0]]; }
+  else if (g[0][1] === 3 && g[1][1] === 2) { cat = 6; tb = [g[0][0], g[1][0]]; }
+  else if (flush) { cat = 5; tb = rs; }
+  else if (esc) { cat = 4; tb = [esc]; }
+  else if (g[0][1] === 3) { cat = 3; tb = [g[0][0], g[1][0], g[2][0]]; }
+  else if (g[0][1] === 2 && g[1][1] === 2) { cat = 2; tb = [g[0][0], g[1][0], g[2][0]]; }
+  else if (g[0][1] === 2) { cat = 1; tb = [g[0][0], g[1][0], g[2][0], g[3][0]]; }
+  else { cat = 0; tb = rs; }
+  let s = cat;
+  for (let i = 0; i < 5; i++) s = s * 15 + (tb[i] || 0);
+  return s;
+}
+function eval7(cs) {
+  let mejor = 0;
+  for (let i = 0; i < 7; i++) for (let j = i + 1; j < 7; j++) {
+    const m = [];
+    for (let k = 0; k < 7; k++) if (k !== i && k !== j) m.push(cs[k]);
+    const v = eval5(m);
+    if (v > mejor) mejor = v;
+  }
+  return mejor;
+}
+const catDe = (score) => Math.floor(score / Math.pow(15, 5));
+
+function equity(hole, board, n) {
+  const usadas = new Set([...hole, ...board].map((c) => c.r * 4 + c.s));
+  const resto = [];
+  for (let s = 0; s < 4; s++) for (let r = 2; r <= 14; r++) if (!usadas.has(r * 4 + s)) resto.push({ r, s });
+  const need = 2 + (5 - board.length);
+  let win = 0;
+  for (let k = 0; k < n; k++) {
+    for (let i = 0; i < need; i++) {
+      const j = i + randInt(resto.length - i);
+      [resto[i], resto[j]] = [resto[j], resto[i]];
+    }
+    const b2 = board.concat(resto.slice(2, need));
+    const a = eval7(hole.concat(b2)), o = eval7([resto[0], resto[1]].concat(b2));
+    win += a > o ? 1 : a === o ? 0.5 : 0;
+  }
+  return win / n;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML("Texas Hold'em", '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel del rival</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="bests"><div class="b"><div class="bn">${store.get('holdem.wins', 0)}</div><div class="bl">Duelos ganados</div></div></div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('holdem.diff', v); });
+  $('#new').onclick = () => { S.stack = { yo: STACK, app: STACK }; S.dealer = Math.random() < .5 ? 'yo' : 'app'; renderMesa(); nuevaMano(); };
+  bindHowto(REGLAS);
+}
+
+function renderMesa() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML("Texas Hold'em", `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
+    <div class="zona">
+      <div class="quien"><span>La app <span class="boton-d" id="d-app" style="display:none;">D</span></span><b id="st-app"></b></div>
+      <div class="cartas" id="c-app"></div>
+    </div>
+    <div class="zona">
+      <div class="cartas centro" id="c-board"></div>
+      <div class="bote">Bote <b id="pot"></b></div>
+      <div class="narra" id="narra"></div>
+    </div>
+    <div class="zona">
+      <div class="quien"><span>Tú <span class="boton-d" id="d-yo" style="display:none;">D</span></span><b id="st-yo"></b></div>
+      <div class="cartas" id="c-yo"></div>
+    </div>
+    <div class="acciones">
+      <div class="fila">
+        <button class="btn btn-ghost" id="b-fold">Retirarse</button>
+        <button class="btn btn-soft" id="b-call"></button>
+      </div>
+      <div class="fila apuestas">
+        <button class="btn btn-primary" id="b-medio"></button>
+        <button class="btn btn-primary" id="b-bote"></button>
+        <button class="btn btn-primary" id="b-todo"></button>
+      </div>
+      <div class="fila"><button class="btn btn-ghost" id="b-salir">Salir del duelo</button></div>
+    </div>
+  </div>`;
+  $('#b-fold').onclick = () => miAccion('fold');
+  $('#b-call').onclick = () => miAccion('call');
+  $('#b-medio').onclick = () => miAccion('raise', 0.5);
+  $('#b-bote').onclick = () => miAccion('raise', 1);
+  $('#b-todo').onclick = () => miAccion('raise', Infinity);
+  $('#b-salir').onclick = renderSetup;
+}
+
+function narra(t) { const el = $('#narra'); if (el) el.textContent = t || ''; }
+
+function paint() {
+  if (!$('#st-yo')) return;  // el jugador ya se fue de la pantalla
+  pintaMano('#c-app', S.hole.app, !S.muestraApp);
+  pintaMano('#c-yo', S.hole.yo, false);
+  if (!S.board.length) {
+    const b = $('#c-board');
+    if (b && !b.querySelector('span')) b.innerHTML = '<span style="color:var(--sub);font-family:var(--display);font-style:italic;font-size:14px;align-self:center;">— aún sin cartas comunes —</span>';
+  } else pintaMano('#c-board', S.board, false);
+  $('#st-yo').textContent = '$' + (S.stack.yo - S.cont.yo);
+  $('#st-app').textContent = '$' + (S.stack.app - S.cont.app);
+  $('#pot').textContent = '$' + (S.pot + S.cont.yo + S.cont.app);
+  $('#d-yo').style.display = S.dealer === 'yo' ? '' : 'none';
+  $('#d-app').style.display = S.dealer === 'app' ? '' : 'none';
+  const miTurno = S.enMano && S.turno === 'yo' && !S.pensando;
+  const toCall = S.cont.app - S.cont.yo;
+  $('#b-fold').disabled = !miTurno;
+  $('#b-call').disabled = !miTurno;
+  $('#b-call').textContent = toCall > 0 ? `Igualar $${Math.min(toCall, S.stack.yo - S.cont.yo)}` : 'Pasar';
+  // Tú decides cuánto: media apuesta, el bote entero o todas tus fichas
+  const opciones = [['b-medio', 0.5, '½ bote'], ['b-bote', 1, 'Bote'], ['b-todo', Infinity, 'Todo']];
+  const vistos = new Set();
+  for (const [id, frac, etiqueta] of opciones) {
+    const obj = subidaDe('yo', frac);
+    const el = $('#' + id);
+    // si dos tamaños salen iguales (por el mínimo o el tope), deja solo el primero
+    const repetido = obj && vistos.has(obj);
+    if (obj) vistos.add(obj);
+    el.disabled = !miTurno || !obj || repetido;
+    const esTodo = obj && obj >= Math.min(S.stack.yo, S.stack.app);
+    el.textContent = obj ? (esTodo ? `Todo $${obj}` : `${etiqueta} $${obj}`) : etiqueta;
+  }
+}
+
+/* ── Motor de la mano ────────────────────────────────────────────────── */
+/* Reparto como en la mesa: una carta a cada uno, por turnos, no todas de golpe. */
+async function nuevaMano() {
+  S.mazo = [];
+  for (let s = 0; s < 4; s++) for (let r = 2; r <= 14; r++) S.mazo.push({ r, s });
+  S.mazo = shuffle(S.mazo);
+  S.hole.yo = []; S.hole.app = [];
+  S.board = []; S.street = 0; S.pot = 0; S.muestraApp = false;
+  const sb = S.dealer, bb = sb === 'yo' ? 'app' : 'yo';
+  S.cont = { yo: 0, app: 0 };
+  S.cont[sb] = Math.min(SB, S.stack[sb]);
+  S.cont[bb] = Math.min(BB, S.stack[bb]);
+  S.acted = { yo: false, app: false };
+  S.raises = 1;
+  S.enMano = true;
+  S.turno = sb;
+  S.pensando = true;                       // nadie actúa mientras se reparte
+  narra('Repartiendo…');
+  paint();
+  for (const quien of ['yo', 'app', 'yo', 'app']) {
+    await delay(300);
+    if (!$('#c-yo')) return;               // saliste a media reparto
+    S.hole[quien].push(S.mazo.pop());
+    vibrate(5);
+    paint();
+  }
+  await delay(240);
+  if (!$('#c-yo')) return;
+  S.pensando = false;
+  narra('');
+  paint();
+  siguiente();
+}
+
+const otro = (q) => q === 'yo' ? 'app' : 'yo';
+
+/* Cuánto se sube: fracción del bote (Infinity = todas las fichas).
+   El tope real es el stack más corto de los dos. */
+function subidaDe(q, frac) {
+  if (S.raises >= 4) return 0;
+  const opp = otro(q);
+  const toCall = S.cont[opp] - S.cont[q];
+  const bote = S.pot + S.cont.yo + S.cont.app;
+  const tope = Math.min(S.stack[q], S.stack[opp]);
+  if (frac === Infinity) return tope > S.cont[opp] ? tope : 0;
+  const minimo = S.cont[opp] + Math.max(toCall, BB);            // subida mínima legal
+  const deseado = S.cont[opp] + Math.round((toCall + frac * (bote + toCall)) / 10) * 10;
+  const objetivo = Math.min(Math.max(minimo, deseado), tope);
+  return objetivo > S.cont[opp] ? objetivo : 0;
+}
+
+function miAccion(tipo, frac) {
+  if (!S.enMano || S.turno !== 'yo' || S.pensando) return;
+  accion('yo', tipo, frac);
+}
+
+function accion(q, tipo, frac) {
+  const opp = otro(q);
+  const toCall = S.cont[opp] - S.cont[q];
+  if (tipo === 'fold') return finPorRetiro(opp, q);
+  if (tipo === 'raise') {
+    const obj = subidaDe(q, frac == null ? 1 : frac);
+    if (!obj) tipo = 'call';
+    else {
+      S.cont[q] = obj;
+      S.raises++;
+      S.acted[q] = true; S.acted[opp] = false;
+      narra(q === 'app' ? `La app sube a $${obj}` : `Subes a $${obj}`);
+      vibrate(10);
+      paint();
+      S.turno = opp;
+      return siguiente();
+    }
+  }
+  // call / check
+  S.cont[q] += Math.max(0, Math.min(toCall, S.stack[q] - S.cont[q]));
+  S.acted[q] = true;
+  if (S.cont[q] < S.cont[opp] && S.stack[q] - S.cont[q] === 0) S.cont[opp] = S.cont[q]; // all-in corto: sobrante devuelto
+  narra(q === 'app' ? (toCall > 0 ? 'La app iguala' : 'La app pasa') : (toCall > 0 ? 'Igualas' : 'Pasas'));
+  paint();
+  if (S.cont.yo === S.cont.app && S.acted.yo && S.acted.app) return cerrarCalle();
+  S.turno = opp;
+  siguiente();
+}
+
+function siguiente() {
+  if (!S.enMano) return;
+  paint();
+  if (S.turno === 'app') {
+    S.pensando = true;
+    setTimeout(() => {
+      S.pensando = false;
+      if (!S.enMano) return;
+      const d = decideApp();
+      accion('app', d.tipo, d.frac);
+    }, 650 + randInt(650));
+  }
+}
+
+/* La app también elige cuánto sube: fuerte apuesta grande, floja apuesta chica. */
+function tamanoApp(eq, farol) {
+  if (farol) return Math.random() < .3 ? 1 : 0.5;
+  if (eq > 0.85) return Math.random() < .35 ? Infinity : 1;
+  if (eq > 0.68) return Math.random() < .55 ? 1 : 0.5;
+  return 0.5;
+}
+
+function decideApp() {
+  const P = IA[S.diff];
+  const toCall = S.cont.yo - S.cont.app;
+  const eq = equity(S.hole.app, S.board, P.n);
+  const bote = S.pot + S.cont.yo + S.cont.app;
+  if (toCall <= 0) {
+    if (eq > P.abre + (Math.random() - 0.5) * 0.06) return { tipo: 'raise', frac: tamanoApp(eq, false) };
+    if (Math.random() < P.farol) return { tipo: 'raise', frac: tamanoApp(eq, true) };
+    return { tipo: 'call' };
+  }
+  const odds = toCall / (bote + toCall);
+  if (eq > P.sube && Math.random() < 0.8) return { tipo: 'raise', frac: tamanoApp(eq, false) };
+  if (Math.random() < P.farol * 0.5) return { tipo: 'raise', frac: tamanoApp(eq, true) };
+  if (eq < odds + P.margen) return Math.random() < 0.12 ? { tipo: 'call' } : { tipo: 'fold' };
+  return { tipo: 'call' };
+}
+
+async function cerrarCalle() {
+  if (!S.enMano) return;                 // evita que dos hilos cierren la misma calle
+  S.pot += S.cont.yo + S.cont.app;
+  S.stack.yo -= S.cont.yo; S.stack.app -= S.cont.app;
+  S.cont = { yo: 0, app: 0 };
+  const allin = S.stack.yo === 0 || S.stack.app === 0;
+  if (S.street === 3) return muestra();
+  S.street++;
+  // El flop cae de una en una, como la reparte el crupier
+  const cuantas = S.street === 1 ? 3 : 1;
+  S.pensando = true;
+  paint();
+  for (let k = 0; k < cuantas; k++) {
+    await delay(k ? 260 : 380);
+    if (!$('#c-board')) return;
+    S.board.push(S.mazo.pop());
+    vibrate(5);
+    paint();
+  }
+  S.pensando = false;
+  if (allin) {
+    S.muestraApp = true;
+    paint();
+    narra('Todo dentro: se reparte la mesa…');
+    return setTimeout(cerrarCalle, 1100);
+  }
+  S.acted = { yo: false, app: false };
+  S.raises = 0;
+  S.turno = otro(S.dealer);
+  narra('');
+  paint();
+  siguiente();
+}
+
+function finPorRetiro(ganador, retirado) {
+  if (!S.enMano) return;                 // la mano ya se resolvió: no repartir el bote dos veces
+  S.enMano = false;
+  const bote = S.pot + S.cont.yo + S.cont.app;
+  S.stack.yo -= S.cont.yo; S.stack.app -= S.cont.app;
+  S.stack[ganador] += bote;
+  S.pot = 0; S.cont = { yo: 0, app: 0 };
+  narra(retirado === 'yo' ? 'Te retiras' : 'La app se retira');
+  finMano(ganador === 'yo' ? `Te llevas $${bote}` : `La app se lleva $${bote}`,
+    retirado === 'yo' ? 'Te retiraste antes de ver más cartas.' : 'La app tiró sus cartas.', ganador);
+}
+
+function muestra() {
+  if (!S.enMano) return;                 // ídem: una mano se resuelve una sola vez
+  S.enMano = false;
+  S.muestraApp = true;
+  const bote = S.pot;
+  S.pot = 0;
+  const vy = eval7(S.hole.yo.concat(S.board)), va = eval7(S.hole.app.concat(S.board));
+  let ganador, titulo, porque;
+  if (vy > va) { ganador = 'yo'; S.stack.yo += bote; titulo = `Te llevas $${bote}`; }
+  else if (va > vy) { ganador = 'app'; S.stack.app += bote; titulo = `La app se lleva $${bote}`; }
+  else { ganador = null; S.stack.yo += bote / 2; S.stack.app += bote / 2; titulo = 'Bote repartido'; }
+  porque = `Tu ${NOMBRE[catDe(vy)].toLowerCase()} contra ${NOMBRE[catDe(va)].toLowerCase()} de la app.`;
+  paint();
+  finMano(titulo, porque, ganador);
+}
+
+function finMano(titulo, porque, ganador) {
+  if (ganador === 'yo') { confetti(); vibrate([30, 60, 30]); }
+  setTimeout(() => {
+    if (S.stack.yo <= 0 || S.stack.app <= 0) return finDuelo();
+    openModal(`
+      <h3>${esc(titulo)}</h3>
+      <p style="text-align:center;">${esc(porque)}</p>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">$${S.stack.yo}</div><div class="l">tus fichas</div></div>
+        <div class="stat"><div class="n">$${S.stack.app}</div><div class="l">la app</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Siguiente mano</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); S.dealer = otro(S.dealer); nuevaMano(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 1300);
+}
+
+function finDuelo() {
+  const gane = S.stack.app <= 0;
+  if (gane) {
+    const wins = store.get('holdem.wins', 0) + 1;
+    store.set('holdem.wins', wins);
+    store.set('hold.hub', 'Duelos ganados: ' + wins);
+    confetti(); vibrate([30, 60, 30, 60, 30]);
+  }
+  openModal(`
+    <h3>${gane ? '¡Ganaste el duelo!' : 'La app te dejó sin fichas'}</h3>
+    <p style="text-align:center;">${gane ? 'Le sacaste todas las fichas a la app.' : 'A la próxima: obsérvale los faroles.'}</p>
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otro duelo</button>
+      <button class="btn btn-ghost" id="m-out">Salir</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); S.stack = { yo: STACK, app: STACK }; S.dealer = Math.random() < .5 ? 'yo' : 'app'; nuevaMano(); };
+  $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>

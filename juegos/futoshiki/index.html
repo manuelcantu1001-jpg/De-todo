@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Futoshiki: llena la cuadrícula sin repetir y respeta los signos «mayor que» y «menor que» entre casillas." />
+<title>Futoshiki</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EF%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* La zona de juego reparte el alto sobrante entre tablero, teclado y mandos:
+     los botones bajan hasta el pulgar en vez de dejar pantalla muerta. */
+  .fut-zona { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
+
+  /* El tablero es una rejilla de 2n-1 pistas: casilla, hueco de signo, casilla…
+     Así los signos quedan DIBUJADOS entre casillas y no flotando encima. */
+  .fut-board {
+    margin: 0 auto; display: grid; touch-action: manipulation;
+    user-select: none; -webkit-user-select: none;
+  }
+  .fut-cell {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    position: relative; cursor: pointer; padding: 0;
+    background: var(--card); color: var(--ink);
+    border: var(--trazo) solid var(--linea-fuerte); border-radius: 9px;
+    font-family: var(--font); font-size: var(--fut-num); font-weight: 500;
+    font-variant-numeric: tabular-nums; letter-spacing: 0;
+    transition: background var(--dur) var(--ease);
+  }
+  /* Las pistas del tablero van sobre beige: se leen como papel impreso y se
+     distinguen de lo que escribes sin recurrir a otro color de tinta. */
+  /* La pista dada CONSERVA su filete. Con «border-color: transparent» el beige
+     del panel y el crema de la página quedan a ΔE 3,2 y la casilla se
+     desvanecía: el número parecía flotar suelto fuera de la cuadrícula. */
+  .fut-cell.fut-dado { background: var(--panel); font-weight: 600; }
+  .fut-cell.fut-puesta { color: var(--accent-texto); font-weight: 600; }
+  /* El resalte de fila y columna tiene que ser MUCHO más flojo que el beige
+     de las pistas dadas: con --soft los dos eran el mismo color a la vista
+     y media cuadrícula parecía venir rellena de fábrica. */
+  .fut-cell.fut-par { background: color-mix(in srgb, var(--panel) 45%, var(--card)); }
+  .fut-cell.fut-igual { background: var(--accent-soft); }
+  .fut-cell.fut-mal { color: var(--bad); }
+  /* Sobre el rosa del resalte, el terracota de marca se queda en 3,99:1 y el
+     texto normal necesita 4,5. Se oscurece con la propia tinta (color-mix
+     derivado, no un hex inventado): 4,77:1 y sigue siendo el mismo matiz. */
+  .fut-cell.fut-puesta.fut-sel, .fut-cell.fut-puesta.fut-igual { color: color-mix(in srgb, var(--accent-texto) 82%, var(--ink)); }
+  .fut-cell.fut-mal.fut-sel, .fut-cell.fut-mal.fut-igual { color: color-mix(in srgb, var(--bad) 84%, var(--ink)); }
+  /* Una pista dada sí puede salir marcada: choca con lo que tú escribiste en
+     su fila o columna. Sobre el beige el rojo se queda en 4,43:1, así que
+     también se oscurece un punto. */
+  .fut-cell.fut-mal.fut-dado { color: color-mix(in srgb, var(--bad) 90%, var(--ink)); }
+  .fut-cell.fut-sel .fut-notas i, .fut-cell.fut-igual .fut-notas i { color: color-mix(in srgb, var(--sub) 80%, var(--ink)); }
+  .fut-cell.fut-sel { background: var(--accent-soft); outline: 2.5px solid var(--accent-texto); outline-offset: -2.5px; z-index: 1; }
+  .fut-cell.fut-mal.fut-sel { outline-color: var(--bad); }
+
+  .fut-notas { position: absolute; inset: 3px; display: grid; gap: 0; }
+  .fut-notas i {
+    font-style: normal; font-weight: 600; color: var(--sub);
+    font-size: var(--fut-nota); display: flex; align-items: center; justify-content: center;
+  }
+
+  /* El signo es información que significa, como los bloques del Sudoku:
+     va en tinta plena, no en gris decorativo. */
+  .fut-sig { display: flex; align-items: center; justify-content: center; color: var(--ink); pointer-events: none; }
+  .fut-sig svg { width: 100%; height: 100%; display: block; }
+  .fut-sig.fut-mal { color: var(--bad); }
+
+  .fut-pad {
+    margin: 0 16px; display: grid; grid-auto-rows: 1fr; gap: 9px;
+    flex: 1 1 auto; width: 100%; max-width: 448px; align-self: center; max-height: 200px;
+  }
+  .fut-key {
+    height: 100%; min-height: 50px; background: var(--card); color: var(--ink);
+    border: var(--trazo) solid var(--linea); border-radius: 14px;
+    font-family: var(--font); font-size: 22px; font-weight: 600; cursor: pointer; padding: 0;
+    transition: opacity var(--dur) var(--ease);
+  }
+  .fut-key:active { opacity: .55; }
+  .fut-key.fut-listo { opacity: .32; }
+  .fut-key:disabled { opacity: .3; cursor: default; }
+  .fut-key svg { display: block; margin: 0 auto; }
+
+  /* Los mandos van FUERA del reparto de alto y anclados abajo: dentro del
+     space-evenly, con el tablero de 4×4, el último hueco dejaba 75 px muertos. */
+  .fut-tools { margin: 10px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; flex: 0 0 auto; }
+  .fut-tool {
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font);
+    font-weight: 500; font-size: 13px; padding: 11px 17px; border-radius: var(--pastilla);
+    background: var(--card); color: var(--ink); display: flex; align-items: center; gap: 7px; min-height: 42px;
+  }
+  .fut-tool:active { opacity: .6; }
+  .fut-tool.fut-on { background: var(--accent-texto); color: var(--accent-ink); border-color: transparent; }
+  .fut-leyenda { text-align: center; font-family: var(--display); font-style: italic; font-size: 13.5px; color: var(--sub); padding: 0 20px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════════════════════
+   FUTOSHIKI
+   Cuadrícula n×n: cada fila y cada columna llevan 1..n sin repetir, y entre
+   casillas vecinas puede haber un signo que hay que respetar.
+
+   El generador NO reparte tableros al azar: parte de la rejilla resuelta
+   entera y va quitando pistas y signos mientras un resolutor de deducción
+   pura siga llegando a la solución él solo. Como todas las reglas de ese
+   resolutor son sanas (jamás descartan un valor que pudiera aparecer en
+   alguna solución), que termine con una sola candidata por casilla demuestra
+   dos cosas a la vez: la solución es única y se llega a ella razonando, sin
+   tantear. Encima, cada tablero pasa por un contador de soluciones
+   independiente antes de entregarse.
+   ════════════════════════════════════════════════════════════════════ */
+
+const CFG = {
+  facil:   { n: 4, tecnica: 1, minPistas: 3, minSignos: 5,  sep: 20, ancho: 'min(86vw, 300px)' },
+  normal:  { n: 5, tecnica: 2, minPistas: 1, minSignos: 8,  sep: 17, ancho: 'min(92vw, 348px)' },
+  dificil: { n: 6, tecnica: 2, minPistas: 1, minSignos: 12, sep: 15, ancho: 'min(96vw, 392px)' },
+  experto: { n: 7, tecnica: 2, minPistas: 1, minSignos: 16, sep: 13, ancho: 'min(96vw, 392px)' },
+};
+
+/* ── Máscaras de candidatos ─────────────────────────────────────────
+   El dominio de una casilla es un entero: el bit v vale 1 si v sigue siendo
+   posible. Cabe de sobra en 32 bits para n ≤ 7. */
+const altoBit = (m) => 31 - Math.clz32(m);
+const bajoBit = (m) => 31 - Math.clz32(m & -m);
+const unSolo = (m) => m !== 0 && (m & (m - 1)) === 0;
+const cuantos = (m) => { let k = 0; while (m) { m &= m - 1; k++; } return k; };
+
+/* ── Cuadrado latino aleatorio ──────────────────────────────────────── */
+function latino(n) {
+  const g = new Array(n * n).fill(0);
+  const nums = Array.from({ length: n }, (_, i) => i + 1);
+  function rellena(i) {
+    if (i === n * n) return true;
+    const r = (i / n) | 0, c = i % n;
+    for (const v of shuffle(nums)) {
+      let libre = true;
+      for (let k = 0; k < c && libre; k++) if (g[r * n + k] === v) libre = false;
+      for (let k = 0; k < r && libre; k++) if (g[k * n + c] === v) libre = false;
+      if (!libre) continue;
+      g[i] = v;
+      if (rellena(i + 1)) return true;
+      g[i] = 0;
+    }
+    return false;
+  }
+  rellena(0);
+  return g;
+}
+
+/* ── Propagación de restricciones ───────────────────────────────────
+   «cons» es una lista plana [a0,b0,a1,b1,…] que significa valor(a) < valor(b).
+   tecnica 1 = cotas de las desigualdades + únicos desnudos (una casilla se
+   queda con un solo candidato). tecnica 2 = además únicos escondidos (un valor
+   solo cabe en una casilla de su fila o de su columna).
+   Devuelve false si el tablero es imposible. */
+function propaga(dom, n, cons, tecnica, cont) {
+  const N = n * n;
+  let cambio = true;
+  while (cambio) {
+    cambio = false;
+    // Cotas: si a < b, «a» no puede valer el máximo de b ni más, y «b» no
+    // puede valer el mínimo de a ni menos. Iterar hasta el punto fijo es lo
+    // que resuelve las cadenas largas (a<b<c deja a ≤ n-2 y c ≥ 3).
+    for (let k = 0; k < cons.length; k += 2) {
+      const a = cons[k], b = cons[k + 1];
+      const da = dom[a], db = dom[b];
+      if (!da || !db) return false;
+      const na = da & ((1 << altoBit(db)) - 1);
+      const nb = db & ~((1 << (bajoBit(da) + 1)) - 1);
+      if (na !== da) { dom[a] = na; cambio = true; if (cont) cont.pasos++; }
+      if (nb !== db) { dom[b] = nb; cambio = true; if (cont) cont.pasos++; }
+      if (!dom[a] || !dom[b]) return false;
+    }
+    // Únicos desnudos: una casilla resuelta borra su valor de fila y columna.
+    for (let i = 0; i < N; i++) {
+      const d = dom[i];
+      if (!d) return false;
+      if (!unSolo(d)) continue;
+      const r = (i / n) | 0, c = i % n;
+      for (let k = 0; k < n; k++) {
+        const j1 = r * n + k;
+        if (j1 !== i && (dom[j1] & d)) { dom[j1] &= ~d; if (!dom[j1]) return false; cambio = true; if (cont) cont.pasos++; }
+        const j2 = k * n + c;
+        if (j2 !== i && (dom[j2] & d)) { dom[j2] &= ~d; if (!dom[j2]) return false; cambio = true; if (cont) cont.pasos++; }
+      }
+    }
+    // Únicos escondidos: solo cuando lo anterior ya no da más de sí.
+    if (tecnica >= 2 && !cambio) {
+      for (let u = 0; u < n && !cambio; u++) {
+        for (let v = 1; v <= n; v++) {
+          const bit = 1 << v;
+          let cf = 0, pf = -1, cc = 0, pc = -1;
+          for (let k = 0; k < n; k++) {
+            if (dom[u * n + k] & bit) { cf++; pf = u * n + k; }
+            if (dom[k * n + u] & bit) { cc++; pc = k * n + u; }
+          }
+          if (cf === 0 || cc === 0) return false;
+          if (cf === 1 && !unSolo(dom[pf])) { dom[pf] = bit; cambio = true; if (cont) cont.pasos++; }
+          if (cc === 1 && !unSolo(dom[pc])) { dom[pc] = bit; cambio = true; if (cont) cont.pasos++; }
+        }
+      }
+    }
+  }
+  return true;
+}
+
+function dominios(n, dados) {
+  const todos = ((1 << (n + 1)) - 1) & ~1;
+  const dom = new Int32Array(n * n);
+  for (let i = 0; i < n * n; i++) dom[i] = dados[i] ? (1 << dados[i]) : todos;
+  return dom;
+}
+
+/* Resuelve razonando, sin tantear. Si acaba con una sola candidata en cada
+   casilla, ese relleno es forzoso y por tanto el único posible. */
+function resuelveLogico(n, dados, cons, tecnica) {
+  const cont = { pasos: 0 };
+  const dom = dominios(n, dados);
+  if (!propaga(dom, n, cons, tecnica, cont)) return { ok: false, pasos: cont.pasos, dom: null };
+  for (let i = 0; i < n * n; i++) if (!unSolo(dom[i])) return { ok: false, pasos: cont.pasos, dom };
+  return { ok: true, pasos: cont.pasos, dom };
+}
+
+/* Contador de soluciones independiente del generador (propaga y, si hace
+   falta, tantea por la casilla con menos candidatas). Se usa para no dar por
+   bueno un tablero solo porque el otro resolutor dijo que sí. */
+function cuentaSoluciones(n, dados, cons, tope) {
+  const N = n * n;
+  let total = 0;
+  function baja(dom) {
+    if (total >= tope) return;
+    if (!propaga(dom, n, cons, 2, null)) return;
+    let mejor = -1, menos = 99;
+    for (let i = 0; i < N; i++) {
+      const c = cuantos(dom[i]);
+      if (c > 1 && c < menos) { menos = c; mejor = i; }
+    }
+    if (mejor < 0) { total++; return; }
+    const d = dom[mejor];
+    for (let v = 1; v <= n; v++) {
+      if (!(d & (1 << v))) continue;
+      const copia = Int32Array.from(dom);
+      copia[mejor] = 1 << v;
+      baja(copia);
+      if (total >= tope) return;
+    }
+  }
+  baja(dominios(n, dados));
+  return total;
+}
+
+/* ── Generador ──────────────────────────────────────────────────────── */
+function vecinos(n) {
+  const out = [];
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (c < n - 1) out.push({ a: r * n + c, b: r * n + c + 1, tipo: 'h', r, c });
+    if (r < n - 1) out.push({ a: r * n + c, b: (r + 1) * n + c, tipo: 'v', r, c });
+  }
+  return out;
+}
+
+function consDeSignos(n, signos) {
+  const cons = [];
+  for (const s of signos) {
+    const a = s.r * n + s.c;
+    const b = s.tipo === 'h' ? a + 1 : a + n;
+    if (s.signo === 1) cons.push(a, b); else cons.push(b, a);
+  }
+  return cons;
+}
+
+function genera(nivel) {
+  const cfg = CFG[nivel], n = cfg.n;
+  for (let intento = 0; intento < 20; intento++) {
+    const sol = latino(n);
+    const pares = vecinos(n);
+    const viva = pares.map(() => true);
+    const dados = sol.slice();
+    const consVivas = () => {
+      const cons = [];
+      for (let k = 0; k < pares.length; k++) {
+        if (!viva[k]) continue;
+        const p = pares[k];
+        if (sol[p.a] < sol[p.b]) cons.push(p.a, p.b); else cons.push(p.b, p.a);
+      }
+      return cons;
+    };
+    // Se quitan primero las pistas y luego los signos: así quedan pocos
+    // números dados y el tablero se resuelve por los signos, que es la gracia.
+    // Quitar solo puede endurecer, nunca ablandar, así que basta una pasada.
+    for (const i of shuffle(Array.from({ length: n * n }, (_, k) => k))) {
+      if (!dados[i]) continue;
+      if (dados.filter(Boolean).length <= cfg.minPistas) break;
+      const v = dados[i];
+      dados[i] = 0;
+      if (!resuelveLogico(n, dados, consVivas(), cfg.tecnica).ok) dados[i] = v;
+    }
+    for (const k of shuffle(Array.from({ length: pares.length }, (_, j) => j))) {
+      if (!viva[k]) continue;
+      if (viva.filter(Boolean).length <= cfg.minSignos) break;
+      viva[k] = false;
+      if (!resuelveLogico(n, dados, consVivas(), cfg.tecnica).ok) viva[k] = true;
+    }
+    const signos = [];
+    for (let k = 0; k < pares.length; k++) {
+      if (!viva[k]) continue;
+      const p = pares[k];
+      signos.push({ tipo: p.tipo, r: p.r, c: p.c, signo: sol[p.a] < sol[p.b] ? 1 : 2 });
+    }
+    // Doble llave: el contador independiente tiene que ver exactamente una.
+    if (cuentaSoluciones(n, dados, consDeSignos(n, signos), 2) !== 1) continue;
+    return { n, sol, dados, signos };
+  }
+  return null;
+}
+
+/* ── Estado ─────────────────────────────────────────────────────────── */
+const S = {
+  nivel: store.get('fut.diff', 'normal'),
+  n: 0, sol: null, dados: null, signos: null,
+  val: null, notas: null, pila: null,
+  sel: -1, notasOn: false, hecho: false,
+};
+const reloj = makeClock(() => $('#fut-reloj'));
+
+const REGLAS = `<p>Llena la cuadrícula: cada <b>fila</b> y cada <b>columna</b> llevan los números del <b>1 al tamaño del tablero</b> sin repetir ninguno.</p>
+<p>Entre algunas casillas vecinas hay un signo, y la <b>punta apunta siempre al número menor</b>: con <b>&lt;</b> el menor queda a la izquierda, con <b>&gt;</b> a la derecha, con <b>∧</b> arriba y con <b>∨</b> abajo. Todos los signos que ves tienen que cumplirse.</p>
+<p>Toca una casilla y luego un número. Con <b>Notas</b> apuntas candidatos en chiquito. Los números repetidos y los signos incumplidos se marcan en rojo en cuanto pasan.</p>
+<p>Cada tablero se comprueba al generarlo: tiene <b>una sola solución</b> y se llega a ella <b>razonando, sin adivinar</b>.</p>`;
+
+/* ── Pantalla de inicio ─────────────────────────────────────────────── */
+function renderSetup() {
+  reloj.stop();
+  const guardada = store.get('fut.game', null);
+  const marcas = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('fut.best.' + d, null);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Futoshiki', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;">
+          <div class="row-title">Dificultad</div><div class="row-hint" id="fut-hint"></div>
+        </div>
+        ${diffSegHTML('seg-d', S.nivel)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${marcas}</div>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+        ${guardada ? '<button class="btn btn-primary" id="fut-seguir">Continuar partida</button>' : ''}
+        <button class="btn ${guardada ? 'btn-soft' : 'btn-primary'}" id="new">Nueva partida</button>
+      </div>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const pista = () => { const h = $('#fut-hint'); if (h) h.textContent = `${CFG[S.nivel].n}×${CFG[S.nivel].n}`; };
+  pista();
+  bindSeg('seg-d', (v) => { S.nivel = v; store.set('fut.diff', v); pista(); });
+  $('#new').onclick = () => empieza(null);
+  const seg = $('#fut-seguir');
+  if (seg) seg.onclick = () => empieza(guardada);
+  bindHowto(REGLAS);
+}
+
+/* ── Partida ────────────────────────────────────────────────────────── */
+function empieza(guardada) {
+  if (guardada) {
+    S.nivel = guardada.nivel; S.n = guardada.n; S.sol = guardada.sol;
+    S.dados = guardada.dados; S.signos = guardada.signos; S.val = guardada.val;
+    S.notas = guardada.notas.map((a) => new Set(a));
+  } else {
+    const t = genera(S.nivel);
+    if (!t) return;                       // no ha pasado nunca: 20 intentos con doble llave
+    S.n = t.n; S.sol = t.sol; S.dados = t.dados; S.signos = t.signos;
+    S.val = t.dados.slice();
+    S.notas = Array.from({ length: t.n * t.n }, () => new Set());
+  }
+  S.pila = []; S.sel = -1; S.notasOn = false; S.hecho = false;
+  renderPlay();
+  reloj.start();
+  if (guardada) reloj.seconds = guardada.segundos;
+  guarda();
+}
+
+function guarda() {
+  if (S.hecho || !S.sol) { store.set('fut.game', null); return; }
+  store.set('fut.game', {
+    nivel: S.nivel, n: S.n, sol: S.sol, dados: S.dados, signos: S.signos,
+    val: S.val, notas: S.notas.map((s) => [...s]), segundos: reloj.seconds,
+  });
+}
+
+function svgSigno(s) {
+  // La punta del signo apunta al número menor.
+  const d = s.tipo === 'h'
+    ? (s.signo === 1 ? 'M7 1.6L3.4 5 7 8.4' : 'M3.4 1.6 7 5 3.4 8.4')
+    : (s.signo === 1 ? 'M1.6 7 5 3.4 8.4 7' : 'M1.6 3.4 5 7 8.4 3.4');
+  return `<svg viewBox="0 0 10 10" aria-hidden="true"><path d="${d}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function renderPlay() {
+  const n = S.n, cfg = CFG[S.nivel];
+  const pistas = `repeat(${n - 1}, 1fr var(--fut-sep)) 1fr`;
+  let celdas = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    celdas += `<button class="fut-cell" data-i="${r * n + c}" aria-label="fila ${r + 1} columna ${c + 1}"` +
+      ` style="grid-row:${2 * r + 1};grid-column:${2 * c + 1}"></button>`;
+  }
+  S.signos.forEach((s, k) => {
+    const gr = s.tipo === 'h' ? 2 * s.r + 1 : 2 * s.r + 2;
+    const gc = s.tipo === 'h' ? 2 * s.c + 2 : 2 * s.c + 1;
+    celdas += `<div class="fut-sig" data-s="${k}" style="grid-row:${gr};grid-column:${gc}">${svgSigno(s)}</div>`;
+  });
+  const cols = Math.ceil((n + 2) / 2);
+  let teclas = '';
+  for (let v = 1; v <= n; v++) teclas += `<button class="fut-key" data-k="${v}">${v}</button>`;
+  teclas += `<button class="fut-key" data-k="0" aria-label="Borrar"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H9l-6 6 6 6h11a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"></path><path d="M17 10l-4 4M13 10l4 4"></path></svg></button>`;
+  teclas += `<button class="fut-key" id="fut-deshacer" data-k="-1" aria-label="Deshacer"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h11a5.5 5.5 0 0 1 0 11h-6"></path><path d="M7 4L3 8l4 4"></path></svg></button>`;
+
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Futoshiki', `<span class="chip">${DIFF_LABEL[S.nivel]}</span><span class="clock" id="fut-reloj">0:00</span>`)}
+    <div class="fut-zona">
+      <div class="fut-board" id="fut-board" style="--fut-sep:${cfg.sep}px; --fut-num:${n <= 5 ? '27px' : 'clamp(17px, 5.6vw, 25px)'}; --fut-nota:${n <= 5 ? '10px' : '8.5px'}; width:${cfg.ancho}; grid-template-columns:${pistas}; grid-template-rows:${pistas};">${celdas}</div>
+      <div class="fut-leyenda">La punta del signo apunta al número menor</div>
+      <div class="fut-pad" id="fut-pad" style="grid-template-columns: repeat(${cols}, 1fr);">${teclas}</div>
+    </div>
+    <div class="fut-tools">
+      <button class="fut-tool" id="t-notas"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg> Notas</button>
+      <button class="fut-tool" id="t-nueva">Nueva</button>
+      <button class="fut-tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+
+  $('#fut-board').onclick = (e) => {
+    const c = e.target.closest('.fut-cell');
+    if (c) { S.sel = Number(c.dataset.i); pinta(); }
+  };
+  $('#fut-pad').onclick = (e) => {
+    const k = e.target.closest('.fut-key');
+    if (k) tecla(Number(k.dataset.k));
+  };
+  $('#t-notas').onclick = () => {
+    S.notasOn = !S.notasOn;
+    const b = $('#t-notas'); if (b) b.classList.toggle('fut-on', S.notasOn);
+  };
+  $('#t-nueva').onclick = () => { store.set('fut.game', null); empieza(null); };
+  $('#t-salir').onclick = () => { guarda(); renderSetup(); };
+  pinta();
+}
+
+/* ── Pintado y marcado en vivo ──────────────────────────────────────── */
+function malos() {
+  const n = S.n, bad = new Set();
+  for (let i = 0; i < n * n; i++) {
+    const v = S.val[i];
+    if (!v) continue;
+    const r = (i / n) | 0, c = i % n;
+    for (let k = 0; k < n; k++) {
+      const j1 = r * n + k, j2 = k * n + c;
+      if (j1 !== i && S.val[j1] === v) { bad.add(i); bad.add(j1); }
+      if (j2 !== i && S.val[j2] === v) { bad.add(i); bad.add(j2); }
+    }
+  }
+  return bad;
+}
+
+function signosMalos() {
+  const n = S.n, bad = new Set();
+  S.signos.forEach((s, k) => {
+    const a = s.r * n + s.c;
+    const b = s.tipo === 'h' ? a + 1 : a + n;
+    const va = S.val[a], vb = S.val[b];
+    if (!va || !vb) return;
+    const cumple = s.signo === 1 ? va < vb : va > vb;
+    if (!cumple) bad.add(k);
+  });
+  return bad;
+}
+
+function pinta() {
+  if (!$('#fut-board')) return;
+  const n = S.n, bad = malos(), badS = signosMalos();
+  const selVal = S.sel >= 0 ? S.val[S.sel] : 0;
+  const cuenta = new Array(n + 1).fill(0);
+  for (const v of S.val) if (v) cuenta[v]++;
+  $$('.fut-cell').forEach((el) => {
+    const i = Number(el.dataset.i);
+    const v = S.val[i], esDado = S.dados[i] !== 0;
+    let cl = 'fut-cell';
+    if (esDado) cl += ' fut-dado'; else if (v) cl += ' fut-puesta';
+    if (bad.has(i)) cl += ' fut-mal';
+    if (S.sel === i) cl += ' fut-sel';
+    else if (S.sel >= 0) {
+      if (selVal && v === selVal) cl += ' fut-igual';
+      else if (((i / n) | 0) === ((S.sel / n) | 0) || (i % n) === (S.sel % n)) cl += ' fut-par';
+    }
+    el.className = cl;
+    if (v) el.textContent = String(v);
+    else if (S.notas[i].size) {
+      el.innerHTML = `<span class="fut-notas" style="grid-template-columns:repeat(${n <= 4 ? 2 : 3},1fr)">` +
+        Array.from({ length: n }, (_, k) => `<i>${S.notas[i].has(k + 1) ? k + 1 : ''}</i>`).join('') + '</span>';
+    } else el.textContent = '';
+  });
+  $$('.fut-sig').forEach((el) => el.classList.toggle('fut-mal', badS.has(Number(el.dataset.s))));
+  $$('#fut-pad .fut-key').forEach((k) => {
+    const v = Number(k.dataset.k);
+    if (v >= 1) k.classList.toggle('fut-listo', cuenta[v] >= n);
+  });
+  const des = $('#fut-deshacer');
+  if (des) des.disabled = S.pila.length === 0;
+}
+
+/* ── Jugadas ────────────────────────────────────────────────────────── */
+function apila(i) {
+  S.pila.push({ i, val: S.val[i], notas: [...S.notas[i]] });
+  if (S.pila.length > 200) S.pila.shift();
+}
+
+function tecla(k) {
+  if (S.hecho) return;
+  if (k === -1) { deshacer(); return; }
+  if (S.sel < 0) return;
+  const i = S.sel;
+  if (S.dados[i]) return;                  // las pistas del tablero no se tocan
+  if (k === 0) {
+    if (!S.val[i] && !S.notas[i].size) return;
+    apila(i); S.val[i] = 0; S.notas[i].clear();
+  } else if (S.notasOn) {
+    if (S.val[i]) return;
+    apila(i);
+    if (S.notas[i].has(k)) S.notas[i].delete(k); else S.notas[i].add(k);
+  } else {
+    apila(i);
+    S.val[i] = (S.val[i] === k) ? 0 : k;
+    if (S.val[i]) {
+      S.notas[i].clear();
+      const r = (i / S.n) | 0, c = i % S.n;
+      for (let j = 0; j < S.n; j++) { S.notas[r * S.n + j].delete(k); S.notas[j * S.n + c].delete(k); }
+    }
+  }
+  vibrate(6);
+  pinta();
+  guarda();
+  revisaFin();
+}
+
+function deshacer() {
+  if (S.hecho || !S.pila.length) return;
+  const p = S.pila.pop();
+  S.val[p.i] = p.val;
+  S.notas[p.i] = new Set(p.notas);
+  S.sel = p.i;
+  vibrate(6);
+  pinta();
+  guarda();
+}
+
+function revisaFin() {
+  for (let i = 0; i < S.n * S.n; i++) if (S.val[i] !== S.sol[i]) return;
+  S.hecho = true;
+  reloj.stop();
+  guarda();
+  const segundos = reloj.seconds;
+  const clave = 'fut.best.' + S.nivel;
+  const mejor = store.get(clave, null);
+  const record = !mejor || segundos < mejor;
+  if (record) { store.set(clave, segundos); actualizaHub(); }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡Resuelto!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(segundos)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.n}×${S.n}</div><div class="l">${DIFF_LABEL[S.nivel].toLowerCase()}</div></div>
+    </div>
+    ${record ? '<p style="text-align:center;"><span class="record">Nuevo mejor tiempo</span></p>'
+      : `<p style="text-align:center;">Tu mejor tiempo en ${DIFF_LABEL[S.nivel].toLowerCase()}: <b>${fmtTime(mejor)}</b></p>`}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otro tablero</button>
+      <button class="btn btn-ghost" id="m-out">Cambiar dificultad</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); empieza(null); };
+  $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+}
+
+/* Al hub va la marca del nivel más alto que se haya resuelto. */
+function actualizaHub() {
+  for (const d of ['experto', 'dificil', 'normal', 'facil']) {
+    const b = store.get('fut.best.' + d, null);
+    if (b) { store.set('fut.hub', `Mejor ${fmtTime(b)} · ${DIFF_LABEL[d]}`); return; }
+  }
+}
+
+/* ── Teclado físico ─────────────────────────────────────────────────── */
+addEventListener('keydown', (e) => {
+  if (!$('#fut-board')) return;
+  const d = Number(e.key);
+  if (d >= 1 && d <= S.n) tecla(d);
+  else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') tecla(0);
+  else if (e.key === 'u') tecla(-1);
+  else if (e.key === 'n') { S.notasOn = !S.notasOn; const b = $('#t-notas'); if (b) b.classList.toggle('fut-on', S.notasOn); }
+  else if (e.key.startsWith('Arrow') && S.sel >= 0) {
+    const r = (S.sel / S.n) | 0, c = S.sel % S.n;
+    const dr = { ArrowUp: -1, ArrowDown: 1 }[e.key] || 0;
+    const dc = { ArrowLeft: -1, ArrowRight: 1 }[e.key] || 0;
+    const nr = Math.min(S.n - 1, Math.max(0, r + dr)), nc = Math.min(S.n - 1, Math.max(0, c + dc));
+    S.sel = nr * S.n + nc;
+    pinta();
+    e.preventDefault();
+  }
+});
+
+renderSetup();
+</script>
+</body>
+</html>
