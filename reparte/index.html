@@ -466,7 +466,7 @@ function invite(ev){
   return `<div class="screen">
     <div class="top"><button class="back" data-go="#/e/${ev.id}">‹ Volver</button></div>
     <div class="body">
-      ${Ill('compartir-link',72,!url)}<h2 class="h1">Invita al grupo</h2>
+      ${Ill('compartir-link',104,!url)}<h2 class="h1">Invita al grupo</h2>
       <p class="sub">QR para los que están en la mesa. Link para el que no vino. El grupo consulta; el organizador registra y corrige.</p>
       <div style="margin:22px 0 14px">${url?qr(url):'<p class="note">Preparando el enlace…</p>'}</div>
       <div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 14px"><div style="font-size:13px;color:var(--gris);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(short)}</div><button class="link" data-act="copy-link" ${url?'':'disabled'}>Copiar</button></div>
@@ -512,7 +512,7 @@ function settle(ev){
   return `<div class="screen">
     <div class="top"><button class="back" data-go="#/e/${ev.id}">‹ Gastos</button></div>
     <div class="body">
-      ${Ill('quien-le-paga')}<h2 class="h1">Así queda la cuenta</h2>
+      ${Ill('quien-le-paga',104)}<h2 class="h1">Así queda la cuenta</h2>
       <div class="steps" style="margin-top:18px">
         <div class="step"><div class="n">1</div><div><div class="k">Se gastó en total</div><div class="v">${fmtMXN(t)}</div></div></div>
         <div class="step"><div class="n">2</div><div><div class="k">Promedio por persona</div><div class="v">${fmtMXN(perHead(ev))}</div><div class="k" style="margin-top:4px">Promedio. Los gastos entre menos personas solo cuentan para ellas.</div></div></div>
@@ -524,6 +524,7 @@ function settle(ev){
         ${ev.members.map(m=>{const x=personTotals(ev,m.id);return `<div class="kv"><span>${esc(m.name)}<br><small>Pagó ${fmtMXN(x.paid)} · le toca ${fmtMXN(x.share)}<br>Envió ${fmtMXN(x.sent)} · recibió ${fmtMXN(x.received)}</small></span><b>${b[m.id]<0?'−':'+'}${fmtMXN(Math.abs(b[m.id]))}</b></div>`;}).join('')}
         <p class="sub">Reagrupamos los saldos para reducir transferencias: podrías pagar a alguien que no pagó tu gasto original. Tu saldo total no cambia.</p></div>
       <div class="eyebrow" style="margin-top:26px">${trs.length ? `${trs.length} transferencia${trs.length===1?'':'s'}, ya simplificadas` : 'Todo liquidado'}</div>
+      ${!trs.length && t>0 ? `<div class="card empty" style="margin-top:10px">${Ill('cerrar-evento',112,true)}Nadie le debe a nadie.<br>Las cuentas quedaron parejas.</div>` : ''}
       <div class="list" style="margin-top:8px">
         ${trs.map((tr,i)=>{ const p = tr.paid; return `<button class="row" data-pay="${i}">
           <div><div class="t">${esc(nameOf(ev,tr.from))} → ${esc(nameOf(ev,tr.to))}</div><div class="m">${p?`Ya pagó ${fmtMXN(p)} · falta`:'Toca para ver cómo pagar'}</div></div>
@@ -853,7 +854,7 @@ function syncStatus(ev){
   return ev.role==='owner'?'Guardado en este navegador. Conecta tu correo para respaldar y compartir actualizaciones.':'Copia de consulta; no se actualiza sola.';
 }
 function connectionScreen(){
-  return `<div class="screen"><div class="top"><button class="back" data-go="#/">‹ Inicio</button></div><div class="body">${Ill('respaldo')}<h1 class="h1">Tu cuenta, a salvo</h1>
+  return `<div class="screen"><div class="top"><button class="back" data-go="#/">‹ Inicio</button></div><div class="body">${Ill('respaldo',104)}<h1 class="h1">Tu cuenta, a salvo</h1>
   <p class="sub">Como organizador, conecta tu correo para recuperar eventos en otro teléfono. El grupo consulta sin registrarse. Todos los gastos se comparten; las CLABEs se quedan en este navegador.</p>
   ${!configured()?'<div class="card" style="margin-top:20px">La conexión aún no está habilitada. Mientras tanto, descarga un respaldo y comparte copias de consulta.</div>':cloud.session?`<p class="sub">Conectado como ${esc(cloud.session.user.email)}</p><button class="btn secondary" data-act="sync-now">Guardar y recuperar eventos</button>`:`<form id="f-connect"><div class="field"><div class="lbl">Tu correo</div><input name="email" type="email" required autocomplete="email" value="${esc(cloud.email)}"></div><button class="btn primary" style="margin-top:12px">Enviar código</button></form>${cloud.email?`<form id="f-verify"><div class="field"><div class="lbl">Código del correo</div><input name="code" inputmode="numeric" autocomplete="one-time-code" required maxlength="10"></div><button class="btn primary" style="margin-top:12px">Conectar y recuperar</button></form>`:''}`}
   ${cloud.error?`<p class="sub rojo" role="status">${esc(cloud.error)}</p>`:''}
