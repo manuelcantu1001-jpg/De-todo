@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReParte · Línea viva</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--crema:#F6F1E9;--borde:#E6DFD3;--tinta:#1C1917;--gris:#6B6560;--gris2:#8A837B;--terra:#C4552F;--serif:'Instrument Serif',Georgia,serif;--sans:Inter,system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--crema);color:var(--tinta);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1040px;margin:0 auto;padding:40px 20px 80px;display:flex;flex-direction:column;gap:40px}
+.eyebrow{font-size:12px;font-weight:500;color:var(--gris2);text-transform:uppercase;letter-spacing:.08em}
+h1{font-family:var(--serif);font-weight:400;font-size:44px;line-height:1.02;margin:10px 0 12px}
+h2{font-family:var(--serif);font-weight:400;font-size:28px;margin:0 0 6px}
+p{margin:0;max-width:680px;font-size:15px;line-height:1.55;color:var(--gris);text-wrap:pretty}
+
+.controls{position:sticky;top:0;z-index:5;background:var(--crema);border-bottom:1px solid var(--borde);padding:12px 0;display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center}
+.ctl{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--gris)}
+.seg{display:flex;background:#fff;border:1px solid var(--borde);border-radius:999px;padding:3px}
+.seg button{font:inherit;font-size:13px;border:0;background:none;border-radius:999px;padding:6px 12px;cursor:pointer;color:var(--gris)}
+.seg button.on{background:var(--tinta);color:#fff}
+
+.ill{display:block;border-radius:24%;overflow:hidden;flex:none}
+.ill img{display:block;width:100%;height:100%;transform:scale(1.05)}
+body.live .ill img{filter:var(--boil)}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:16px 12px;margin-top:18px}
+.grid .item{font-size:12px;color:var(--gris);display:flex;flex-direction:column;gap:6px}
+.grid .ill{width:100%;aspect-ratio:1}
+
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:18px}
+.duo .box{background:#fff;border:1px solid var(--borde);border-radius:18px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:10px;font-size:13px;color:var(--gris)}
+.duo .ill{width:200px;height:200px}
+.duo .box.still .ill img{filter:none !important}
+
+.phones{display:flex;gap:18px;flex-wrap:wrap;margin-top:18px}
+.phone{width:300px;max-width:100%;border:1px solid var(--borde);border-radius:28px;padding:22px 18px}
+.phone .h{font-family:var(--serif);font-size:30px;line-height:1.05}
+.phone .card{background:#fff;border:1px solid var(--borde);border-radius:16px;padding:24px 16px;text-align:center;font-size:14px;line-height:1.5;color:var(--gris);margin-top:16px}
+.phone .card .ill{width:112px;height:112px;margin:0 auto 14px}
+.phone .sync{display:flex;align-items:center;gap:12px;margin-top:16px;background:#fff;border:1px solid var(--borde);border-radius:14px;padding:12px;font-size:14px}
+.phone .sync .ill{width:48px;height:48px}
+.phone .sync small{display:block;color:var(--gris);font-size:12px}
+
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px}
+.note{background:#fff;border:1px solid var(--borde);border-radius:16px;padding:16px 18px;font-size:12.5px;line-height:1.5;color:var(--gris)}
+.note b{display:block;color:var(--tinta);font-size:13px;margin-bottom:4px}
+</style>
+</head>
+<body class="live">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="filters"></defs></svg>
+
+<div class="wrap">
+  <div>
+    <div class="eyebrow">ReParte · Animación</div>
+    <h1>Línea viva</h1>
+    <p>El dibujo no se mueve de lugar, pero el trazo tiembla como si cada cuadro se hubiera vuelto a dibujar a mano. Son tres versiones del mismo trazo que se alternan, igual que en el stop motion. No hace falta ningún dibujo nuevo: es un filtro sobre las ilustraciones que ya existen.</p>
+  </div>
+
+  <div class="controls">
+    <div class="ctl">Temblor <div class="seg" data-k="amp"><button data-v="1" >Muy suave</button><button data-v="1.6" class="on">Suave</button><button data-v="2.4">Medio</button><button data-v="3.6">Fuerte</button></div></div>
+    <div class="ctl">Velocidad <div class="seg" data-k="fps"><button data-v="3">3 cps</button><button data-v="4" class="on">4 cps</button><button data-v="6">6 cps</button><button data-v="8">8 cps</button></div></div>
+    <div class="ctl">Animación <div class="seg" data-k="on"><button data-v="1" class="on">Encendida</button><button data-v="0">Apagada</button></div></div>
+  </div>
+
+  <section>
+    <h2>Quieto contra vivo</h2>
+    <p>La misma ilustración, a la izquierda sin filtro y a la derecha con el temblor.</p>
+    <div class="duo">
+      <div class="box still"><span class="ill"><img src="ilustraciones/01-crear-evento.png" alt=""></span>Quieto</div>
+      <div class="box"><span class="ill"><img src="ilustraciones/01-crear-evento.png" alt=""></span>Vivo</div>
+      <div class="box"><span class="ill"><img src="ilustraciones/11-copiar-clabe.png" alt=""></span>Vivo</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>En la app</h2>
+    <p>Donde tiene sentido: cuando la pantalla espera algo de la persona (estados vacíos) o cuando la app está trabajando (sincronizar, preparar el enlace). En listas y botones se queda quieto.</p>
+    <div class="phones">
+      <div class="phone">
+        <div class="h">Tus eventos</div>
+        <div class="card"><span class="ill"><img src="../img/crear-evento.jpg" alt=""></span>Aún no tienes eventos.<br>Crea el primero y comparte el link por WhatsApp.</div>
+      </div>
+      <div class="phone">
+        <div class="h">Prueba · Vegas</div>
+        <div class="card"><span class="ill"><img src="../img/capturar-gasto.jpg" alt=""></span>Todavía no hay gastos.<br>Toca <b>+ Gasto</b>: monto primero, dos taps.</div>
+        <div class="sync"><span class="ill"><img src="../img/respaldo.jpg" alt=""></span><div>Guardando en la nube…<small>Se actualiza cada 10 segundos</small></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>El set completo</h2>
+    <p>Los 17 íconos con el mismo temblor, para ver que ninguno se deforma de más.</p>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section>
+    <h2>Cómo funciona</h2>
+    <div class="notes">
+      <div class="note"><b>Tres cuadros</b>Tres filtros de ruido con semilla distinta se turnan. El orden no se repite en seco: 1, 2, 3, 2, 1… para que no se note el ciclo.</div>
+      <div class="note"><b>8 cuadros por segundo</b>Es la cadencia típica del stop motion. Más rápido se siente vibración; más lento, tartamudeo.</div>
+      <div class="note"><b>Respeta "reducir movimiento"</b>Si el teléfono tiene activado reducir movimiento, la línea se queda quieta.</div>
+      <div class="note"><b>Casi gratis</b>No añade imágenes. Se detiene cuando la pestaña no está visible para no gastar batería.</div>
+    </div>
+  </section>
+</div>
+
+<script>
+const FILES = ['01-crear-evento','02-compartir-link','03-entrar','04-capturar-gasto','05-repartir','06-reparto-personalizado','07-peso-dolar','08-recibo-partidas','09-cerrar-evento','10-quien-le-paga','11-copiar-clabe','12-recordatorio','13-resumen','14-respaldo','15-privacidad','16-invitar','17-restaurar-respaldo'];
+document.getElementById('grid').innerHTML = FILES.map(f =>
+  `<div class="item"><span class="ill"><img src="ilustraciones/${f}.png" alt=""></span>${f.slice(3).replace(/-/g,' ')}</div>`).join('');
+
+const state = { amp: 1.6, fps: 4, on: true };
+const SEEDS = [3, 11, 27];
+function buildFilters(){
+  document.getElementById('filters').innerHTML = SEEDS.map((s,i) =>
+    `<filter id="boil${i}" x="-5%" y="-5%" width="110%" height="110%">
+       <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="${s}"/>
+       <feDisplacementMap in="SourceGraphic" scale="${state.amp}" xChannelSelector="R" yChannelSelector="G"/>
+     </filter>`).join('');
+}
+const ORDER = [0,1,2,1];
+let frame = 0, timer = null;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+function tick(){ document.body.style.setProperty('--boil', `url(#boil${ORDER[frame++ % ORDER.length]})`); }
+function start(){
+  stop();
+  const live = state.on && !reduce.matches && !document.hidden;
+  document.body.classList.toggle('live', state.on && !reduce.matches);
+  if (!live) return;
+  tick(); timer = setInterval(tick, 1000 / state.fps);
+}
+function stop(){ clearInterval(timer); timer = null; }
+document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  const k = seg.dataset.k, v = +b.dataset.v;
+  state[k] = k === 'on' ? !!v : v;
+  if (k === 'amp') buildFilters();
+  start();
+}));
+document.addEventListener('visibilitychange', start);
+reduce.addEventListener?.('change', start);
+buildFilters(); start();
+</script>
+</body>
+</html>

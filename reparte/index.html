@@ -107,6 +107,7 @@ h1,h2,h3{font-weight:400;margin:0}
 .empty{padding:36px 16px;text-align:center;color:var(--gris);font-size:14px;line-height:1.5}
 .ill{display:block;width:var(--s,72px);height:var(--s,72px);border-radius:24%;overflow:hidden;flex:none}
 .ill img{display:block;width:100%;height:100%;transform:scale(1.05)}
+.ill.live img{filter:var(--boil,none)}
 .empty .ill{margin:0 auto 14px}
 .sheet .ill,.body>.ill{margin:6px 0 14px}
 /* sheet */
@@ -132,6 +133,11 @@ h1,h2,h3{font-weight:400;margin:0}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <filter id="boil0" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="3"/><feDisplacementMap in="SourceGraphic" scale="1.6" xChannelSelector="R" yChannelSelector="G"/></filter>
+  <filter id="boil1" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="11"/><feDisplacementMap in="SourceGraphic" scale="1.6" xChannelSelector="R" yChannelSelector="G"/></filter>
+  <filter id="boil2" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="27"/><feDisplacementMap in="SourceGraphic" scale="1.6" xChannelSelector="R" yChannelSelector="G"/></filter>
+</defs></svg>
 <div id="app"></div>
 <script>
 /* ============ ReParte · app estática (PWA) ============
@@ -352,7 +358,15 @@ function render(){
   const f = $('[autofocus]'); if (f) setTimeout(()=>f.focus(), 50);
 }
 
-const Ill = (name, size=72) => `<span class="ill" style="--s:${size}px" aria-hidden="true"><img src="img/${name}.jpg" alt="" width="${size}" height="${size}" decoding="async" onerror="this.parentNode.remove()"></span>`;
+const Ill = (name, size=72, live=false) => `<span class="ill${live?' live':''}" style="--s:${size}px" aria-hidden="true"><img src="img/${name}.jpg" alt="" width="${size}" height="${size}" decoding="async" onerror="this.parentNode.remove()"></span>`;
+// Línea viva: tres cuadros de ruido que se turnan a 4 por segundo, como stop motion. Quieta con "reducir movimiento" o pestaña oculta.
+const boil = { frame:0, timer:null, reduce: matchMedia('(prefers-reduced-motion: reduce)') };
+function boilSync(){
+  clearInterval(boil.timer); boil.timer = null;
+  if (boil.reduce.matches || document.hidden) { document.documentElement.style.removeProperty('--boil'); return; }
+  boil.timer = setInterval(()=>{ if(!document.querySelector('.ill.live')) return; document.documentElement.style.setProperty('--boil', `url(#boil${[0,1,2,1][boil.frame++ % 4]})`); }, 1000/4);
+}
+document.addEventListener('visibilitychange', boilSync); boil.reduce.addEventListener?.('change', boilSync); boilSync();
 const Logo = (level) => `<div class="logo${level?' level':''}"><i></i><i></i><i></i><i></i></div>`;
 
 function home(){
@@ -366,7 +380,7 @@ function home(){
           <div class="avatar">${esc(initial(e.name))}</div>
           <div><div class="t">${esc(e.name)}</div><div class="m">${e.closed?'Cerrado':'Abierto'} · ${e.members.length} persona${e.members.length===1?'':'s'} · ${e.expenses.length} gasto${e.expenses.length===1?'':'s'}</div></div>
           <div class="amt"><div class="a">${fmtMXN(t)}</div></div></button>`; }).join('')}</div>`
-      : `<div class="card empty" style="margin-top:24px">${Ill('crear-evento',112)}Aún no tienes eventos.<br>Crea el primero y comparte el link por WhatsApp.</div>`}
+      : `<div class="card empty" style="margin-top:24px">${Ill('crear-evento',112,true)}Aún no tienes eventos.<br>Crea el primero y comparte el link por WhatsApp.</div>`}
     </div>
     <div class="fixed"><button class="btn primary" data-go="#/nuevo">+ Nuevo evento</button></div>
   </div>`;
@@ -434,7 +448,7 @@ function eventScreen(ev){
           <div class="avatar">${esc(initial(e.title))}</div>
           <div><div class="t">${esc(e.title)}</div><div class="m">${e.payerId===mine?'Pagaste tú':'Pagó '+esc(nameOf(ev,e.payerId))} · ${e.among.length===ev.members.length?'entre todos':'entre '+e.among.length} · ${fmtDate(e.date)}</div></div>
           <div class="amt"><div class="a">${fmtCur(e.amt,e.cur)}</div>${e.cur==='USD'?`<div class="fx">≈ ${fmtMXN(toMXN(e))} MXN</div>`:''}</div>
-        </button>`).join('') : `<div class="card empty">${Ill('capturar-gasto',112)}Todavía no hay gastos.<br>Toca <b>+ Gasto</b>: monto primero, dos taps.</div>`}
+        </button>`).join('') : `<div class="card empty">${Ill('capturar-gasto',112,true)}Todavía no hay gastos.<br>Toca <b>+ Gasto</b>: monto primero, dos taps.</div>`}
       </div>
       ${ev.members.length ? `<div style="margin-top:22px"><div class="eyebrow">Quiénes</div><div class="chips" style="margin-top:8px">${ev.members.map(m=>`<span class="chip ${m.id===mine?'on':''}">${esc(m.id===mine?m.name+' (tú)':m.name)}</span>`).join('')}${canManage(ev)&&!ev.closed?'<button class="chip" data-act="add-member">+ Agregar</button>':''}</div></div>`:''}
     </div>
@@ -452,7 +466,7 @@ function invite(ev){
   return `<div class="screen">
     <div class="top"><button class="back" data-go="#/e/${ev.id}">‹ Volver</button></div>
     <div class="body">
-      ${Ill('compartir-link')}<h2 class="h1">Invita al grupo</h2>
+      ${Ill('compartir-link',72,!url)}<h2 class="h1">Invita al grupo</h2>
       <p class="sub">QR para los que están en la mesa. Link para el que no vino. El grupo consulta; el organizador registra y corrige.</p>
       <div style="margin:22px 0 14px">${url?qr(url):'<p class="note">Preparando el enlace…</p>'}</div>
       <div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 14px"><div style="font-size:13px;color:var(--gris);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(short)}</div><button class="link" data-act="copy-link" ${url?'':'disabled'}>Copiar</button></div>
