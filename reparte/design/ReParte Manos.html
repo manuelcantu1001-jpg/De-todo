@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReParte · Manos</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --crema:#F6F1E9; --borde:#E6DFD3; --tinta:#1C1917; --gris:#6B6560; --gris2:#8A837B;
+  --serif:'Instrument Serif',Georgia,serif; --sans:Inter,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--crema);color:var(--tinta);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1040px;margin:0 auto;padding:44px 20px 88px;display:flex;flex-direction:column;gap:44px}
+.eyebrow{font-size:12px;font-weight:500;color:var(--gris2);text-transform:uppercase;letter-spacing:.08em}
+h1{font-family:var(--serif);font-weight:400;font-size:46px;line-height:1.02;margin:10px 0 12px}
+h2{font-family:var(--serif);font-weight:400;font-size:28px;margin:0 0 6px}
+p{margin:0;max-width:680px;font-size:15px;line-height:1.55;color:var(--gris);text-wrap:pretty}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:18px 14px;margin-top:18px}
+.item{display:flex;flex-direction:column;gap:8px}
+.item svg{width:100%;height:auto;display:block}
+.item b{font-size:13px;font-weight:600}
+.item span{font-size:12px;color:var(--gris);line-height:1.45}
+.strip{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.strip svg{width:64px;height:64px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chip{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--gris);background:#fff;border:1px solid var(--borde);border-radius:999px;padding:5px 12px 5px 5px}
+.chip i{width:22px;height:22px;border-radius:50%;display:block}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px}
+.rule{background:#fff;border:1px solid var(--borde);border-radius:16px;padding:16px 18px;font-size:12.5px;line-height:1.5;color:var(--gris)}
+.rule b{display:block;color:var(--tinta);font-size:13px;margin-bottom:4px}
+.phones{display:flex;gap:18px;flex-wrap:wrap;margin-top:18px}
+.phone{width:300px;max-width:100%;background:var(--crema);border:1px solid var(--borde);border-radius:28px;padding:22px 18px;box-shadow:0 1px 0 #fff inset}
+.phone .h{font-family:var(--serif);font-size:30px;line-height:1.05}
+.phone .card{background:#fff;border:1px solid var(--borde);border-radius:16px;padding:22px 16px;text-align:center;font-size:14px;line-height:1.5;color:var(--gris);margin-top:16px}
+.phone .card svg{width:112px;height:112px;margin:0 auto 12px;display:block}
+.phone .row{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--borde);border-radius:14px;padding:10px 12px;margin-top:8px;font-size:14px;font-weight:500}
+.phone .row svg{width:44px;height:44px;flex:none}
+.phone .row small{display:block;font-size:12px;color:var(--gris);font-weight:400}
+.btn{display:block;text-align:center;background:var(--tinta);color:#fff;border-radius:999px;padding:13px;font-weight:600;font-size:15px;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div>
+    <div class="eyebrow">ReParte · Ilustración con manos</div>
+    <h1>Las manos hacen las cuentas</h1>
+    <p>Línea negra hecha a mano sobre un fondo terroso sólido. Las manos sostienen, pasan y señalan formas simples: la persona es quien reparte, la app solo le ayuda. Cada ícono es una metáfora de una función de ReParte.</p>
+  </div>
+
+  <section>
+    <h2>Funciones</h2>
+    <p>Quince íconos para el camino principal, de crear el evento a pagar.</p>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section>
+    <h2>Tamaño chico</h2>
+    <p>A 64px la línea sigue legible. El mínimo es 44px; más chico, la mano se empasta y conviene mostrar solo la forma.</p>
+    <div class="strip" id="strip"></div>
+  </section>
+
+  <section>
+    <h2>En la app</h2>
+    <p>Estados vacíos y filas de acción. El resto de la interfaz no cambia: crema, Instrument Serif y verde/rojo solo para dinero.</p>
+    <div class="phones" id="phones"></div>
+  </section>
+
+  <section>
+    <h2>Paleta de fondos</h2>
+    <p>Terrosos y desaturados. Cada ícono usa uno solo. Los rellenos de las formas siempre son blanco o crema.</p>
+    <div class="chips" id="chips"></div>
+  </section>
+
+  <section>
+    <h2>Reglas</h2>
+    <div class="rules">
+      <div class="rule"><b>Trazo fino y abierto</b>Negro de 1.9px con temblor leve. Las manos son pocas líneas, sin relleno y con la muñeca abierta.</div>
+      <div class="rule"><b>Formas blancas, sin contorno</b>Hojas, círculos y cuadros en blanco sólido. El negro es solo para manos, hilos y nodos.</div>
+      <div class="rule"><b>Formas, no dibujos</b>Círculos, cuadros, nodos, líneas y hojas. Nunca billetes, tarjetas bancarias ni logos.</div>
+      <div class="rule"><b>Sugiere, no describe</b>Una balanza para cerrar cuentas, un círculo partido para repartir.</div>
+      <div class="rule"><b>Un concepto por pieza</b>Mucho aire. Las formas ocupan el centro; la mano puede entrar desde un borde, como si viniera de fuera del cuadro.</div>
+      <div class="rule"><b>Sin texto</b>Ni números ni signos de moneda dentro del ícono. El monto vive en la interfaz.</div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const INK='#1A1714', PAPER='#FBF9F4';
+const N=(w=1.9)=>`fill="none" stroke="${INK}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"`;
+const g=(x,y,rot,s,fx,inner)=>`<g transform="translate(${x} ${y}) rotate(${rot}) scale(${fx?-s:s} ${s})">${inner}</g>`;
+const sw=s=>(1.9/s).toFixed(2);
+
+// A. Dedo índice extendido hacia arriba (dorso). Punta en (0,0).
+const point=(x,y,rot=0,s=1,fx=false)=>g(x,y,rot,s,fx,`
+  <path d="M-7.5 50 L-9 62 M22 50 L23.5 62" ${N(sw(s))}/>
+  <path d="M-7.5 50 H22" ${N(sw(s))}/>
+  <path d="M-3.4 26 L-3.4 3.2 C-3.4 -1 3.4 -1 3.4 3.2 L3.4 19" ${N(sw(s))}/>
+  <path d="M-1.6 5.4 C-0.6 3.8 0.8 3.8 1.8 5.4" ${N(sw(s)*.8)}/>
+  <path d="M3.4 19 C3.6 15.2 10.4 15.2 10.6 19.4 L10.6 21.5" ${N(sw(s))}/>
+  <path d="M10.6 21.5 C10.8 18 16.6 18 16.8 22 L16.8 24" ${N(sw(s))}/>
+  <path d="M16.8 24 C17 21 21.8 21.4 21.8 25 C21.8 33 21 42 22 50" ${N(sw(s))}/>
+  <path d="M3.4 24.5 C5.6 26.4 8.6 26.4 10.6 24.8 M10.6 26.6 C12.6 28.2 15 28.2 16.8 26.8" ${N(sw(s)*.8)}/>
+  <path d="M-3.4 26 C-6 23.6 -10 20.8 -13 20.6 C-15.8 20.4 -16.6 23.2 -14.6 25.2 C-12 27.8 -8.4 30.4 -7.4 34.4 C-6.8 37.6 -6.8 40 -7 42 C-7.2 45 -7.5 48 -7.5 50" ${N(sw(s))}/>
+  <path d="M-3.4 26 C-2.6 30 1 32.4 5 32" ${N(sw(s)*.8)}/>`);
+
+// B. Pinza: muñeca arriba a la derecha; índice arriba, pulgar abajo, se cierran en (3,2).
+const pinch=(x,y,rot=0,s=1,fx=false)=>g(x,y,rot,s,fx,`
+  <path d="M40 -28 L50 -22 M40 -28 L47 -38 M50 -22 L57 -32" ${N(sw(s))}/>
+  <path d="M40 -28 C31 -26 23 -22 16 -18 C10 -14.6 4.4 -9.6 0.8 -5 C-1 -2.6 -0.8 -0.2 1.2 0.2 C3 0.4 4.6 -1.8 6.4 -4.4 C8.4 -7 11 -8.6 14 -9" ${N(sw(s))}/>
+  <path d="M-0.2 -3.4 C0.6 -4.8 2 -5 3 -4.2" ${N(sw(s)*.8)}/>
+  <path d="M14 -9 C11.6 -6.6 9 -3.8 7.2 -1 C6.2 0.6 5.6 2.4 6.6 3.4 C8.4 4.2 10.6 3 12.6 1.2 C19 -4.6 28 -10 36 -13 C42 -15.4 46.6 -18 50 -22" ${N(sw(s))}/>
+  <path d="M22 -21.6 C24 -18 27.6 -16.6 31 -18" ${N(sw(s)*.8)}/>`);
+
+// C. Palma hacia arriba, dedos a la izquierda, lo sostenido descansa en y=0.
+const palm=(x,y,s=1,fx=false)=>g(x,y,0,s,fx,`
+  <path d="M60 -6 L74 -6.4 M60 7 L74 7.4" ${N(sw(s))}/>
+  <path d="M60 -6 L60 7" ${N(sw(s))}/>
+  <path d="M4 -1.6 C13 0.8 24 1.4 34 -0.4" ${N(sw(s))}/>
+  <path d="M4 -1.6 C-0.4 -2.8 -3 0.4 -0.6 3" ${N(sw(s))}/>
+  <path d="M-0.6 3 C8 5.8 18 6.6 28 5.6" ${N(sw(s))}/>
+  <path d="M-0.6 3 C-3.4 4.6 -2 8.2 1.6 8.4 C9 10.2 17 10.8 24 10.2" ${N(sw(s))}/>
+  <path d="M1.6 8.4 C-0.6 10.4 1.4 13.6 5 13.6 C18 15.4 32 13.6 44 9 C50 7.4 55 7 60 7" ${N(sw(s))}/>
+  <path d="M34 -0.4 C37.6 -4.6 41.4 -9.6 45.4 -10.6 C48.6 -11.4 49.8 -8.4 47.6 -6.4 C45.4 -4.4 45 -1.6 47 -0.2 C51 -2.6 55.6 -5 60 -6" ${N(sw(s))}/>`);
+
+const C={azul:'#6395C6',lavanda:'#C6C1DF',olivo:'#7F8E5D',terracota:'#DC6D4E',rosa:'#E8C9CB',salvia:'#AFCDC1',ciruela:'#B9627F',beige:'#DFB18B',coral:'#E79B96',arena:'#EDEBE3',verde:'#5A9479'};
+const L=N(), Wf=`fill="${PAPER}"`, dot=(x,y,r=3)=>`<circle cx="${x}" cy="${y}" r="${r}" fill="${INK}"/>`;
+const arrow=(d,hx,hy,ang)=>`<path d="${d}" ${L}/><path d="M${hx} ${hy} l-4.6 -2.8 M${hx} ${hy} l-4.6 2.8" ${L} transform="rotate(${ang} ${hx} ${hy})"/>`;
+const ICONS=[
+ {n:'Crear evento',d:'Clavar la bandera: aquí empieza el plan.',bg:C.terracota,b:`
+   <path d="M34 86 H86" ${L}/>
+   <path d="M52 86 V30" ${L}/>
+   <path d="M51 31 L25 40 L51 50 Z" ${Wf}/>
+   ${pinch(50.5,62,-10,.9)}`},
+ {n:'Compartir el link',d:'Dos manos sostienen el mismo hilo.',bg:C.rosa,b:`
+   <path d="M38 66 C50 72 70 72 82 66" ${L}/>
+   <circle cx="38" cy="66" r="6.5" ${Wf}/>${dot(38,66,3)}
+   <circle cx="82" cy="66" r="6.5" ${Wf}/>${dot(82,66,3)}
+   ${pinch(80,58,-4,.62)}${pinch(40,58,-4,.62,true)}`},
+ {n:'Entrar con tu nombre',d:'Un dedo toca el centro: aquí estoy.',bg:C.salvia,b:`
+   <circle cx="62" cy="50" r="25" ${L}/>
+   <circle cx="62" cy="50" r="9" ${Wf}/>
+   ${point(64,53,-30,.9)}`},
+ {n:'Capturar gasto',d:'El ticket y el dedo en la línea nueva.',bg:C.beige,b:`
+   <path d="M34 20 H78 V78 L72.5 74 L67 78 L61.5 74 L56 78 L50.5 74 L45 78 L39.5 74 L34 78 Z" ${Wf}/>
+   <path d="M43 33 H69 M43 43 H63" ${L}/>
+   <path d="M43 56 H56" ${L} stroke-dasharray="1 4.4"/>
+   ${point(60,57,-14,.8)}`},
+ {n:'Repartir entre todos',d:'Una cosa entera que se vuelve partes iguales.',bg:C.ciruela,b:`
+   <circle cx="54" cy="52" r="16" ${Wf}/>
+   <circle cx="38" cy="88" r="6" ${L}/><circle cx="56" cy="88" r="6" ${L}/><circle cx="74" cy="88" r="6" ${L}/>
+   ${pinch(55,37,0,.85)}`},
+ {n:'Reparto personalizado',d:'A cada quien su medida, ajustada a mano.',bg:C.azul,b:`
+   <rect x="24" y="26" width="62" height="50" rx="1.5" ${Wf}/>
+   <path d="M33 39 H77 M33 51 H77 M33 63 H77" ${L}/>
+   ${dot(45,39)}${dot(68,51)}${dot(54,63)}
+   ${point(68,53,-18,.78)}`},
+ {n:'Peso y dólar',d:'Dos monedas que se cambian una por otra.',bg:C.olivo,b:`
+   <circle cx="42" cy="64" r="13" ${Wf}/>
+   <circle cx="80" cy="64" r="13" fill="none" stroke="${PAPER}" stroke-width="2.4"/>
+   ${arrow('M50 46 C57 40 65 40 71 46',71,46,45)}
+   ${arrow('M71 82 C65 88 57 88 50 82',50,82,225)}
+   ${pinch(40,52,-4,.72,true)}`},
+ {n:'Recibo por partidas',d:'Cada quien marca solo lo que consumió.',bg:C.coral,b:`
+   <rect x="30" y="20" width="54" height="62" rx="1.5" ${Wf}/>
+   ${dot(40,34)}<path d="M48 34 H74" ${L}/>
+   <circle cx="40" cy="48" r="3" ${L}/><path d="M48 48 H70" ${L}/>
+   ${dot(40,62)}<path d="M48 62 H72" ${L}/>
+   ${point(41,50,-16,.78)}`},
+ {n:'Cerrar el evento',d:'La balanza queda pareja: todos pusieron lo justo.',bg:C.arena,b:`
+   <path d="M22 62 H98" ${L}/>
+   <path d="M60 62 L49 82 H71 Z" fill="#FFFFFF"/>
+   <circle cx="34" cy="52" r="10" ${L}/><circle cx="86" cy="52" r="10" ${L}/>
+   ${dot(34,52,2.4)}${dot(86,52,2.4)}`},
+ {n:'Quién le paga a quién',d:'Un hilo une a quien debe con quien puso.',bg:C.beige,b:`
+   <rect x="20" y="34" width="24" height="24" rx="1.5" ${Wf}/>
+   <rect x="76" y="34" width="24" height="24" rx="1.5" ${Wf}/>
+   <path d="M44 46 C50 42 55 52 60 48 C65 44 70 52 76 46" ${L}/>
+   ${pinch(58,51,80,.72)}`},
+ {n:'Copiar CLABE',d:'La misma hoja, lista para pegar.',bg:C.rosa,b:`
+   <rect x="32" y="22" width="38" height="50" rx="1.5" fill="${PAPER}" opacity=".6" transform="rotate(-12 51 47)"/>
+   <rect x="36" y="24" width="38" height="50" rx="1.5" fill="${PAPER}" opacity=".8" transform="rotate(-5 55 49)"/>
+   <rect x="42" y="26" width="38" height="50" rx="1.5" ${Wf}/>
+   <path d="M49 38 H73 M49 46 H67" ${L}/>
+   ${point(68,56,-20,.8)}`},
+ {n:'Recordatorio',d:'Un reloj de arena: sin prisa, pero sin olvido.',bg:C.lavanda,b:`
+   <path d="M46 26 H72 C72 40 62 46 59 52 C62 58 72 64 72 78 H46 C46 64 56 58 59 52 C56 46 46 40 46 26 Z" ${Wf}/>
+   <path d="M42 24 H76 M42 80 H76" ${N(2.6)}/>
+   ${dot(59,44,1.2)}${dot(59,48,1.2)}
+   <path d="M52 77 C54 71 64 71 66 77 Z" fill="${INK}"/>
+   ${pinch(66,22,-4,.72)}`},
+ {n:'Resumen para compartir',d:'Una tarjeta que sale hacia el chat.',bg:C.salvia,b:`
+   <rect x="28" y="34" width="46" height="34" rx="1.5" ${Wf}/>
+   <path d="M36 44 H64 M36 52 H58 M36 60 H62" ${L}/>
+   ${arrow('M76 38 C84 33 88 28 92 20',92,20,-62)}
+   ${palm(24,68,.76)}`},
+ {n:'Respaldo y sin conexión',d:'Tus datos guardados, aunque no haya señal.',bg:C.terracota,b:`
+   <path d="M38 60 C28 60 26 46 36 44 C35 32 50 28 56 36 C60 26 78 28 78 40 C90 40 92 60 80 60 Z" ${Wf}/>
+   ${dot(60,45,3)}<path d="M60 46 L60 52" ${N(2.4)}/>
+   ${palm(36,64,.8)}`},
+ {n:'Privacidad',d:'Lo del grupo se queda en el grupo.',bg:C.ciruela,b:`
+   <path d="M56 20 L76 27 L76 44 C76 57 67 65 56 69 C45 65 36 57 36 44 L36 27 Z" ${Wf}/>
+   <path d="M56 34 L48 50 H64 Z" ${L}/>
+   ${dot(56,34)}${dot(48,50)}${dot(64,50)}
+   ${palm(36,72,.76)}`},
+];
+
+const tile = (bg, body) => `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs><filter id="w" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="7"/><feDisplacementMap in="SourceGraphic" scale="1.1"/></filter><clipPath id="t"><rect width="120" height="120" rx="24"/></clipPath></defs>
+  <rect width="120" height="120" rx="24" fill="${bg}"/>
+  <g clip-path="url(#t)"><g filter="url(#w)">${body}</g></g>
+</svg>`;
+
+document.getElementById('grid').innerHTML = ICONS.map(i =>
+  `<div class="item">${tile(i.bg,i.b)}<b>${i.n}</b><span>${i.d}</span></div>`).join('');
+document.getElementById('strip').innerHTML = ICONS.map(i => tile(i.bg,i.b)).join('');
+
+const byName = n => ICONS.find(i => i.n === n);
+document.getElementById('phones').innerHTML = `
+  <div class="phone">
+    <div class="h">Tus eventos</div>
+    <div class="card">${tile(byName('Crear evento').bg, byName('Crear evento').b)}Aún no tienes eventos.<br>Crea el primero y comparte el link por WhatsApp.</div>
+    <div class="btn">Crear evento</div>
+  </div>
+  <div class="phone">
+    <div class="h">Vegas · octubre</div>
+    <div class="row">${tile(byName('Compartir el link').bg, byName('Compartir el link').b)}<div>Compartir el link<small>WhatsApp o QR</small></div></div>
+    <div class="row">${tile(byName('Cerrar el evento').bg, byName('Cerrar el evento').b)}<div>Cerrar y liquidar<small>Ver quién le paga a quién</small></div></div>
+    <div class="row">${tile(byName('Resumen para compartir').bg, byName('Resumen para compartir').b)}<div>Resumen en imagen<small>Para el chat del grupo</small></div></div>
+    <div class="row">${tile(byName('Respaldo y sin conexión').bg, byName('Respaldo y sin conexión').b)}<div>Respaldo<small>Descargar copia</small></div></div>
+  </div>
+  <div class="phone">
+    <div class="h">Gastos</div>
+    <div class="card">${tile(byName('Capturar gasto').bg, byName('Capturar gasto').b)}Todavía no hay gastos.<br>Toca <b>+ Gasto</b>: monto primero, dos taps.</div>
+  </div>`;
+
+const names = {terracota:'Terracota',salvia:'Salvia',lavanda:'Lavanda',rosa:'Rosa viejo',azul:'Azul grisáceo',beige:'Beige',olivo:'Olivo',verde:'Verde agua',ciruela:'Ciruela',arena:'Arena',coral:'Coral'};
+document.getElementById('chips').innerHTML = Object.entries(C).map(([k,v]) =>
+  `<div class="chip"><i style="background:${v}"></i>${names[k]} · ${v}</div>`).join('');
+</script>
+</body>
+</html>
