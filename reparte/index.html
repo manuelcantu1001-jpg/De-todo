@@ -63,6 +63,9 @@ h1,h2,h3{font-weight:400;margin:0}
 .btn.primary{background:var(--terra);color:#fff}
 .btn.primary:disabled{background:var(--terra-off);cursor:default}
 .btn.secondary{background:var(--card);border:1px solid var(--borde);color:var(--tinta)}
+.file-in{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.file-in+label{cursor:pointer}
+.file-in:focus-visible+label{outline:2px solid var(--terra);outline-offset:2px}
 .btn.ghost{color:var(--gris);padding:12px;font-weight:500}
 .btn.ok{background:var(--verde);color:#fff}
 .fixed{position:sticky;bottom:0;padding:12px 20px calc(16px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--crema) 75%,rgba(246,241,233,0));display:flex;gap:10px;margin-top:auto}
@@ -110,6 +113,17 @@ h1,h2,h3{font-weight:400;margin:0}
 .ill.live img{filter:var(--boil,none)}
 .empty .ill{margin:0 auto 14px}
 .sheet .ill,.body>.ill{margin:6px 0 14px}
+.head{display:flex;align-items:center;gap:16px;margin-top:4px}
+.head .h1{flex:1;min-width:0}
+/* Gestos cuadro por cuadro: la ilustración se parte en capas (recortes) que se mueven a saltos, como stop motion.
+   Quieta = la imagen original. Las capas, tapas y rayitas solo existen mientras dura el gesto. */
+.ill.anim{position:relative;cursor:pointer}
+.ill.anim>img,.ill.anim>svg{position:absolute;inset:0;width:100%;height:100%}
+.ill.anim>svg{pointer-events:none}
+.ill.anim>.cv{position:absolute;inset:0;transform:scale(1.05);background-repeat:no-repeat;background-size:3000% 3000%}
+.ill.anim .an{opacity:0}
+.ill.anim.play .an{animation:none var(--d) steps(1,end) var(--dl,0s) both}
+@media (prefers-reduced-motion:no-preference){.ill.anim.play .an{animation-name:var(--an)}}
 /* sheet */
 .backdrop{position:fixed;inset:0;background:rgba(28,25,23,.42);animation:fadein .2s;z-index:20;display:flex;align-items:flex-end;justify-content:center}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
@@ -351,14 +365,101 @@ function render(){
   const ev = route.id ? db.events[route.id] : null;
   const app = $('#app');
   const views = { home, new: newScreen, profile, conectar: connectionScreen, event: eventScreen, invitar: invite, nuevo: capture, cierre: settle, resumen: summary, editar: capture };
+  ills.now = new Set();
   const html = (views[route.screen] || home)(ev); if (!html) return;
   const key = route.screen + (route.id||'');
   app.innerHTML = (key !== render.last ? html.replace('class="screen"', 'class="screen anim"') : html) + (ui.sheet ? sheet(ev) : '');
-  render.last = key;
+  render.last = key; ills.prev = ills.now;
   const f = $('[autofocus]'); if (f) setTimeout(()=>f.focus(), 50);
 }
 
-const Ill = (name, size=72, live=false) => `<span class="ill${live?' live':''}" style="--s:${size}px" aria-hidden="true"><img src="img/${name}.jpg" alt="" width="${size}" height="${size}" decoding="async" onerror="this.parentNode.remove()"></span>`;
+// Cada gesto: n cuadros de movimiento y luego la imagen quieta. Coordenadas en % de la imagen.
+// parts: recortes que se mueven (f = transform por cuadro). covers: tapan con el color de fondo lo que se movió.
+// marks: rayitas dibujadas aparte. f en covers y marks = cuadros en que se ven.
+const INK = '#1A1714';
+const GESTURES = {
+  'crear-evento': { bg:'#D37553', n:4,
+    parts:[{ clip:'inset(4% 4% 22% 0)', o:'40% 62%', f:['translate(-12%,-16%) rotate(-9deg)','translate(-6%,-10%) rotate(-5deg)','translate(-2%,-4%) rotate(-2deg)','translate(0,1.5%) rotate(1deg)'] }],
+    covers:[{ r:[0,0,100,78.6] }],
+    marks:[{ f:[3], d:'M45.2 76.7 L42 74 M43.8 78.9 L39.9 77.9 M55.4 76.7 L58.6 74 M56.8 78.9 L60.7 77.9' },
+           { f:[4], d:'M43.5 75.5 L39 71.9 M41.7 78.2 L36 77 M57.1 75.5 L61.6 71.9 M58.9 78.2 L64.6 77' }] },
+  'compartir-link': { bg:'#E7BEBD', n:4,
+    parts:[{ clip:'inset(12% 50% 12% 0)', o:'25% 60%', f:['translateX(-18%) rotate(-6deg)','translateX(-10%) rotate(-3deg)','translateX(-4%) rotate(-1deg)','translateX(1%)'] },
+           { clip:'inset(12% 0 12% 50%)', o:'75% 60%', f:['translateX(18%) rotate(6deg)','translateX(10%) rotate(3deg)','translateX(4%) rotate(1deg)','translateX(-1%)'] }],
+    covers:[{ r:[0,0,100,100] }],
+    marks:[{ f:[3], d:'M50 47 L50 44 M44.5 49 L42.5 47 M55.5 49 L57.5 47' },
+           { f:[4], d:'M50 45 L50 40.5 M43 47.5 L40 44.5 M57 47.5 L60 44.5' }] },
+  'entrar': { bg:'#9BBDAF', n:4,
+    parts:[{ clip:'inset(4%)', o:'49% 40%', f:['scale(1)','scale(.93)','scale(.93)','scale(1.03)'] }],
+    covers:[{ r:[0,0,100,100] }],
+    marks:[{ f:[2], d:'M49.1 13 A27 27 0 1 1 49.09 13', w:.8 }, { f:[3,4], d:'M49.1 9 A31 31 0 1 1 49.09 9', w:.7 }] },
+  'capturar-gasto': { bg:'#D8AC8A', n:4, parts:[],
+    covers:[{ r:[24.9,27.1,27.3,5], f:[0], at:[35,35.5] }, { r:[25.5,39.2,27.3,4.7], f:[0,1], at:[35,35.5] },
+            { r:[25.8,51.6,21.5,4.7], f:[0,1,2], at:[35,35.5] }, { r:[26.7,63.4,26.7,5], f:[0,1,2,3], at:[35,35.5] }] },
+  'peso-dolar': { bg:'#7E8E5D', n:4,
+    parts:[{ clip:'inset(21.8% 29.8% 65.9% 37.6%)', o:'53.6% 51.8%', f:['rotate(-70deg)','rotate(-45deg)','rotate(-20deg)','rotate(-6deg)'] },
+           { clip:'inset(68.8% 30.7% 18.8% 37%)', o:'53.6% 51.8%', f:['rotate(-70deg)','rotate(-45deg)','rotate(-20deg)','rotate(-6deg)'] },
+           { clip:'inset(35% 50% 6% 0)', o:'30% 60%', f:['none','translate(3%,-2%)','translate(5%,-3%)','translate(1%)'] },
+           { clip:'inset(35% 12% 32% 57%)', o:'73% 52%', f:['none','translate(-3%,-2%)','translate(-5%,-3%)','translate(-1%)'] }],
+    covers:[{ r:[0,0,100,100] }] },
+  'cerrar-evento': { bg:'#ECECE2', n:4,
+    parts:[{ clip:'inset(39.5% 16.6% 44.4% 16.6%)', o:'50% 54%', f:['rotate(9deg)','rotate(-6deg)','rotate(3.5deg)','rotate(-1.5deg)'] }],
+    covers:[{ r:[16.6,39.5,66.8,16.1] }] },
+  'quien-le-paga': { bg:'#B9B6D5', n:5,
+    parts:[{ clip:'polygon(33.8% 38%,66% 38%,66% 100%,26% 100%,26% 56%,33.8% 56%)', o:'50% 70%', f:['translateY(34%)','translateY(18%)','translateY(7%)','translateY(-1%)','translateY(2.5%)'] }],
+    covers:[{ p:'33.8,38 66,38 66,100 26,100 26,56 33.8,56' }],
+    marks:[{ f:[4], d:'M31 44 L28.5 42 M31 52 L28.5 54 M69 44 L71.5 42 M69 52 L71.5 54' }] },
+  'copiar-clabe': { bg:'#E8CACA', n:4, parts:[],
+    marks:[{ f:[0], d:'M57 57.5 L57 55 M53 58.5 L51.5 57 M61 58.5 L62.5 57' },
+           ],
+    covers:[{ f:[1], sheet:[33.8,19,44.3,47], at:[55,45] }, { f:[2], sheet:[38.8,14,44.3,47], at:[55,45] }, { f:[3], sheet:[43.8,9,44.3,47], at:[55,45] }] },
+  'respaldo': { bg:'#DC6D4F', n:4,
+    parts:[{ clip:'inset(31.9% 20.6% 32.2% 20.9%)', o:'50% 66%', f:['translateY(-26%)','translateY(-15%)','translateY(-6%)','translateY(2%)'] }],
+    covers:[{ r:[20.9,31.9,58.5,35.9] }],
+    marks:[{ f:[3,4], d:'M27 68 L24 70.5 M31 70 L29 73 M73 68 L76 70.5 M69 70 L71 73' }] },
+  'invitar': { bg:'#9BBDAF', n:4,
+    parts:[{ clip:'inset(41.5% 47.2% 25.5% 19.4%)', o:'37% 57%', f:['scale(.2)','scale(.6)','scale(1.12)','scale(.95)'] }],
+    covers:[{ r:[19.4,41.5,33.4,33] }],
+    marks:[{ f:[2], d:'M22 42 L19.5 39.5 M30 37.5 L29 34 M18 52 L14.5 51.5' }, { f:[3], d:'M21 41 L17.5 37.5 M29.5 36 L28.3 31.5 M17 52 L12.5 51.4' }] },
+};
+const FRAME = .195;
+const ills = { prev:new Set(), now:new Set(), t:new Map() };
+const gestureCSS = (() => {
+  const pct = (k,T) => (k*100/T).toFixed(2)+'%', css = [], seen = new Set();
+  const vis = (list,T) => { const name = `gv${T}-${list.join('_')}`; if(!seen.has(name)){ seen.add(name); css.push(`@keyframes ${name}{${Array.from({length:T},(_,k)=>`${pct(k,T)}{opacity:${list.includes(k)?1:0}}`).join('')}100%{opacity:0}}`); } return name; };
+  for (const [name,g] of Object.entries(GESTURES)) {
+    const T = g.n + 2;
+    g.parts.forEach((pt,i) => { pt.an = `gp-${name}-${i}`; css.push(`@keyframes ${pt.an}{${pt.f.map((t,k)=>`${pct(k,T)}{transform:${t==='none'?'':t} scale(1.05);opacity:1}`).join('')}${pct(g.n,T)},100%{transform:scale(1.05);opacity:0}}`); });
+    (g.covers||[]).forEach(c => c.an = vis(c.f || Array.from({length:g.n},(_,k)=>k), T));
+    (g.marks||[]).forEach(m => m.an = vis(m.f, T));
+  }
+  const st = document.createElement('style'); st.textContent = css.join('\n'); document.head.append(st);
+})();
+// La hoja copiada no tapa la yema del dedo: se le quita la esquina de abajo a la derecha.
+const sheetPts = ([x,y,w,h]) => { const x1=x+w, y1=y+h, cy=Math.min(y1,59.5); return y1>59.5 ? `${x},${y} ${x1},${y} ${x1},${cy} 50,${cy} 50,${y1} ${x},${y1}` : `${x},${y} ${x1},${y} ${x1},${y1} ${x},${y1}`; };
+const Ill = (name, size=72, live=false) => {
+  const src = `img/${name}.jpg`, g = GESTURES[name], err = `onerror="this.closest('.ill').remove()"`;
+  if (!g) return `<span class="ill${live?' live':''}" style="--s:${size}px" aria-hidden="true"><img src="${src}" alt="" width="${size}" height="${size}" decoding="async" ${err}></span>`;
+  // Si la pantalla se vuelve a dibujar a medio gesto, el gesto sigue desde donde iba en vez de cortarse.
+  const id = `${route.screen}${route.id||''}|${ui.sheet?.type||''}|${name}`, dur = (g.n+2)*FRAME;
+  if (!ills.prev.has(id)) ills.t.set(id, performance.now());
+  ills.now.add(id);
+  const el = (performance.now() - ills.t.get(id)) / 1000, play = el < dur;
+  const v = an => `class="an" style="--an:${an}"`, fit = 'transform="translate(50 50) scale(1.05) translate(-50 -50)"';
+  // Las tapas se pintan con un pedacito de fondo de la propia imagen: un color escrito en CSS no coincide exacto con el JPEG.
+  const patch = ([u,w]=[50,8]) => { const S=30, pos=q=>((q/100-0.5/S)*S/(S-1)*100).toFixed(2)+'%'; return `background-image:url(${src});background-position:${pos(u)} ${pos(w)}`; };
+  const shape = c => c.r ? `polygon(${c.r[0]}% ${c.r[1]}%,${c.r[0]+c.r[2]}% ${c.r[1]}%,${c.r[0]+c.r[2]}% ${c.r[1]+c.r[3]}%,${c.r[0]}% ${c.r[1]+c.r[3]}%)` : `polygon(${(c.p||sheetPts(c.sheet)).split(' ').map(q=>q.split(',').map(z=>z+'%').join(' ')).join(',')})`;
+  const covers = (g.covers||[]).map(c => `<i class="cv an" style="--an:${c.an};${patch(c.at)};clip-path:${shape(c)}"></i>`).join('');
+  const marks = (g.marks||[]).map(m => `<path ${v(m.an)} d="${m.d}"${m.w?` stroke-width="${m.w}"`:''}/>`).join('');
+  return `<span class="ill anim${live?' live':''}${play?' play':''}" style="--s:${size}px;--d:${dur.toFixed(2)}s;--dl:${(-el).toFixed(3)}s;background:${g.bg}" aria-hidden="true">`
+    + `<img src="${src}" alt="" decoding="async" ${err}>`
+    + covers
+    + g.parts.map(pt => `<img class="an" src="${src}" alt="" decoding="async" style="--an:${pt.an};clip-path:${pt.clip};transform-origin:${pt.o}">`).join('')
+    + (marks ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" fill="none" stroke="${INK}" stroke-width="1.5" stroke-linecap="round"><g ${fit}>${marks}</g></svg>` : '')
+    + `</span>`;
+};
+// Tocar una ilustración animada repite su gesto.
+document.addEventListener('click', e => { const p = e.target.closest('.ill.anim'); if (!p) return; p.style.setProperty('--dl','0s'); p.classList.remove('play'); void p.offsetWidth; p.classList.add('play'); });
 // Línea viva: tres cuadros de ruido que se turnan a 4 por segundo, como stop motion. Quieta con "reducir movimiento" o pestaña oculta.
 const boil = { frame:0, timer:null, reduce: matchMedia('(prefers-reduced-motion: reduce)') };
 function boilSync(){
@@ -390,7 +491,7 @@ function newScreen(){
   return `<div class="screen">
     <div class="top"><button class="back" data-go="#/">‹ Inicio</button></div>
     <div class="body">
-      <h2 class="h1">¿Cómo se llama?</h2>
+      <div class="head">${Ill('crear-evento',84,true)}<h2 class="h1">¿Cómo se llama?</h2></div>
       <p class="sub">Un viaje, una cena, una despedida. Un gasto compartido tiene principio y fin.</p>
       <form id="f-new" style="margin-top:20px">
         <div class="field"><div class="lbl">Nombre del evento</div><input name="name" placeholder="Las Vegas · octubre" autofocus autocomplete="off" maxlength="40"></div>
@@ -466,7 +567,7 @@ function invite(ev){
   return `<div class="screen">
     <div class="top"><button class="back" data-go="#/e/${ev.id}">‹ Volver</button></div>
     <div class="body">
-      ${Ill('compartir-link',104,!url)}<h2 class="h1">Invita al grupo</h2>
+      <div class="head">${Ill('compartir-link',84,!url)}<h2 class="h1">Invita al grupo</h2></div>
       <p class="sub">QR para los que están en la mesa. Link para el que no vino. El grupo consulta; el organizador registra y corrige.</p>
       <div style="margin:22px 0 14px">${url?qr(url):'<p class="note">Preparando el enlace…</p>'}</div>
       <div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 14px"><div style="font-size:13px;color:var(--gris);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(short)}</div><button class="link" data-act="copy-link" ${url?'':'disabled'}>Copiar</button></div>
@@ -512,7 +613,7 @@ function settle(ev){
   return `<div class="screen">
     <div class="top"><button class="back" data-go="#/e/${ev.id}">‹ Gastos</button></div>
     <div class="body">
-      ${Ill('quien-le-paga',104)}<h2 class="h1">Así queda la cuenta</h2>
+      <div class="head">${Ill('quien-le-paga',84)}<h2 class="h1">Así queda la cuenta</h2></div>
       <div class="steps" style="margin-top:18px">
         <div class="step"><div class="n">1</div><div><div class="k">Se gastó en total</div><div class="v">${fmtMXN(t)}</div></div></div>
         <div class="step"><div class="n">2</div><div><div class="k">Promedio por persona</div><div class="v">${fmtMXN(perHead(ev))}</div><div class="k" style="margin-top:4px">Promedio. Los gastos entre menos personas solo cuentan para ellas.</div></div></div>
@@ -854,12 +955,12 @@ function syncStatus(ev){
   return ev.role==='owner'?'Guardado en este navegador. Conecta tu correo para respaldar y compartir actualizaciones.':'Copia de consulta; no se actualiza sola.';
 }
 function connectionScreen(){
-  return `<div class="screen"><div class="top"><button class="back" data-go="#/">‹ Inicio</button></div><div class="body">${Ill('respaldo',104)}<h1 class="h1">Tu cuenta, a salvo</h1>
+  return `<div class="screen"><div class="top"><button class="back" data-go="#/">‹ Inicio</button></div><div class="body"><div class="head">${Ill('respaldo',84)}<h1 class="h1">Tu cuenta, a salvo</h1></div>
   <p class="sub">Como organizador, conecta tu correo para recuperar eventos en otro teléfono. El grupo consulta sin registrarse. Todos los gastos se comparten; las CLABEs se quedan en este navegador.</p>
   ${!configured()?'<div class="card" style="margin-top:20px">La conexión aún no está habilitada. Mientras tanto, descarga un respaldo y comparte copias de consulta.</div>':cloud.session?`<p class="sub">Conectado como ${esc(cloud.session.user.email)}</p><button class="btn secondary" data-act="sync-now">Guardar y recuperar eventos</button>`:`<form id="f-connect"><div class="field"><div class="lbl">Tu correo</div><input name="email" type="email" required autocomplete="email" value="${esc(cloud.email)}"></div><button class="btn primary" style="margin-top:12px">Enviar código</button></form>${cloud.email?`<form id="f-verify"><div class="field"><div class="lbl">Código del correo</div><input name="code" inputmode="numeric" autocomplete="one-time-code" required maxlength="10"></div><button class="btn primary" style="margin-top:12px">Conectar y recuperar</button></form>`:''}`}
   ${cloud.error?`<p class="sub rojo" role="status">${esc(cloud.error)}</p>`:''}
   <button class="btn secondary" style="margin-top:20px" data-act="backup">Descargar respaldo de este dispositivo</button>
-  <div class="field"><label for="restore-file">Restaurar un respaldo</label><input id="restore-file" type="file" accept="application/json,.json"></div>
+  <input id="restore-file" class="file-in" type="file" accept="application/json,.json"><label for="restore-file" class="btn secondary" style="margin-top:10px">Restaurar un respaldo…</label>
   <p class="note">El respaldo contiene tus eventos y datos bancarios locales. Guárdalo para ti. No incluye tu sesión de correo.</p></div></div>`;
 }
 async function connectSubmit(form){
