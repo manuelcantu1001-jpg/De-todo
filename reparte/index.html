@@ -63,6 +63,8 @@ h1,h2,h3{font-weight:400;margin:0}
 .btn.primary{background:var(--terra);color:#fff}
 .btn.primary:disabled{background:var(--terra-off);cursor:default}
 .btn.secondary{background:var(--card);border:1px solid var(--borde);color:var(--tinta)}
+.note-ill{display:flex;align-items:center;gap:12px;margin-top:14px}
+.note-ill .note{margin:0;text-align:left}
 .file-in{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .file-in+label{cursor:pointer}
 .file-in:focus-visible+label{outline:2px solid var(--terra);outline-offset:2px}
@@ -577,7 +579,7 @@ function eventScreen(ev){
         <div class="card"><div class="lbl">${myB===null?'Tú':myB>0?'Te deben':myB<0?'Debes':'Estás al corriente'}</div>
           <div class="big ${myB>0?'verde':myB<0?'rojo':'gris'}">${myB===null?'—':myB?fmtMXN(Math.abs(myB)):'—'}</div></div>
       </div>
-      ${ev.closed ? `<div class="card" style="margin-top:10px;display:flex;justify-content:space-between;align-items:center"><div><div class="lbl">Liquidación</div><div style="font-size:14px;margin-top:2px">${trs.length?`Faltan ${trs.length} transferencia${trs.length===1?'':'s'}`:'Todo liquidado'}</div></div><button class="link" data-go="#/e/${ev.id}/cierre">Ver ›</button></div>` : ''}
+      ${ev.closed ? `<div class="card" style="margin-top:10px;display:flex;align-items:center;gap:12px">${trs.length?Ill('recordatorio',48):Ill('cerrar-evento',48)}<div style="flex:1"><div class="lbl">Liquidación</div><div style="font-size:14px;margin-top:2px">${trs.length?`${trs.length===1?'Falta':'Faltan'} ${trs.length} transferencia${trs.length===1?'':'s'}`:'Todo liquidado'}</div></div><button class="link" data-go="#/e/${ev.id}/cierre">Ver ›</button></div>` : ''}
       <div class="list">
         ${visible.length ? visible.map(e => `<button class="row" data-exp="${e.id}">
           <div class="avatar">${esc(initial(e.title))}</div>
@@ -606,7 +608,8 @@ function invite(ev){
       <div style="margin:22px 0 14px">${url?qr(url):'<p class="note">Preparando el enlace…</p>'}</div>
       <div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 14px"><div style="font-size:13px;color:var(--gris);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(short)}</div><button class="link" data-act="copy-link" ${url?'':'disabled'}>Copiar</button></div>
       ${url?`<a class="btn primary" style="margin-top:12px;text-decoration:none" target="_blank" rel="noopener" href="${wa(`Ya abrí el ReParte de ${ev.name} 👇\n${url}\n\nConsulta la cuenta sin registro. Si falta un gasto o hay un error, avísame.`)}">Compartir por WhatsApp</a>`:''}
-      <p class="note">${ev.sync?.token?'Este enlace consulta la última versión guardada. Se actualiza cada 10 segundos mientras esté abierto y conectado.':'Este enlace lleva una copia de consulta. Debes compartir una nueva después de cada cambio. Conecta el evento para usar un enlace que se actualice.'} No incluye CLABEs. Quien tenga el enlace puede ver todos los gastos.</p>
+      <p class="note">${ev.sync?.token?'Este enlace consulta la última versión guardada. Se actualiza cada 10 segundos mientras esté abierto y conectado.':'Este enlace lleva una copia de consulta. Debes compartir una nueva después de cada cambio. Conecta el evento para usar un enlace que se actualice.'}</p>
+      <div class="note-ill">${Ill('privacidad',56)}<p class="note">Quien tenga el enlace puede ver todos los gastos. No incluye CLABEs.</p></div>
     </div>
   </div>`;
 }
@@ -680,7 +683,7 @@ function summary(ev){
   return `<div class="screen">
     <div class="top"><button class="back" data-go="#/e/${ev.id}/cierre">‹ Liquidación</button></div>
     <div class="body">
-      <div style="display:flex;justify-content:center;margin:16px 0 22px">${Logo(true)}</div>
+      <div style="display:flex;justify-content:center;margin:16px 0 22px">${Ill('resumen',104,true)}</div>
       <div class="card">
         <div class="eyebrow">${ev.closed?'Evento cerrado':'Cuenta provisional'}</div>
         <h2 class="h2" style="margin-top:4px">${esc(ev.name)}</h2>
@@ -994,7 +997,7 @@ function connectionScreen(){
   ${!configured()?'<div class="card" style="margin-top:20px">La conexión aún no está habilitada. Mientras tanto, descarga un respaldo y comparte copias de consulta.</div>':cloud.session?`<p class="sub">Conectado como ${esc(cloud.session.user.email)}</p><button class="btn secondary" data-act="sync-now">Guardar y recuperar eventos</button>`:`<form id="f-connect"><div class="field"><div class="lbl">Tu correo</div><input name="email" type="email" required autocomplete="email" value="${esc(cloud.email)}"></div><button class="btn primary" style="margin-top:12px">Enviar código</button></form>${cloud.email?`<form id="f-verify"><div class="field"><div class="lbl">Código del correo</div><input name="code" inputmode="numeric" autocomplete="one-time-code" required maxlength="10"></div><button class="btn primary" style="margin-top:12px">Conectar y recuperar</button></form>`:''}`}
   ${cloud.error?`<p class="sub rojo" role="status">${esc(cloud.error)}</p>`:''}
   <button class="btn secondary" style="margin-top:20px" data-act="backup">Descargar respaldo de este dispositivo</button>
-  <input id="restore-file" class="file-in" type="file" accept="application/json,.json"><label for="restore-file" class="btn secondary" style="margin-top:10px">Restaurar un respaldo…</label>
+  <input id="restore-file" class="file-in" type="file" accept="application/json,.json"><label for="restore-file" class="row" style="margin-top:10px">${Ill('restaurar-respaldo',48)}<div><div class="t">Restaurar un respaldo…</div><div class="m">Elige el archivo .json que descargaste</div></div></label>
   <p class="note">El respaldo contiene tus eventos y datos bancarios locales. Guárdalo para ti. No incluye tu sesión de correo.</p></div></div>`;
 }
 async function connectSubmit(form){
