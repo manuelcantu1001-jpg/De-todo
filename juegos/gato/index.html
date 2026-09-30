@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Tres en raya para dos jugadores o contra la app." />
+<title>Gato</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EX%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* El tablero se lleva el alto sobrante y se centra en él: así el marcador y
+     «Salir» bajan a la zona del pulgar en vez de dejar papel muerto debajo. */
+  .boardwrap { display: flex; justify-content: center; align-items: center; padding: 18px 16px 0; flex: 1; }
+  .board {
+    display: grid; grid-template-columns: repeat(3, 104px); grid-auto-rows: 104px; gap: 10px;
+  }
+  .tc {
+    background: var(--card); border-radius: 12px; box-shadow: var(--shadow); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: opacity var(--dur) var(--ease); border: 1px solid var(--linea-fuerte); }
+  .tc:active { opacity: .7; }
+  .tc svg { display: block; }
+  .tc .draw path, .tc .draw circle { stroke-dasharray: 120; stroke-dashoffset: 120; animation: drawIn .35s  forwards var(--ease); }
+  @keyframes drawIn { to { stroke-dashoffset: 0; } }
+  /* La línea ganadora se marca con relleno suave y filete del color de quien ganó. */
+  .tc.winline { background: var(--accent-soft); border: 2px solid var(--accent); }
+  .tc.winline.win-o { background: var(--second-soft); border-color: var(--tinta-2); }
+  /* El aviso de turno va en tinta (el terracota a 15 px daba 3,85:1 sobre el papel
+     y el azul 3,0) y el color del jugador se lleva a un punto delante del texto. */
+  .turnrow { text-align: center; padding: 16px 0 0; font-family: var(--display); font-style: italic; font-size: 17px; font-weight: 400; color: var(--bg-ink); }
+  .turnrow .who { color: var(--ink); }
+  .turnrow .who::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 999px; background: var(--accent); margin-right: 8px; vertical-align: 1px; }
+  .turnrow .who.o::before { background: var(--tinta-2); }
+  .turnrow .who.neutro::before { display: none; }
+  .scorebar {
+    display: flex; justify-content: center; gap: 14px; margin: 18px 16px 0;
+  }
+  .scorebar .b { flex: 0 1 110px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 6px; text-align: center; border: 1px solid var(--linea-fuerte); }
+  .scorebar .bn { font-family: var(--title-font); font-size: 22px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .scorebar .bl { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); margin-top: 3px; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 16px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    box-shadow: var(--shadow-sutil); }
+  .tool:active { opacity: .6; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const X_SVG = '<svg class="draw" viewBox="0 0 24 24" width="58" height="58" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"><path d="M5 5l14 14"></path><path d="M19 5L5 19"></path></svg>';
+const O_SVG = '<svg class="draw" viewBox="0 0 24 24" width="58" height="58" fill="none" stroke="var(--tinta-2)" stroke-width="3" stroke-linecap="round"><circle cx="12" cy="12" r="8"></circle></svg>';
+const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+const S = {
+  mode: store.get('gato.mode', 'app'),
+  level: store.get('gato.level', 'normal'),
+  board: null, turn: 'X', starter: 'X', over: false,
+  score: { X: 0, O: 0, E: 0 },
+  thinking: false,
+};
+
+const REGLAS = `<p>El tres en raya de siempre: por turnos, X y O marcan casillas, y gana quien alinee <b>tres iguales</b> en fila, columna o diagonal.</p>
+<p>Juega <b>contra la app</b> o en <b>2 jugadores</b> pasando el teléfono. En <b>Fácil</b> la app juega casi a lo tonto; en <b>Normal</b> se distrae una de cada cuatro jugadas, así que sí se le puede ganar; en <b>Experto</b> no pierde nunca — lo máximo es empatarle.</p>
+<p>Quien inicia se alterna cada ronda. <b>Tus victorias se guardan por nivel</b>: ganarle en Fácil no cuenta lo mismo que en Experto.</p>`;
+
+/* ── Marca por nivel ─────────────────────────────────────────────────── */
+const NIVELES = ['facil', 'normal', 'experto'];
+const victorias = (n) => store.get('gato.wins.' + n, 0);
+
+function anotaVictoria(nivel) {
+  const n = victorias(nivel) + 1;
+  store.set('gato.wins.' + nivel, n);
+  // Al hub va la marca del nivel más alto en el que se haya ganado.
+  let alto = null;
+  for (const v of NIVELES) if (victorias(v) > 0) alto = v;
+  if (alto) {
+    const k = victorias(alto);
+    store.set('gato.hub', `${DIFF_LABEL[alto]}: ${k} victoria${k === 1 ? '' : 's'}`);
+  }
+  return n;
+}
+
+function bestsHTML() {
+  return NIVELES.map((v) =>
+    `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
+}
+
+function renderSetup() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Gato', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Modo</div></div>
+        <div class="seg" id="seg-m">
+          <button data-v="app" class="${S.mode === 'app' ? 'sel' : ''}">Vs. app</button>
+          <button data-v="2p" class="${S.mode === '2p' ? 'sel' : ''}">2 jugadores</button>
+        </div>
+        <div id="lvl-wrap" style="${S.mode === 'app' ? '' : 'display:none;'}">
+          <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
+          ${diffSegHTML('seg-d', S.level, ['facil', 'normal', 'experto'])}
+        </div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Victorias vs. app, por nivel</div>
+      <div class="bests">${bestsHTML()}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-m', (v) => { S.mode = v; store.set('gato.mode', v); $('#lvl-wrap').style.display = v === 'app' ? '' : 'none'; });
+  bindSeg('seg-d', (v) => { S.level = v; store.set('gato.level', v); });
+  $('#new').onclick = () => { S.score = { X: 0, O: 0, E: 0 }; S.starter = 'X'; startRound(true); };
+  bindHowto(REGLAS);
+}
+
+function startRound(first) {
+  S.board = new Array(9).fill('');
+  S.turn = S.starter;
+  S.over = false; S.thinking = false;
+  if (first) renderPlay(); else { paint(); updateTurn(); }
+  maybeApp();
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Gato', `<span class="chip">${S.mode === 'app' ? 'Vs. app · ' + DIFF_LABEL[S.level] : '2 jugadores'}</span>`)}
+    <div class="turnrow" id="turnrow"></div>
+    <div class="boardwrap">
+      <div class="board" id="board">
+        ${Array.from({ length: 9 }, (_, i) => `<div class="tc" data-i="${i}"></div>`).join('')}
+      </div>
+    </div>
+    <div class="scorebar">
+      <div class="b"><div class="bn" id="sx">0</div><div class="bl">${S.mode === 'app' ? 'Tú (X)' : 'Jugador X'}</div></div>
+      <div class="b"><div class="bn" id="se">0</div><div class="bl">Empates</div></div>
+      <div class="b"><div class="bn" id="so">0</div><div class="bl">${S.mode === 'app' ? 'App (O)' : 'Jugador O'}</div></div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#board').onclick = (e) => {
+    const el = e.target.closest('.tc');
+    if (el) tap(Number(el.dataset.i));
+  };
+  $('#t-salir').onclick = renderSetup;
+  paint();
+  updateTurn();
+}
+
+function updateTurn() {
+  const el = $('#turnrow');
+  if (!el) return;
+  if (S.over) return;
+  const who = S.turn === 'X'
+    ? (S.mode === 'app' ? 'Tu turno' : 'Turno de X')
+    : (S.mode === 'app' ? 'Piensa la app…' : 'Turno de O');
+  el.innerHTML = `<span class="who ${S.turn === 'O' ? 'o' : ''}">${who}</span>`;
+}
+
+function paint(winCells) {
+  if (!$('#sx')) return;  // la app pensaba y el jugador ya se fue de la pantalla
+  $$('.tc').forEach((el) => {
+    const i = Number(el.dataset.i);
+    const v = S.board[i];
+    if (el.dataset.v !== v) {
+      el.innerHTML = v === 'X' ? X_SVG : v === 'O' ? O_SVG : '';
+      el.dataset.v = v;
+    }
+    const gana = !!winCells && winCells.includes(i);
+    el.classList.toggle('winline', gana);
+    el.classList.toggle('win-o', gana && S.board[i] === 'O');
+  });
+  $('#sx').textContent = S.score.X;
+  $('#so').textContent = S.score.O;
+  $('#se').textContent = S.score.E;
+}
+
+function tap(i) {
+  if (S.over || S.board[i] || S.thinking) return;
+  if (S.mode === 'app' && S.turn === 'O') return;
+  move(i);
+}
+
+function move(i) {
+  S.board[i] = S.turn;
+  vibrate(12);
+  const w = winnerOf(S.board);
+  paint(w ? w.cells : null);
+  if (w || S.board.every((v) => v)) return endRound(w);
+  S.turn = S.turn === 'X' ? 'O' : 'X';
+  updateTurn();
+  maybeApp();
+}
+
+function maybeApp() {
+  if (S.mode !== 'app' || S.turn !== 'O' || S.over) return;
+  S.thinking = true;
+  setTimeout(() => {
+    S.thinking = false;
+    if (S.over) return;
+    move(appMove());
+  }, 420 + randInt(400));
+}
+
+function winnerOf(b) {
+  for (const L of LINES) {
+    if (b[L[0]] && b[L[0]] === b[L[1]] && b[L[1]] === b[L[2]]) return { p: b[L[0]], cells: L };
+  }
+  return null;
+}
+
+/* IA: fácil (casi a ciegas), normal (gana/bloquea pero se distrae), experto (minimax) */
+const DESPISTE_NORMAL = .25;   // jugadas que Normal falla a propósito
+
+function appMove() {
+  const empty = S.board.map((v, i) => v ? -1 : i).filter((i) => i >= 0);
+  const tryWin = (p) => {
+    for (const i of empty) {
+      const b = S.board.slice(); b[i] = p;
+      if (winnerOf(b)) return i;
+    }
+    return -1;
+  };
+  if (S.level === 'facil') {
+    if (Math.random() < .4) { const w = tryWin('O'); if (w >= 0) return w; }
+    return empty[randInt(empty.length)];
+  }
+  if (S.level === 'normal') {
+    // Se distrae de a de veras: una de cada cuatro veces no mira el tablero,
+    // así que deja pasar remates y bloqueos. Por eso Normal sí es ganable.
+    if (Math.random() < DESPISTE_NORMAL) return empty[randInt(empty.length)];
+    let m = tryWin('O'); if (m >= 0) return m;
+    m = tryWin('X'); if (m >= 0) return m;
+    if (!S.board[4]) return 4;
+    const corners = [0, 2, 6, 8].filter((i) => !S.board[i]);
+    if (corners.length) return corners[randInt(corners.length)];
+    return empty[randInt(empty.length)];
+  }
+  // experto: minimax
+  let best = -Infinity, bestMoves = [];
+  for (const i of empty) {
+    const b = S.board.slice(); b[i] = 'O';
+    const v = minimax(b, false, 0);
+    if (v > best) { best = v; bestMoves = [i]; }
+    else if (v === best) bestMoves.push(i);
+  }
+  return bestMoves[randInt(bestMoves.length)];
+}
+
+function minimax(b, isO, depth) {
+  const w = winnerOf(b);
+  if (w) return w.p === 'O' ? 10 - depth : depth - 10;
+  if (b.every((v) => v)) return 0;
+  const vals = [];
+  for (let i = 0; i < 9; i++) {
+    if (b[i]) continue;
+    b[i] = isO ? 'O' : 'X';
+    vals.push(minimax(b, !isO, depth + 1));
+    b[i] = '';
+  }
+  return isO ? Math.max(...vals) : Math.min(...vals);
+}
+
+function endRound(w) {
+  if (S.over || !$('#turnrow')) return;
+  S.over = true;
+  if (w) S.score[w.p]++; else S.score.E++;
+  paint(w ? w.cells : null);
+  let title, sub = '';
+  if (!w) { title = 'Empate'; }
+  else if (S.mode === 'app') {
+    if (w.p === 'X') {
+      title = '¡Ganaste!';
+      sub = ` · <b>${anotaVictoria(S.level)}</b> en ${DIFF_LABEL[S.level]}`;
+      confetti(); vibrate([30, 60, 30]);
+    } else title = 'Ganó la app';
+  } else {
+    title = w.p === 'X' ? 'Ganó X' : 'Ganó O';
+    confetti();
+  }
+  const el = $('#turnrow');
+  el.innerHTML = `<span class="who ${!w ? 'neutro' : w.p === 'O' ? 'o' : ''}">${title}</span>`;
+  setTimeout(() => {
+    S.starter = S.starter === 'X' ? 'O' : 'X';
+    openModal(`
+      <h3>${title}</h3>
+      <p style="text-align:center;">Marcador: <b>${S.score.X}</b> – <b>${S.score.E}</b> – <b>${S.score.O}</b>${sub}</p>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Siguiente ronda</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startRound(false); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 1000);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

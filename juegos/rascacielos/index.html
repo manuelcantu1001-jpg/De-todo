@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Rascacielos: coloca las alturas para que desde cada borde se vean los edificios que dice la pista." />
+<title>Rascacielos</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3ER%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Prefijo rs- en todo: las clases sueltas (.seg, .meta, .tool…) ya pisaron
+     el estilo compartido en otros juegos. */
+  .rs-wrap { display: flex; justify-content: center; padding: 0 8px; }
+  .rs-tab {
+    display: grid; gap: 0; width: min(96vw, 392px);
+    border-radius: var(--mano-1); overflow: hidden; background: var(--panel);
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  }
+  /* La orla de pistas es un bloque beige que agrupa sin dibujar caja; las
+     casillas jugables van en tarjeta clara, que es lo que debe saltar. */
+  .rs-p {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    background: var(--panel); color: var(--ink); border: none; padding: 0; margin: 0;
+    font-family: var(--font); font-weight: 500; font-size: clamp(13px, 3.9vw, 17px);
+    font-variant-numeric: tabular-nums; cursor: pointer;
+    transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+  }
+  .rs-p.rs-vacia { cursor: default; }
+  /* Rojo y verde bajados hacia la tinta: el --bad puro daba 4,43:1 sobre la
+     orla beige y el --good puro 2,56:1. Medido, no supuesto. */
+  .rs-p.rs-mal { color: color-mix(in srgb, var(--bad) 88%, var(--ink)); font-weight: 600; }
+  .rs-p.rs-ok { color: color-mix(in srgb, var(--good) 55%, var(--ink)); }
+  /* La pista tocada se rellena: marca desde dónde se mira, no solo qué línea.
+     Va después de rs-mal/rs-ok a propósito, para ganarles el color. */
+  .rs-p.rs-mira { background: var(--accent-texto); color: var(--accent-ink); font-weight: 600; }
+  .rs-esq { background: var(--panel); }
+
+  .rs-c {
+    aspect-ratio: 1; position: relative; display: flex; align-items: center; justify-content: center;
+    background: var(--card); cursor: pointer;
+    border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    font-size: clamp(17px, 5.2vw, 25px); font-weight: 500; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .rs-c.rs-t0 { border-top: 1px solid var(--border); }
+  .rs-c.rs-i0 { border-left: 1px solid var(--border); }
+  .rs-c.rs-linea { background: color-mix(in srgb, var(--soft) 55%, transparent); }
+  .rs-c.rs-igual { background: var(--accent-soft); }
+  .rs-c.rs-mira { background: var(--accent-soft); }
+  .rs-c.rs-dup { color: var(--bad); }
+  .rs-c.rs-sel { background: var(--accent-soft); outline: 2.5px solid var(--accent); outline-offset: -2.5px; border-radius: 6px; z-index: 1; }
+  .rs-c.rs-dup.rs-sel { outline-color: var(--bad); }
+  .rs-notas { position: absolute; inset: 3px; display: grid; grid-template-columns: repeat(3, 1fr); }
+  .rs-notas i { font-style: normal; font-size: 9px; font-weight: 500; color: var(--sub); display: flex; align-items: center; justify-content: center; }
+
+  /* El teclado crece con el alto que sobra (como el del Sudoku) para no dejar
+     pantalla muerta, pero la tecla no pasa de 64px: más alta que ancha se veía
+     como una columna, no como una tecla. */
+  .rs-pad { margin: 0 14px; display: grid; grid-auto-rows: minmax(48px, 64px); align-content: center;
+    gap: 7px; flex: 1 1 auto; max-height: 112px; }
+  .rs-key {
+    height: 100%; min-height: 48px; background: var(--card); border: var(--trazo) solid var(--linea);
+    border-radius: 14px; font-family: var(--font); font-size: 21px; font-weight: 500; color: var(--ink);
+    cursor: pointer; font-variant-numeric: tabular-nums; padding: 0;
+  }
+  .rs-key:active { opacity: .6; }
+  .rs-key.rs-lleno { opacity: .34; }
+  .rs-key svg { display: block; margin: 0 auto; }
+
+  .rs-tools { margin: 0 14px calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 9px; justify-content: center; }
+  .rs-tool {
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 11px 16px; min-height: 42px; border-radius: var(--pastilla);
+    background: var(--card); color: var(--ink); display: flex; align-items: center; gap: 6px;
+  }
+  .rs-tool:active { opacity: .6; }
+  .rs-tool.rs-on { background: var(--accent-texto); color: var(--accent-ink); border-color: transparent; }
+  .rs-nota { text-align: center; font-family: var(--display); font-style: italic; font-size: 13.5px;
+    color: var(--sub); padding: 0 18px; min-height: 19px; }
+  .rs-marca { display: flex; justify-content: center; gap: 22px; }
+  .rs-marca span { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--sub); display: flex; align-items: baseline; gap: 7px; }
+  .rs-marca b { font-family: var(--font); font-size: 17px; font-weight: 500; color: var(--ink);
+    letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+  /* space-evenly SOLO en la pantalla de juego: en la de inicio mandaba el
+     botón «Jugar» al fondo. */
+  .scroll:not(.g-setup) { display: flex; flex-direction: column; justify-content: space-evenly; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ══ Motor ════════════════════════════════════════════════════════════
+   El resolutor no va casilla a casilla (a 6×6 tardaba 1,6 s por tablero):
+   trabaja por líneas. De cada fila y columna guarda las permutaciones de
+   1..N que todavía encajan con sus dos pistas y con lo ya sabido; propagar
+   es cruzar esas listas hasta que nada cambia. Contar soluciones = propagar
+   y, si aún queda ambigüedad, abrir rama en la casilla con menos candidatos.
+   «Sale sin adivinar» = la propagación sola lo termina, sin abrir ninguna. */
+
+const visibles = (seq) => { let m = 0, v = 0; for (const h of seq) { if (h > m) { m = h; v++; } } return v; };
+
+const PERMS = {};
+function perms(N) {
+  if (PERMS[N]) return PERMS[N];
+  const out = [];
+  const base = []; for (let v = 1; v <= N; v++) base.push(v);
+  (function rec(resto, acc) {
+    if (!resto.length) { out.push(acc.slice()); return; }
+    for (let i = 0; i < resto.length; i++) {
+      acc.push(resto[i]);
+      rec(resto.slice(0, i).concat(resto.slice(i + 1)), acc);
+      acc.pop();
+    }
+  })(base, []);
+  PERMS[N] = out.map((p) => ({ p, iz: visibles(p), de: visibles(p.slice().reverse()) }));
+  return PERMS[N];
+}
+
+function latino(N, rnd) {
+  for (let reinicio = 0; reinicio < 300; reinicio++) {
+    const g = new Int8Array(N * N);
+    const colMask = new Int32Array(N);
+    let bien = true;
+    for (let r = 0; r < N && bien; r++) {
+      let fMask = 0;
+      const puso = (function pon(c) {
+        if (c === N) return true;
+        const orden = [];
+        for (let v = 1; v <= N; v++) orden.push(v);
+        for (let i = N - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = orden[i]; orden[i] = orden[j]; orden[j] = t; }
+        for (const v of orden) {
+          const bit = 1 << v;
+          if ((fMask & bit) || (colMask[c] & bit)) continue;
+          g[r * N + c] = v; fMask |= bit; colMask[c] |= bit;
+          if (pon(c + 1)) return true;
+          g[r * N + c] = 0; fMask &= ~bit; colMask[c] &= ~bit;
+        }
+        return false;
+      })(0);
+      if (!puso) bien = false;
+    }
+    if (bien) return g;
+  }
+  return null;
+}
+
+function pistasDe(g, N) {
+  const t = [], b = [], l = [], r = [];
+  for (let c = 0; c < N; c++) {
+    const col = []; for (let k = 0; k < N; k++) col.push(g[k * N + c]);
+    t.push(visibles(col)); b.push(visibles(col.slice().reverse()));
+  }
+  for (let f = 0; f < N; f++) {
+    const fila = []; for (let k = 0; k < N; k++) fila.push(g[f * N + k]);
+    l.push(visibles(fila)); r.push(visibles(fila.slice().reverse()));
+  }
+  return { t, b, l, r };
+}
+
+function estadoInicial(N, C) {
+  const P = perms(N);
+  const lineas = [];
+  for (let tipo = 0; tipo < 2; tipo++) {
+    for (let li = 0; li < N; li++) {
+      const a = tipo === 0 ? C.l[li] : C.t[li];
+      const b = tipo === 0 ? C.r[li] : C.b[li];
+      const idx = []; for (let k = 0; k < N; k++) idx.push(tipo === 0 ? li * N + k : k * N + li);
+      const vivos = [];
+      for (let pi = 0; pi < P.length; pi++) {
+        const q = P[pi];
+        if (a && q.iz !== a) continue;
+        if (b && q.de !== b) continue;
+        vivos.push(pi);
+      }
+      lineas.push({ idx, vivos });
+    }
+  }
+  return { lineas, cand: new Int32Array(N * N).fill((1 << (N + 1)) - 2) };
+}
+const copiaEstado = (E) => ({ cand: Int32Array.from(E.cand), lineas: E.lineas.map((L) => ({ idx: L.idx, vivos: L.vivos.slice() })) });
+
+/* 'contra' | 'resuelto' | 'parcial'. Si se pasa «traza», cuenta las pasadas
+   completas y cuántas casillas quedan fijadas tras la primera. */
+function propagar(N, E, traza) {
+  const P = perms(N);
+  let cambio = true;
+  while (cambio) {
+    cambio = false;
+    for (const L of E.lineas) {
+      const nuevo = new Int32Array(N);
+      const viven = [];
+      for (let z = 0; z < L.vivos.length; z++) {
+        const q = P[L.vivos[z]].p;
+        let ok = true;
+        for (let k = 0; k < N; k++) if (!(E.cand[L.idx[k]] & (1 << q[k]))) { ok = false; break; }
+        if (!ok) continue;
+        viven.push(L.vivos[z]);
+        for (let k = 0; k < N; k++) nuevo[k] |= 1 << q[k];
+      }
+      if (!viven.length) return 'contra';
+      L.vivos = viven;
+      for (let k = 0; k < N; k++) if (nuevo[k] !== E.cand[L.idx[k]]) { E.cand[L.idx[k]] = nuevo[k]; cambio = true; }
+    }
+    if (traza) {
+      traza.pasadas++;
+      let fijas = 0;
+      for (let i = 0; i < N * N; i++) { const m = E.cand[i]; if (m && !(m & (m - 1))) fijas++; }
+      if (traza.pasadas === 1) traza.fijas1 = fijas;
+      if (fijas === N * N) break;
+    }
+  }
+  for (let i = 0; i < N * N; i++) { const m = E.cand[i]; if (m & (m - 1)) return 'parcial'; }
+  return 'resuelto';
+}
+
+/* Cuenta soluciones hasta «limite». Devuelve 1 exacto solo si es única. */
+function contar(N, C, limite) {
+  function rec(E) {
+    const st = propagar(N, E, null);
+    if (st === 'contra') return 0;
+    if (st === 'resuelto') return 1;
+    let mejor = -1, mejorN = 99;
+    for (let i = 0; i < N * N; i++) {
+      const m = E.cand[i];
+      let k = 0, x = m; while (x) { x &= x - 1; k++; }
+      if (k > 1 && k < mejorN) { mejorN = k; mejor = i; }
+    }
+    let total = 0;
+    for (let v = 1; v <= N; v++) {
+      if (!(E.cand[mejor] & (1 << v))) continue;
+      const E2 = copiaEstado(E);
+      E2.cand[mejor] = 1 << v;
+      total += rec(E2);
+      if (total >= limite) return limite;
+    }
+    return total;
+  }
+  return rec(estadoInicial(N, C));
+}
+
+/* ¿Se termina solo razonando por líneas, sin abrir ninguna rama? Y con qué
+   coste: pasadas completas y casillas fijadas tras la primera. */
+function sinAdivinar(N, C) {
+  const traza = { pasadas: 0, fijas1: 0 };
+  const st = propagar(N, estadoInicial(N, C), traza);
+  return { ok: st === 'resuelto', pasadas: traza.pasadas, fijas1: traza.fijas1 };
+}
+
+const nPistas = (C) => C.t.concat(C.b, C.l, C.r).filter((x) => x > 0).length;
+
+/* Genera partiendo de las 4N pistas y quitando mientras siga saliendo sin
+   adivinar (que implica solución única). El «objetivo» es cuántas pistas
+   dejar; pasoMin/pasoMax acotan la cadena de deducciones del nivel. */
+function generar(N, cfg, rnd) {
+  for (let intento = 0; intento < 400; intento++) {
+    const sol = latino(N, rnd);
+    if (!sol) continue;
+    const C = pistasDe(sol, N);
+    if (!sinAdivinar(N, C).ok) continue;
+    const orden = [];
+    for (const L of ['t', 'b', 'l', 'r']) for (let k = 0; k < N; k++) orden.push([L, k]);
+    for (let i = orden.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = orden[i]; orden[i] = orden[j]; orden[j] = t; }
+    for (const [L, k] of orden) {
+      if (nPistas(C) <= cfg.objetivo) break;
+      const v = C[L][k];
+      if (!v) continue;
+      C[L][k] = 0;
+      if (!sinAdivinar(N, C).ok) C[L][k] = v;
+    }
+    if (nPistas(C) > cfg.objetivo) continue;
+    const d = sinAdivinar(N, C);
+    if (d.pasadas < cfg.pasoMin || d.pasadas > cfg.pasoMax) continue;
+    return { sol, C, pasadas: d.pasadas };
+  }
+  return null;
+}
+
+/* ══ Niveles ══════════════════════════════════════════════════════════
+   Medidos con 300 tableros por nivel (ver informe): pistas 8/10/14/11 y
+   cadena de deducciones 2,8 → 4,7 → 5,2 → 8,9 pasadas.
+   No hay 7×7: con solo pistas de borde, un 7×7 tiene solución única en
+   1 de cada 300 cuadrados latinos, así que el Experto es 6×6 con 3 pistas
+   menos que el Difícil y cadena más larga. */
+const CFG = {
+  facil:   { N: 4, objetivo: 8,  pasoMin: 0, pasoMax: 99 },
+  normal:  { N: 5, objetivo: 10, pasoMin: 0, pasoMax: 99 },
+  dificil: { N: 6, objetivo: 14, pasoMin: 0, pasoMax: 6 },
+  experto: { N: 6, objetivo: 11, pasoMin: 8, pasoMax: 99 },
+};
+const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+
+const S = {
+  nivel: store.get('ras.nivel', 'normal'),
+  N: 0, C: null, sol: null, val: null, notas: null,
+  sel: -1, notasOn: false, mira: null, hecho: false, gen: 0,
+};
+const reloj = makeClock(() => $('#rs-reloj'));
+
+const REGLAS = `<p>Cada fila y cada columna llevan edificios de altura <b>1 a N</b>, uno de cada, sin repetir.</p>
+<p>Los números del borde dicen <b>cuántos edificios se ven</b> mirando desde ahí: uno tapa a todos los más bajos que queden detrás.</p>
+<p>Por eso un <b>1</b> en el borde obliga a poner el edificio <b>más alto</b> justo ahí: si fuera más bajo, alguno de atrás asomaría y se verían dos. Y una pista igual a N obliga a la fila entera en orden: 1, 2, 3…</p>
+<p>Toca una pista para resaltar su fila o su columna. Los repetidos se marcan en rojo, y una pista se pone en rojo en cuanto su línea ya no puede cumplirla. <b>Notas</b> apunta candidatos en chiquito.</p>
+<p>Todos los tableros tienen <b>una sola solución</b> y salen razonando fila por fila y columna por columna: nunca hace falta probar al azar.</p>`;
+
+/* ══ Pantalla de inicio ═══════════════════════════════════════════════ */
+function renderSetup() {
+  S.gen++;
+  reloj.stop();
+  const marcas = NIVELES.map((d) => {
+    const b = store.get('ras.best.' + d, null);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Rascacielos', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;">
+          <div class="row-title">Dificultad</div><div class="row-hint" id="rs-hint"></div>
+        </div>
+        ${diffSegHTML('seg-d', S.nivel)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${marcas}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const pinta = () => {
+    const c = CFG[S.nivel];
+    $('#rs-hint').textContent = `${c.N}×${c.N} · ${c.objetivo} pistas de ${4 * c.N}`;
+  };
+  pinta();
+  bindSeg('seg-d', (v) => { S.nivel = v; store.set('ras.nivel', v); pinta(); });
+  $('#new').onclick = nuevaPartida;
+  bindHowto(REGLAS);
+}
+
+function nuevaPartida() {
+  const c = CFG[S.nivel];
+  /* generar() falla 1 de cada 300 veces en Experto (se le acaban los intentos).
+     Se reintenta el mismo nivel y, solo si eso también falla, se aflojan las
+     cotas: los tres caminos siguen dando solución única y sin adivinar. */
+  let g = null;
+  for (let k = 0; k < 3 && !g; k++) g = generar(c.N, c, Math.random);
+  if (!g) g = generar(c.N, { objetivo: c.objetivo, pasoMin: 0, pasoMax: 99 }, Math.random);
+  if (!g) g = generar(c.N, { objetivo: 4 * c.N, pasoMin: 0, pasoMax: 99 }, Math.random);
+  if (!g) return;                       // imposible en la práctica; mejor no romper
+  S.N = c.N; S.C = g.C; S.sol = g.sol;
+  S.val = new Array(c.N * c.N).fill(0);
+  S.notas = Array.from({ length: c.N * c.N }, () => new Set());
+  S.sel = -1; S.notasOn = false; S.mira = null; S.hecho = false;
+  S.gen++;
+  renderPlay();
+  reloj.start();
+}
+
+/* ══ Pantalla de juego ════════════════════════════════════════════════ */
+function renderPlay() {
+  const N = S.N, lado = N + 2;
+  let celdas = '';
+  for (let f = 0; f < lado; f++) {
+    for (let c = 0; c < lado; c++) {
+      const borde = f === 0 || f === lado - 1 || c === 0 || c === lado - 1;
+      if (!borde) {
+        const i = (f - 1) * N + (c - 1);
+        celdas += `<div class="rs-c" data-i="${i}"></div>`;
+        continue;
+      }
+      const esq = (f === 0 || f === lado - 1) && (c === 0 || c === lado - 1);
+      if (esq) { celdas += '<div class="rs-esq"></div>'; continue; }
+      let lugar = '', k = 0;
+      if (f === 0) { lugar = 't'; k = c - 1; }
+      else if (f === lado - 1) { lugar = 'b'; k = c - 1; }
+      else if (c === 0) { lugar = 'l'; k = f - 1; }
+      else { lugar = 'r'; k = f - 1; }
+      const v = S.C[lugar][k];
+      celdas += v
+        ? `<button class="rs-p" data-p="${lugar}${k}" aria-label="Se ven ${v}">${v}</button>`
+        : '<div class="rs-p rs-vacia"></div>';
+    }
+  }
+  const teclas = [];
+  for (let v = 1; v <= N; v++) teclas.push(`<button class="rs-key" data-n="${v}">${v}</button>`);
+  teclas.push('<button class="rs-key" data-n="0" aria-label="Borrar"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H9l-6 6 6 6h11a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"></path><path d="M17 10l-4 4M13 10l4 4"></path></svg></button>');
+
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Rascacielos', `<span class="chip">${DIFF_LABEL[S.nivel]}</span><span class="clock" id="rs-reloj">0:00</span>`)}
+    <div class="scroll">
+      <div class="rs-marca">
+        <span>Colocados <b id="rs-puestos">0</b></span>
+        <span>Cumplidas <b id="rs-cumplidas">0</b></span>
+      </div>
+      <div class="rs-wrap">
+        <div class="rs-tab" id="rs-tab" style="grid-template-columns: repeat(${lado}, 1fr);">${celdas}</div>
+      </div>
+      <div class="rs-nota" id="rs-nota"></div>
+      <div class="rs-pad" id="rs-pad" style="grid-template-columns: repeat(${N + 1}, 1fr);">${teclas.join('')}</div>
+      <div class="rs-tools">
+        <button class="rs-tool" id="t-notas"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg> Notas</button>
+        <button class="rs-tool" id="t-nueva">Nueva</button>
+        <button class="rs-tool" id="t-salir">Salir</button>
+      </div>
+    </div>
+  </div>`;
+
+  $('#rs-tab').onclick = (e) => {
+    const p = e.target.closest('.rs-p');
+    if (p && p.dataset.p) { tocaPista(p.dataset.p); return; }
+    const c = e.target.closest('.rs-c');
+    if (c) { S.sel = Number(c.dataset.i); S.mira = null; pintar(); }
+  };
+  $('#rs-pad').onclick = (e) => {
+    const k = e.target.closest('.rs-key');
+    if (k) tecla(Number(k.dataset.n));
+  };
+  $('#t-notas').onclick = () => {
+    S.notasOn = !S.notasOn;
+    const b = $('#t-notas'); if (b) b.classList.toggle('rs-on', S.notasOn);
+  };
+  $('#t-nueva').onclick = nuevaPartida;
+  $('#t-salir').onclick = () => { reloj.stop(); renderSetup(); };
+  pintar();
+}
+
+function tocaPista(clave) {
+  const lugar = clave[0], k = Number(clave.slice(1));
+  if (!S.C || !S.C[lugar] || !S.C[lugar][k]) return;
+  S.mira = (S.mira && S.mira.lugar === lugar && S.mira.k === k) ? null : { lugar, k };
+  S.sel = -1;
+  vibrate(8);
+  pintar();
+}
+
+/* Celdas de la línea que mira una pista, en el orden en que se ven. */
+function lineaDe(lugar, k, N) {
+  const out = [];
+  if (lugar === 'l') { for (let c = 0; c < N; c++) out.push(k * N + c); }
+  else if (lugar === 'r') { for (let c = N - 1; c >= 0; c--) out.push(k * N + c); }
+  else if (lugar === 't') { for (let f = 0; f < N; f++) out.push(f * N + k); }
+  else { for (let f = N - 1; f >= 0; f--) out.push(f * N + k); }
+  return out;
+}
+
+/* Estado de una pista con lo que hay puesto: 'ok', 'mal' o ''. Se marca «mal»
+   en cuanto la línea ya no puede cumplirla, sin esperar a llenarla. */
+function estadoPista(lugar, k) {
+  const N = S.N, idx = lineaDe(lugar, k, N), pista = S.C[lugar][k];
+  if (!pista) return '';
+  const v = idx.map((i) => S.val[i]);
+  let vis = 0, mx = 0, corte = -1;
+  for (let z = 0; z < N; z++) {
+    if (!v[z]) { corte = z; break; }
+    if (v[z] > mx) { mx = v[z]; vis++; }
+  }
+  if (corte === -1) return vis === pista ? 'ok' : 'mal';
+  if (vis > pista) return 'mal';
+  if (mx === N && vis !== pista) return 'mal';
+  if (vis + Math.min(N - corte, N - mx) < pista) return 'mal';
+  return '';
+}
+
+function repetidos() {
+  const N = S.N, malas = new Set();
+  for (let f = 0; f < N; f++) {
+    for (let a = 0; a < N; a++) for (let b = a + 1; b < N; b++) {
+      const i = f * N + a, j = f * N + b;
+      if (S.val[i] && S.val[i] === S.val[j]) { malas.add(i); malas.add(j); }
+    }
+  }
+  for (let c = 0; c < N; c++) {
+    for (let a = 0; a < N; a++) for (let b = a + 1; b < N; b++) {
+      const i = a * N + c, j = b * N + c;
+      if (S.val[i] && S.val[i] === S.val[j]) { malas.add(i); malas.add(j); }
+    }
+  }
+  return malas;
+}
+
+function pintar() {
+  if (!$('#rs-tab')) return;            // el reloj o un modal pueden llegar tarde
+  const N = S.N;
+  const malas = repetidos();
+  const mira = S.mira ? new Set(lineaDe(S.mira.lugar, S.mira.k, N)) : null;
+  const selVal = S.sel >= 0 ? S.val[S.sel] : 0;
+
+  $$('.rs-c').forEach((el) => {
+    const i = Number(el.dataset.i), f = (i / N) | 0, c = i % N, v = S.val[i];
+    let cls = 'rs-c' + (f === 0 ? ' rs-t0' : '') + (c === 0 ? ' rs-i0' : '');
+    if (malas.has(i)) cls += ' rs-dup';
+    if (S.sel === i) cls += ' rs-sel';
+    else if (mira && mira.has(i)) cls += ' rs-mira';
+    else if (S.sel >= 0) {
+      if (selVal && v === selVal) cls += ' rs-igual';
+      else if (f === ((S.sel / N) | 0) || c === S.sel % N) cls += ' rs-linea';
+    }
+    el.className = cls;
+    if (v) el.textContent = String(v);
+    else if (S.notas[i].size) {
+      let h = '';
+      for (let n = 1; n <= N; n++) h += `<i>${S.notas[i].has(n) ? n : ''}</i>`;
+      el.innerHTML = `<span class="rs-notas">${h}</span>`;
+    } else el.textContent = '';
+  });
+
+  $$('.rs-p[data-p]').forEach((el) => {
+    const lugar = el.dataset.p[0], k = Number(el.dataset.p.slice(1));
+    let cls = 'rs-p';
+    const est = estadoPista(lugar, k);
+    if (est) cls += ' rs-' + est;
+    if (S.mira && S.mira.lugar === lugar && S.mira.k === k) cls += ' rs-mira';
+    el.className = cls;
+  });
+
+  const cuenta = new Array(N + 1).fill(0);
+  for (const v of S.val) cuenta[v]++;
+  $$('#rs-pad .rs-key').forEach((k) => {
+    const n = Number(k.dataset.n);
+    if (n >= 1) k.classList.toggle('rs-lleno', cuenta[n] >= N);
+  });
+
+  let cumplidas = 0, totalPistas = 0;
+  for (const lugar of ['t', 'b', 'l', 'r']) {
+    for (let k = 0; k < N; k++) {
+      if (!S.C[lugar][k]) continue;
+      totalPistas++;
+      if (estadoPista(lugar, k) === 'ok') cumplidas++;
+    }
+  }
+  const puestas = S.val.filter(Boolean).length;
+  const ep = $('#rs-puestos'); if (ep) ep.textContent = `${puestas}/${N * N}`;
+  const ec = $('#rs-cumplidas'); if (ec) ec.textContent = `${cumplidas}/${totalPistas}`;
+
+  const nota = $('#rs-nota');
+  if (nota) {
+    nota.textContent = S.mira
+      ? `Desde esa pista se ven ${S.C[S.mira.lugar][S.mira.k]} edificio${S.C[S.mira.lugar][S.mira.k] === 1 ? '' : 's'}`
+      : 'Toca una pista para seguir su línea';
+  }
+}
+
+function tecla(n) {
+  if (S.hecho || S.sel < 0) return;
+  const i = S.sel;
+  if (n === 0) { S.val[i] = 0; S.notas[i].clear(); }
+  else if (S.notasOn) {
+    if (S.val[i]) return;
+    if (S.notas[i].has(n)) S.notas[i].delete(n); else S.notas[i].add(n);
+  } else {
+    S.val[i] = (S.val[i] === n) ? 0 : n;
+    if (S.val[i]) {
+      S.notas[i].clear();
+      const N = S.N, f = (i / N) | 0, c = i % N;
+      for (let k = 0; k < N; k++) { S.notas[f * N + k].delete(n); S.notas[k * N + c].delete(n); }
+    }
+  }
+  vibrate(6);
+  pintar();
+  revisar();
+}
+
+function revisar() {
+  for (let i = 0; i < S.N * S.N; i++) if (S.val[i] !== S.sol[i]) return;
+  ganar();
+}
+
+function ganar() {
+  S.hecho = true;
+  reloj.stop();
+  const segs = reloj.seconds;
+  const clave = 'ras.best.' + S.nivel;
+  const antes = store.get(clave, null);
+  const record = antes == null || segs < antes;
+  if (record) {
+    store.set(clave, segs);
+    // Al hub va la marca del nivel más alto que tenga tiempo.
+    let alto = null;
+    for (const d of NIVELES) if (store.get('ras.best.' + d, null) != null) alto = d;
+    if (alto) store.set('ras.hub', `Mejor ${fmtTime(store.get('ras.best.' + alto))} · ${DIFF_LABEL[alto]}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  const gen = S.gen;
+  setTimeout(() => {
+    if (gen !== S.gen) return;          // se salió o se pidió otro tablero
+    openModal(`
+      <h3>${record ? '¡Récord!' : '¡Ciudad completa!'}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${fmtTime(segs)}</div><div class="l">tiempo</div></div>
+        <div class="stat"><div class="n">${S.N}×${S.N}</div><div class="l">tablero</div></div>
+        <div class="stat"><div class="n">${nPistas(S.C)}</div><div class="l">pistas</div></div>
+      </div>
+      ${record ? '<p style="text-align:center;"><span class="record">Nuevo mejor tiempo</span></p>'
+        : `<p style="text-align:center;">Tu mejor tiempo en ${DIFF_LABEL[S.nivel].toLowerCase()}: <b>${fmtTime(antes)}</b></p>`}
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otro tablero</button>
+        <button class="btn btn-ghost" id="m-out">Cambiar dificultad</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); nuevaPartida(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 620);
+}
+
+/* Teclado físico (para probar y para quien juegue en escritorio) */
+addEventListener('keydown', (e) => {
+  if (!$('#rs-tab')) return;
+  const N = S.N;
+  if (e.key >= '1' && e.key <= String(N)) tecla(Number(e.key));
+  else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') tecla(0);
+  else if (e.key === 'n') { S.notasOn = !S.notasOn; const b = $('#t-notas'); if (b) b.classList.toggle('rs-on', S.notasOn); }
+  else if (e.key.startsWith('Arrow') && S.sel >= 0) {
+    const f = (S.sel / N) | 0, c = S.sel % N;
+    const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+    const nf = f + d[0], nc = c + d[1];
+    if (nf >= 0 && nf < N && nc >= 0 && nc < N) { S.sel = nf * N + nc; pintar(); }
+    e.preventDefault();
+  }
+});
+
+renderSetup();
+</script>
+</body>
+</html>

@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="reparte-supabase-url" content="">
+<meta name="reparte-supabase-key" content="">
+<meta name="theme-color" content="#F6F1E9">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="description" content="Divide gastos de grupo sin app ni cuenta. Al final te dice quién le paga cuánto a quién y cómo.">
+<title>ReParte</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23F6F1E9'/%3E%3Cg fill='%23C4552F'%3E%3Crect x='12' y='34' width='8' height='18' rx='2'/%3E%3Crect x='23' y='18' width='8' height='34' rx='2'/%3E%3Crect x='34' y='26' width='8' height='26' rx='2'/%3E%3Crect x='45' y='12' width='8' height='40' rx='2'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --crema:#F6F1E9; --crema2:#E9E2D6; --card:#FFFFFF; --borde:#E6DFD3;
+  --tinta:#1C1917; --gris:#6B6560; --gris2:#8A837B; --gris3:#B8B0A5;
+  --terra:#C4552F; --terra2:#9E4224; --terra-off:#D9B9AD;
+  --verde:#2F7A4F; --rojo:#B3392B;
+  --serif:'Instrument Serif',Georgia,'Times New Roman',serif;
+  --sans:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --r:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--crema);color:var(--tinta);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+body{min-height:100vh;min-height:100dvh}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0;-webkit-tap-highlight-color:transparent}
+input{border:0;background:none;outline:none;width:100%}
+h1,h2,h3{font-weight:400;margin:0}
+.serif{font-family:var(--serif)}
+.mono{font-variant-numeric:tabular-nums}
+#app{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;position:relative;background:var(--crema)}
+@media(min-width:520px){#app{box-shadow:0 0 0 1px var(--borde);}}
+.screen{flex:1;display:flex;flex-direction:column}.screen.anim{animation:fade .18s ease-out}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.top{padding:calc(14px + env(safe-area-inset-top)) 20px 8px;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px}
+.back{color:var(--gris);font-size:15px;font-weight:500;display:flex;align-items:center;gap:4px;padding:6px 0}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--gris2);font-weight:500}
+.body{padding:8px 20px 120px;flex:1}
+.h1{font-family:var(--serif);font-size:38px;line-height:1.05;letter-spacing:-.01em}
+.h2{font-family:var(--serif);font-size:26px;line-height:1.1}
+.sub{color:var(--gris);font-size:14px;line-height:1.5;margin-top:6px;text-wrap:pretty}
+.card{background:var(--card);border:1px solid var(--borde);border-radius:var(--r);padding:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.lbl{font-size:12px;color:var(--gris);font-weight:500}
+.big{font-family:var(--serif);font-size:30px;line-height:1.1;margin-top:4px}
+.verde{color:var(--verde)}.rojo{color:var(--rojo)}.gris{color:var(--gris2)}
+.list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);border:1px solid var(--borde);border-radius:14px;text-align:left;width:100%}
+.row:active{background:#FBF8F3}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--crema2);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:18px;flex:none}
+.row .t{font-size:15px;font-weight:500;line-height:1.25}
+.row .m{font-size:12px;color:var(--gris);margin-top:2px}
+.row .amt{margin-left:auto;text-align:right;flex:none}
+.row .amt .a{font-family:var(--serif);font-size:20px;line-height:1}
+.row .amt .fx{font-size:11px;color:var(--gris2);margin-top:3px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:16px;border-radius:14px;font-weight:600;font-size:16px;transition:transform .08s,background .15s}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--terra);color:#fff}
+.btn.primary:disabled{background:var(--terra-off);cursor:default}
+.btn.secondary{background:var(--card);border:1px solid var(--borde);color:var(--tinta)}
+.note-ill{display:flex;align-items:center;gap:12px;margin-top:14px}
+.note-ill .note{margin:0;text-align:left}
+.file-in{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.file-in+label{cursor:pointer}
+.file-in:focus-visible+label{outline:2px solid var(--terra);outline-offset:2px}
+.btn.ghost{color:var(--gris);padding:12px;font-weight:500}
+.btn.ok{background:var(--verde);color:#fff}
+.fixed{position:sticky;bottom:0;padding:12px 20px calc(16px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--crema) 75%,rgba(246,241,233,0));display:flex;gap:10px;margin-top:auto}
+.fixed .btn{flex:1}
+.field{background:var(--card);border:1px solid var(--borde);border-radius:14px;padding:14px 16px;margin-top:10px}
+.field .lbl{margin-bottom:4px}
+.field input{font-size:17px;padding:2px 0}
+.field input::placeholder{color:var(--gris3)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 14px;border-radius:999px;border:1px solid var(--borde);background:var(--card);font-size:14px;font-weight:500;color:var(--gris)}
+.chip.on{background:var(--terra);border-color:var(--terra);color:#fff}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:999px;background:var(--card);border:1px solid var(--borde);font-size:14px;font-weight:500}
+.seg{display:inline-flex;background:var(--crema2);border-radius:999px;padding:3px}
+.seg button{padding:6px 14px;border-radius:999px;font-size:13px;font-weight:600;color:var(--gris2)}
+.seg button.on{background:#fff;color:var(--tinta);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.amount{font-family:var(--serif);font-size:72px;line-height:1;text-align:center;margin:22px 0 4px;letter-spacing:-.02em;word-break:break-all}
+.amount.small{font-size:54px}
+.amount.empty{color:var(--gris3)}
+.amount .cur{font-size:.45em;vertical-align:.55em;margin-right:4px;color:var(--gris2)}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.keys button{height:58px;border-radius:14px;background:var(--card);border:1px solid var(--borde);font-size:24px;font-family:var(--serif)}
+.keys button:active{background:var(--crema2)}
+.steps{display:flex;flex-direction:column;gap:10px}
+.step{display:flex;gap:14px;align-items:flex-start;background:var(--card);border:1px solid var(--borde);border-radius:var(--r);padding:14px 16px}
+.step .n{font-family:var(--serif);font-size:22px;color:var(--terra);width:20px;flex:none;line-height:1.1}
+.step .k{font-size:13px;color:var(--gris)}
+.step .v{font-family:var(--serif);font-size:26px;line-height:1.1;margin-top:2px}
+.step .lines{margin-top:6px;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.step .lines span{display:flex;justify-content:space-between}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--crema2);color:var(--gris)}
+.tag.ok{background:#E3F1E8;color:var(--verde)}
+.tag.warn{background:#FBE8E3;color:var(--rojo)}
+.note{font-size:12.5px;color:var(--gris);line-height:1.5;margin-top:14px;text-align:center;text-wrap:pretty}
+.logo{display:flex;align-items:flex-end;gap:3px;height:26px}
+.logo i{display:block;width:7px;background:var(--terra);border-radius:2px 2px 0 0;transition:height .5s cubic-bezier(.2,.8,.2,1)}
+.logo i:nth-child(1){height:10px}.logo i:nth-child(2){height:22px}.logo i:nth-child(3){height:16px}.logo i:nth-child(4){height:26px}
+.logo.level i{height:22px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--borde);font-size:14px}
+.kv:last-child{border-bottom:0}
+.kv b{font-weight:600;font-variant-numeric:tabular-nums}
+.link{color:var(--terra);font-weight:500}
+.empty{padding:36px 16px;text-align:center;color:var(--gris);font-size:14px;line-height:1.5}
+/* GESTOS-CSS:INICIO */
+.ill{display:block;width:var(--s,72px);height:var(--s,72px);border-radius:24%;overflow:hidden;flex:none}
+.ill img{display:block;width:100%;height:100%;transform:scale(1.05)}
+.ill.live img{filter:var(--boil,none)}
+.empty .ill{margin:0 auto 14px}
+.sheet .ill,.body>.ill{margin:6px 0 14px}
+.head{display:flex;align-items:center;gap:16px;margin-top:4px}
+.head .h1{flex:1;min-width:0}
+/* Gestos cuadro por cuadro: la ilustración se parte en capas (recortes) que se mueven a saltos, como stop motion.
+   Quieta = la imagen original. Las capas, tapas y rayitas solo existen mientras dura el gesto. */
+.ill.anim{position:relative;cursor:pointer}
+.ill.anim>img,.ill.anim>svg{position:absolute;inset:0;width:100%;height:100%}
+.ill.anim>svg{pointer-events:none}
+.ill.anim>.cv{position:absolute;inset:0;transform:scale(1.05);background-repeat:no-repeat;background-size:3000% 3000%}
+.ill.anim .an{opacity:0}
+.ill.anim.play .an{animation:none var(--d) steps(1,end) var(--dl,0s) both}
+@media (prefers-reduced-motion:no-preference){.ill.anim.play .an{animation-name:var(--an)}}
+/* GESTOS-CSS:FIN */
+/* sheet */
+.backdrop{position:fixed;inset:0;background:rgba(28,25,23,.42);animation:fadein .2s;z-index:20;display:flex;align-items:flex-end;justify-content:center}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.sheet{background:var(--crema);border-radius:22px 22px 0 0;width:100%;max-width:480px;padding:10px 20px calc(20px + env(safe-area-inset-bottom));animation:up .32s cubic-bezier(.2,.9,.25,1.05);max-height:92vh;overflow:auto}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+.handle{width:40px;height:4px;border-radius:2px;background:var(--gris3);margin:0 auto 14px}
+.pay-h{font-family:var(--serif);font-size:44px;line-height:1;margin-top:2px}
+.copybox{background:var(--card);border:1px solid var(--borde);border-radius:14px;margin-top:14px;overflow:hidden}
+.copybox .kv{padding:12px 16px}
+.copybox .kv b{font-family:var(--serif);font-weight:400;font-size:17px;letter-spacing:.02em}
+/* toast */
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--tinta);color:#fff;border-radius:14px;padding:12px 14px 14px 16px;display:flex;align-items:center;gap:14px;font-size:14px;z-index:15;min-width:260px;max-width:calc(100% - 40px);animation:toastin .22s;overflow:hidden}
+@keyframes toastin{from{transform:translate(-50%,16px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+.toast button{color:#F4B79F;font-weight:600;margin-left:auto;white-space:nowrap}
+.toast .bar{position:absolute;left:0;bottom:0;height:3px;background:var(--terra);width:100%;transform-origin:left;animation:shrink 3.2s linear forwards}
+@keyframes shrink{to{transform:scaleX(0)}}
+.qr{display:grid;margin:0 auto;width:196px;height:196px;background:#fff;padding:8px;border-radius:12px;border:1px solid var(--borde)}
+.qr i{display:block;background:var(--tinta)}
+.hist{font-size:12px;color:var(--gris2);margin-top:6px;line-height:1.5}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <filter id="boil0" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="3"/><feDisplacementMap in="SourceGraphic" scale="1.6" xChannelSelector="R" yChannelSelector="G"/></filter>
+  <filter id="boil1" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="11"/><feDisplacementMap in="SourceGraphic" scale="1.6" xChannelSelector="R" yChannelSelector="G"/></filter>
+  <filter id="boil2" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="27"/><feDisplacementMap in="SourceGraphic" scale="1.6" xChannelSelector="R" yChannelSelector="G"/></filter>
+</defs></svg>
+<div id="app"></div>
+<script>
+/* ============ ReParte · app estática (PWA) ============
+   El organizador administra; el grupo consulta sin registro.
+   Copias locales (#e=...) y conexión opcional a Supabase (#live=...).
+*/
+const FX_DEFAULT = 18.4;
+const LS = 'reparte.v1';
+const $ = (s, r=document) => r.querySelector(s);
+const uid = () => crypto.randomUUID();
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtMXN = c => '$ ' + (c/100).toLocaleString('es-MX', {minimumFractionDigits: (c%100)?2:0, maximumFractionDigits:2});
+const fmtCur = (c, cur) => (cur==='USD' ? 'US$ ' : '$ ') + (c/100).toLocaleString('es-MX', {minimumFractionDigits:(c%100)?2:0, maximumFractionDigits:2});
+const today = () => new Date().toISOString().slice(0,10);
+const fmtDate = d => { const [y,m,dd]=d.split('-'); return `${+dd} ${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][+m-1]}`; };
+
+/* ---------- estado ---------- */
+let syncTimer;
+let db = load();
+// Existing browser data stays local; imported links never confer management rights.
+const legacyFees=Object.values(db.events).some(ev=>ev.expenses.some(e=>e.isFee && e.history?.includes('Cuota del evento, repartida entre todos')));
+if(legacyFees){
+  try{ localStorage.setItem('reparte.before-fee-fix',JSON.stringify(db));
+    Object.values(db.events).forEach(ev=>{ev.expenses=ev.expenses.filter(e=>!(e.isFee && e.history?.includes('Cuota del evento, repartida entre todos')));ev.fee=null;});
+  }catch(e){ /* Keep original data if the recovery copy cannot be stored. */ }
+}
+Object.values(db.events).forEach(ev => { ev.role ||= 'owner'; ev.organizerId ||= ev.meId || ev.members[0]?.id; });
+function load(){ try { return JSON.parse(localStorage.getItem(LS)) || {events:{}, profile:{name:'', clabe:'', bank:''}}; } catch(e){ return {events:{}, profile:{name:'',clabe:'',bank:''}}; } }
+function persist(){ try { localStorage.setItem(LS, JSON.stringify(db)); return true; } catch(e){ toast('No se pudo guardar en este navegador. Descarga un respaldo antes de salir.'); return false; } }
+function save(){ persist(); scheduleSync(); }
+const canManage = ev => ev?.role === 'owner' && (!ev.sync?.ownerId || ev.sync.ownerId === cloud.session?.user?.id);
+function undoAllowed(ev, allowClosed=false){
+  if(db.events[ev.id]!==ev){toast('La cuenta cambió; revisa la versión actual.');return false;}
+  return guard(ev,allowClosed);
+}
+function guard(ev, allowClosed=false){
+  if(ui.externalDb){toast('Hay cambios en otra pestaña. Cancela la captura para cargar esa versión; tu borrador sigue visible.');return false;}
+  if(!canManage(ev)){ toast('Solo el organizador puede modificar esta cuenta.'); return false; }
+  if(ev.sync?.conflict){ toast('Hay otra versión. Resuelve el conflicto antes de editar.'); return false; }
+  if(ev.closed && !allowClosed){ toast('Reabre el evento antes de cambiar los gastos.'); return false; }
+  return true;
+}
+
+/* ---------- dinero ---------- */
+const toMXN = e => e.cur==='USD' ? Math.round(e.amt * e.fx) : e.amt;   // centavos
+// Reparte en centavos; el centavo huérfano se le carga al que pagó (decisión de redondeo).
+function shares(e){
+  const total = toMXN(e), n = e.among.length, base = Math.floor(total/n); let rest = total - base*n;
+  const out = {}; e.among.forEach(id => out[id] = base);
+  const order = [e.payerId, ...e.among.filter(id=>id!==e.payerId)];
+  for (const id of order){ if(!rest) break; if(id in out){ out[id] += 1; rest--; } }
+  return out;
+}
+function balancesFrom(ev, payments){
+  const b = {}; ev.members.forEach(m => b[m.id] = 0);
+  ev.expenses.forEach(e => { if(!(e.payerId in b)) return; b[e.payerId] += toMXN(e); const sh = shares(e); for(const id in sh) if(id in b) b[id] -= sh[id]; });
+  payments.forEach(p => { if(p.from in b && p.to in b){ b[p.from] += p.amt; b[p.to] -= p.amt; } });
+  return b;
+}
+const balances = ev => balancesFrom(ev, ev.payments);
+// El plan de transferencias sale de los gastos (estable); los pagos se descuentan por pareja
+// para que un pago parcial no reacomode quién le paga a quién. Si un pago no encaja en el plan
+// (porque entraron gastos nuevos), se dobla en los saldos y se replanea.
+function transfers(ev){
+  const plan = greedy(balancesFrom(ev, []));
+  const paid = {};
+  for(const p of ev.payments){
+    const key = p.from+'>'+p.to;
+    const tr = plan.find(t=>t.from===p.from && t.to===p.to);
+    paid[key] = (paid[key]||0) + p.amt;
+    if(!tr || paid[key]>tr.amt) return greedy(balances(ev)).map(t=>({...t,paid:0}));
+  }
+  return plan.map(t=>({...t, paid:paid[t.from+'>'+t.to]||0, amt:t.amt-(paid[t.from+'>'+t.to]||0)})).filter(t=>t.amt>0);
+}
+// Liquidación simplificada (no garantiza el mínimo matemático): deudores contra acreedores, de mayor a menor.
+function greedy(b){
+  const debt=[], cred=[];
+  for (const id in b){ if(b[id] < -0) debt.push({id, v:-b[id]}); else if(b[id] > 0) cred.push({id, v:b[id]}); }
+  debt.sort((a,c)=>c.v-a.v); cred.sort((a,c)=>c.v-a.v);
+  const out=[]; let i=0,j=0;
+  while(i<debt.length && j<cred.length){ const x=Math.min(debt[i].v,cred[j].v); if(x>0) out.push({from:debt[i].id,to:cred[j].id,amt:x}); debt[i].v-=x; cred[j].v-=x; if(debt[i].v<=0)i++; if(cred[j].v<=0)j++; }
+  return out;
+}
+const total = ev => ev.expenses.reduce((a,e)=>a+toMXN(e),0);
+// "Promedio por persona": el promedio de lo que le tocó a cada quien (con subgrupos no es total/n).
+function perHead(ev){ const n=ev.members.length||1; return Math.round(total(ev)/n); }
+
+/* ---------- eventos ---------- */
+function newEvent(name){
+  const id = uid();
+  const ev = { id, role:'owner', name, createdAt: today(), closed:false, members:[], expenses:[], payments:[], meId:null, fx:FX_DEFAULT, fxDate: today(), fee:null };
+  db.events[id] = ev; save(); return ev;
+}
+function me(ev){ return ev.members.find(m=>m.id===ev.meId) || null; }
+function nameOf(ev, id){ const m = ev.members.find(m=>m.id===id); if(!m) return '—'; return m.id===ev.meId ? 'Tú' : m.name; }
+function initial(s){ return (s||'?').trim()[0].toUpperCase(); }
+function addMember(ev, name, isMe){
+  const m = { id: uid(), name: name.trim(), clabe: isMe ? (db.profile.clabe||'') : '', bank: isMe ? (db.profile.bank||'') : '' };
+  ev.members.push(m); if(isMe && !ev.organizerId) ev.organizerId=m.id; if(isMe){ ev.meId = m.id; db.profile.name = m.name; } save(); return m;
+}
+
+/* ---------- compartir (link con copia del evento) ---------- */
+const b64u = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const unb64u = s => Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')), c=>c.charCodeAt(0));
+async function pipe(bytes, Ctor, kind){ if(!Ctor) return null; const st = new Ctor(kind); const w = st.writable.getWriter(); w.write(bytes); w.close(); return new Uint8Array(await new Response(st.readable).arrayBuffer()); }
+// Formato: 'z' + base64url(deflate-raw(JSON)) o 'j' + base64url(JSON) si el navegador no comprime.
+const shareCache = new Map(), sharePending = new Map();
+async function encodeEvent(ev){
+  const copy = publicEvent(ev);
+  const raw = new TextEncoder().encode(JSON.stringify(copy));
+  const z = await pipe(raw, self.CompressionStream, 'deflate-raw').catch(()=>null);
+  return z ? 'z'+b64u(z) : 'j'+b64u(raw);
+}
+async function decodeEvent(s){
+  try { const bytes = unb64u(s.slice(1)); const raw = s[0]==='z' ? await pipe(bytes, self.DecompressionStream, 'deflate-raw') : bytes; return JSON.parse(new TextDecoder().decode(raw)); } catch(e){ return null; }
+}
+// shareURL es síncrono para el render: usa la última codificación calculada y la refresca en segundo plano.
+function shareURL(ev){
+  if(ev.sync?.token){ const u=new URL(location.href); u.search=''; u.hash='live='+ev.sync.token; return u.toString(); }
+  const key = JSON.stringify(publicEvent(ev));
+  const u = new URL(location.href); u.search=''; 
+  const c = shareCache.get(ev.id);
+  if (!c || c.key !== key){
+    if(sharePending.get(ev.id)!==key){
+      sharePending.set(ev.id,key);
+      encodeEvent(ev).then(enc=>{if(sharePending.get(ev.id)===key){sharePending.delete(ev.id);shareCache.set(ev.id,{key,enc});if(route.screen==='invitar')render();}}).catch(()=>sharePending.delete(ev.id));
+    }
+    return '';
+  }
+  u.hash = '#e=' + c.enc; return u.toString();
+}
+
+/* ---------- utilidades ---------- */
+async function copy(text){
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch(e){ const t=document.createElement('textarea'); t.value=text; t.style.position='fixed'; t.style.opacity='0'; document.body.appendChild(t); t.select(); let ok=false; try{ ok=document.execCommand('copy'); }catch(_){ } t.remove(); return ok; }
+}
+const wa = text => 'https://wa.me/?text=' + encodeURIComponent(text);
+function fmtClabe(c){ return (c||'').replace(/\D/g,'').slice(0,18).replace(/(\d{3})(\d{3})(\d{0,11})(\d{0,1})/, (m,a,b,c,d)=>[a,b,c,d].filter(Boolean).join(' ')); }
+const BANKS = {'002':'Banamex','012':'BBVA','014':'Santander','019':'Banjército','021':'HSBC','030':'Bajío','036':'Inbursa','042':'Mifel','044':'Scotiabank','058':'Banregio','059':'Invex','060':'Bansi','062':'Afirme','072':'Banorte','127':'Azteca','137':'BanCoppel','138':'ABC Capital','143':'CIBanco','646':'STP','659':'ASP','661':'Klar','710':'Nvio','722':'Mercado Pago','723':'Cuenca','728':'Stori','846':'STP'};
+const bankOf = c => BANKS[(c||'').replace(/\D/g,'').slice(0,3)] || '';
+
+/* ---------- toast con deshacer ---------- */
+let toastT = null, undoFn = null;
+function toast(msg, undo){
+  clearTimeout(toastT); undoFn = undo || null;
+  let el = $('#toast'); if(el) el.remove();
+  el = document.createElement('div'); el.id='toast'; el.className='toast'; el.setAttribute('role','status');
+  el.innerHTML = `<span>${esc(msg)}</span>${undo?'<button data-act="undo">Deshacer</button>':''}<div class="bar"></div>`;
+  document.body.appendChild(el);
+  toastT = setTimeout(()=>{ el.remove(); undoFn=null; }, 3200);
+}
+
+/* ---------- router ---------- */
+let route = {}, ui = { sheet:null, cap:null, pendingAfterName:null, nameDraft:'' };
+function go(path){ location.hash = path; }
+function parseRoute(){
+  const h = location.hash || '#/';
+  if(h.startsWith('#live=')){ openLive(h.slice(6)); return {screen:'home'}; }
+  if (h.startsWith('#e=')){ // link compartido: importar copia (async)
+    decodeEvent(h.slice(3)).then(importEvent); return { screen:'home' };
+  }
+  const p = h.slice(2).split('/').filter(Boolean);
+  if (p[0]==='e' && db.events[p[1]]) return { screen: p[2]||'event', id:p[1] };
+  if (p[0]==='nuevo') return { screen:'new' };
+  if (p[0]==='conectar') return {screen:'conectar'};
+  if (p[0]==='perfil') return { screen:'profile' };
+  return { screen:'home' };
+}
+function importEvent(input){
+  try {
+    const ev=validateEvent(input); const old=db.events[ev.id];
+    if(old && old.role==='owner'){ toast('Tu cuenta original se conserva. El enlace es una copia de consulta.'); go('#/e/'+ev.id); return; }
+    ev.role='viewer'; ev.meId=old?.meId||null;
+    db.events[ev.id]=ev; persist(); go('#/e/'+ev.id); toast('Copia de consulta. El organizador lleva la cuenta.');
+  } catch(e){ toast('Ese enlace no contiene un evento válido.'); go('#/'); }
+}
+function publicEvent(ev){
+  return {id:ev.id,name:ev.name,createdAt:ev.createdAt,closed:!!ev.closed,closedAt:ev.closedAt||null,
+    organizerId:ev.organizerId||null,fx:ev.fx||FX_DEFAULT,fee:null,
+    members:ev.members.map(m=>({id:m.id,name:m.name})),
+    expenses:ev.expenses.map(e=>({id:e.id,title:e.title,amt:e.amt,cur:e.cur,fx:e.fx,payerId:e.payerId,among:[...e.among],date:e.date,history:[...(e.history||[])]})),
+    payments:ev.payments.map(p=>({id:p.id,from:p.from,to:p.to,amt:p.amt,at:p.at,recordedBy:p.recordedBy||null}))};
+}
+function validateEvent(input){
+  const ev=structuredClone(input), idOK=x=>typeof x==='string' && /^[a-zA-Z0-9_-]{1,80}$/.test(x);
+  const dateOK=x=>typeof x==='string' && /^\d{4}-\d{2}-\d{2}$/.test(x) && !isNaN(Date.parse(x));
+  const cents=x=>Number.isSafeInteger(x) && x>0 && x<=100000000000;
+  if(!ev || (ev.closedAt!=null && !dateOK(ev.closedAt)) || !Number.isFinite(ev.fx) || ev.fx<=0 || ev.fx>10000 || !idOK(ev.id) || typeof ev.name!=='string' || !ev.name.trim() || ev.name.length>100 || !dateOK(ev.createdAt) || !Array.isArray(ev.members) || !ev.members.length || ev.members.length>200 || !Array.isArray(ev.expenses) || ev.expenses.length>5000 || !Array.isArray(ev.payments) || ev.payments.length>5000) throw Error('Evento inválido');
+  const ids=new Set(); for(const m of ev.members){ if(!idOK(m.id)||ids.has(m.id)||typeof m.name!=='string'||!m.name.trim()||m.name.length>100) throw Error('Participante inválido'); ids.add(m.id); }
+  const expenseIds=new Set(); let sum=0;
+  for(const e of ev.expenses){
+    if(!idOK(e.id)||expenseIds.has(e.id)||typeof e.title!=='string'||e.title.length>200||!cents(e.amt)||!['MXN','USD'].includes(e.cur)||!Number.isFinite(e.fx)||e.fx<=0||e.fx>10000||!ids.has(e.payerId)||!Array.isArray(e.among)||!e.among.length||new Set(e.among).size!==e.among.length||e.among.some(id=>!ids.has(id))||!dateOK(e.date)) throw Error('Gasto inválido');
+    expenseIds.add(e.id); sum+=toMXN(e); if(!Number.isSafeInteger(sum)) throw Error('Total fuera de rango');
+    e.history=Array.isArray(e.history)?e.history.filter(h=>typeof h==='string').slice(-100):[];
+  }
+  const paymentIds=new Set(); for(const p of ev.payments){ if(!idOK(p.id)||paymentIds.has(p.id)||!ids.has(p.from)||!ids.has(p.to)||p.from===p.to||!cents(p.amt)||!dateOK(p.at)) throw Error('Pago inválido'); paymentIds.add(p.id); }
+  if(ev.organizerId && !ids.has(ev.organizerId)) throw Error('Organizador inválido');
+  return publicEvent(ev);
+}
+function personTotals(ev,id){
+  return {paid:ev.expenses.filter(e=>e.payerId===id).reduce((s,e)=>s+toMXN(e),0),
+    share:ev.expenses.reduce((s,e)=>s+(shares(e)[id]||0),0),
+    sent:ev.payments.filter(p=>p.from===id).reduce((s,p)=>s+p.amt,0),
+    received:ev.payments.filter(p=>p.to===id).reduce((s,p)=>s+p.amt,0)};
+}
+
+/* ---------- render ---------- */
+function render(){
+  route = parseRoute();
+  const ev = route.id ? db.events[route.id] : null;
+  const app = $('#app');
+  const views = { home, new: newScreen, profile, conectar: connectionScreen, event: eventScreen, invitar: invite, nuevo: capture, cierre: settle, resumen: summary, editar: capture };
+  ills.now = new Set();
+  const html = (views[route.screen] || home)(ev); if (!html) return;
+  const key = route.screen + (route.id||'');
+  app.innerHTML = (key !== render.last ? html.replace('class="screen"', 'class="screen anim"') : html) + (ui.sheet ? sheet(ev) : '');
+  render.last = key; ills.prev = ills.now;
+  const f = $('[autofocus]'); if (f) setTimeout(()=>f.focus(), 50);
+}
+
+// GESTOS:INICIO — también lo usa design/ReParte Gestos.html
+// Cada gesto: n cuadros de movimiento y luego la imagen quieta. Coordenadas en % de la imagen.
+// parts: recortes que se mueven (f = transform por cuadro). covers: tapan con el color de fondo lo que se movió.
+// marks: rayitas dibujadas aparte. f en covers y marks = cuadros en que se ven.
+const INK = '#1A1714';
+const GESTURES = {
+  'crear-evento': { bg:'#D37553', n:4,
+    parts:[{ clip:'inset(4% 4% 22% 0)', o:'40% 62%', f:['translate(-12%,-16%) rotate(-9deg)','translate(-6%,-10%) rotate(-5deg)','translate(-2%,-4%) rotate(-2deg)','translate(0,1.5%) rotate(1deg)'] }],
+    covers:[{ r:[0,0,100,78.6] }],
+    marks:[{ f:[3], d:'M45.2 76.7 L42 74 M43.8 78.9 L39.9 77.9 M55.4 76.7 L58.6 74 M56.8 78.9 L60.7 77.9' },
+           { f:[4], d:'M43.5 75.5 L39 71.9 M41.7 78.2 L36 77 M57.1 75.5 L61.6 71.9 M58.9 78.2 L64.6 77' }] },
+  'compartir-link': { bg:'#E7BEBD', n:4,
+    parts:[{ clip:'inset(12% 50% 12% 0)', o:'25% 60%', f:['translateX(-18%) rotate(-6deg)','translateX(-10%) rotate(-3deg)','translateX(-4%) rotate(-1deg)','translateX(1%)'] },
+           { clip:'inset(12% 0 12% 50%)', o:'75% 60%', f:['translateX(18%) rotate(6deg)','translateX(10%) rotate(3deg)','translateX(4%) rotate(1deg)','translateX(-1%)'] }],
+    covers:[{ r:[0,0,100,100] }],
+    marks:[{ f:[3], d:'M50 47 L50 44 M44.5 49 L42.5 47 M55.5 49 L57.5 47' },
+           { f:[4], d:'M50 45 L50 40.5 M43 47.5 L40 44.5 M57 47.5 L60 44.5' }] },
+  'entrar': { bg:'#9BBDAF', n:4,
+    parts:[{ clip:'inset(4%)', o:'49% 40%', f:['scale(1)','scale(.93)','scale(.93)','scale(1.03)'] }],
+    covers:[{ r:[0,0,100,100] }],
+    marks:[{ f:[2], d:'M49.1 13 A27 27 0 1 1 49.09 13', w:.8 }, { f:[3,4], d:'M49.1 9 A31 31 0 1 1 49.09 9', w:.7 }] },
+  'capturar-gasto': { bg:'#D8AC8A', n:4, parts:[],
+    covers:[{ r:[24.9,27.1,27.3,5], f:[0], at:[35,35.5] }, { r:[25.5,39.2,27.3,4.7], f:[0,1], at:[35,35.5] },
+            { r:[25.8,51.6,21.5,4.7], f:[0,1,2], at:[35,35.5] }, { r:[26.7,63.4,26.7,5], f:[0,1,2,3], at:[35,35.5] }] },
+  'peso-dolar': { bg:'#7E8E5D', n:4,
+    parts:[{ clip:'inset(21.8% 29.8% 65.9% 37.6%)', o:'53.6% 51.8%', f:['rotate(-70deg)','rotate(-45deg)','rotate(-20deg)','rotate(-6deg)'] },
+           { clip:'inset(68.8% 30.7% 18.8% 37%)', o:'53.6% 51.8%', f:['rotate(-70deg)','rotate(-45deg)','rotate(-20deg)','rotate(-6deg)'] },
+           { clip:'inset(35% 50% 6% 0)', o:'30% 60%', f:['none','translate(3%,-2%)','translate(5%,-3%)','translate(1%)'] },
+           { clip:'inset(35% 12% 32% 57%)', o:'73% 52%', f:['none','translate(-3%,-2%)','translate(-5%,-3%)','translate(-1%)'] }],
+    covers:[{ r:[0,0,100,100] }] },
+  'cerrar-evento': { bg:'#ECECE2', n:4,
+    parts:[{ clip:'inset(39.5% 16.6% 44.4% 16.6%)', o:'50% 54%', f:['rotate(9deg)','rotate(-6deg)','rotate(3.5deg)','rotate(-1.5deg)'] }],
+    covers:[{ r:[16.6,39.5,66.8,16.1] }] },
+  'quien-le-paga': { bg:'#B9B6D5', n:5,
+    parts:[{ clip:'polygon(33.8% 38%,66% 38%,66% 100%,26% 100%,26% 56%,33.8% 56%)', o:'50% 70%', f:['translateY(34%)','translateY(18%)','translateY(7%)','translateY(-1%)','translateY(2.5%)'] }],
+    covers:[{ p:'33.8,38 66,38 66,100 26,100 26,56 33.8,56' }],
+    marks:[{ f:[4], d:'M31 44 L28.5 42 M31 52 L28.5 54 M69 44 L71.5 42 M69 52 L71.5 54' }] },
+  'copiar-clabe': { bg:'#E8CACA', n:4, parts:[],
+    marks:[{ f:[0], d:'M57 57.5 L57 55 M53 58.5 L51.5 57 M61 58.5 L62.5 57' },
+           ],
+    covers:[{ f:[1], sheet:[33.8,19,44.3,47], at:[55,45] }, { f:[2], sheet:[38.8,14,44.3,47], at:[55,45] }, { f:[3], sheet:[43.8,9,44.3,47], at:[55,45] }] },
+  'respaldo': { bg:'#DC6D4F', n:4,
+    parts:[{ clip:'inset(31.9% 20.6% 32.2% 20.9%)', o:'50% 66%', f:['translateY(-26%)','translateY(-15%)','translateY(-6%)','translateY(2%)'] }],
+    covers:[{ r:[20.9,31.9,58.5,35.9] }],
+    marks:[{ f:[3,4], d:'M27 68 L24 70.5 M31 70 L29 73 M73 68 L76 70.5 M69 70 L71 73' }] },
+  'invitar': { bg:'#9BBDAF', n:4,
+    parts:[{ clip:'inset(41.5% 47.2% 25.5% 19.4%)', o:'37% 57%', f:['scale(.2)','scale(.6)','scale(1.12)','scale(.95)'] }],
+    covers:[{ r:[19.4,41.5,33.4,33] }],
+    marks:[{ f:[2], d:'M22 42 L19.5 39.5 M30 37.5 L29 34 M18 52 L14.5 51.5' }, { f:[3], d:'M21 41 L17.5 37.5 M29.5 36 L28.3 31.5 M17 52 L12.5 51.4' }] },
+  // Del set, aún sin pantalla en la app (se ven en design/ReParte Gestos.html).
+  'repartir': { bg:'#BC6C74', n:4,
+    parts:[{ clip:'polygon(0 14%,68% 14%,68% 64%,0 64%)', o:'50% 50%', f:['translateY(-8%)','translateY(-3%)','translateY(1%)','none'] },
+           { clip:'inset(66.3% 63.8% 13.1% 15.6%)', o:'25.9% 76.6%', f:['scale(.01)','scale(1.2)','none','none'] },
+           { clip:'inset(66.9% 39.7% 12.8% 39.7%)', o:'50% 77%', f:['scale(.01)','scale(.01)','scale(1.2)','none'] },
+           { clip:'inset(66.9% 15.6% 12.8% 63.8%)', o:'74.1% 77%', f:['scale(.01)','scale(.01)','scale(.01)','scale(1.2)'] }],
+    covers:[{ r:[0,0,100,100] }],
+    marks:[{ f:[1], d:'M25.9 63.5 L25.9 61 M19.5 65.5 L17.8 63.8 M32.3 65.5 L34 63.8' },
+           { f:[2], d:'M50 63.5 L50 61 M43.6 65.5 L41.9 63.8 M56.4 65.5 L58.1 63.8' },
+           { f:[3], d:'M74.1 63.5 L74.1 61 M67.7 65.5 L66 63.8 M80.5 65.5 L82.2 63.8' }] },
+  'reparto-personalizado': { bg:'#6C9CCC', n:4,
+    parts:[{ clip:'inset(29.5% 53.8% 59% 29%)', o:'37% 35%', f:['translateX(-6%)','translateX(-3%)','translateX(2%)','translateX(-.5%)'] },
+           { clip:'inset(57% 56.7% 31.3% 22.8%)', o:'33% 63%', f:['translateX(10%)','translateX(5%)','translateX(-1.5%)','translateX(.5%)'] }],
+    covers:[{ r:[29,29.5,17.2,11.5], at:[20,53] }, { r:[22.8,57,20.5,11.7], at:[20,53] }] },
+  'recibo-partidas': { bg:'#EC9C9C', n:4, parts:[],
+    covers:[{ r:[42.2,28.4,22.2,4.9], f:[0], at:[68,38] }, { r:[42.2,62.5,10.3,4.5], f:[0,1,2], at:[68,38] }],
+    marks:[{ f:[2], d:'M33 41 L33 38.5 M28.5 42.5 L26.8 40.8 M37.5 42.5 L39.2 40.8' }] },
+  'recordatorio': { bg:'#C4C4E4', n:4,
+    parts:[{ clip:'inset(21% 31% 43% 39%)', o:'54% 39%', f:['scaleY(-1)','scaleY(-.45)','scaleY(.2)','scaleY(.8)'] }],
+    covers:[{ r:[39,21,30,36] }] },
+  'resumen': { bg:'#ACCCC4', n:4, parts:[],
+    covers:[{ r:[32.3,38.9,27.9,3.8], f:[0], at:[38,44.5] }, { r:[32.9,46.9,25.2,3.8], f:[0,1], at:[38,44.5] }, { r:[33.2,54.7,27.9,3.7], f:[0,1,2], at:[38,44.5] },
+            { r:[68.3,36,15,14.4], f:[0,1,2] }, { r:[68.3,20.5,15,15.5], f:[0,1,2,3] }] },
+  'privacidad': { bg:'#BC647C', n:4,
+    parts:[{ clip:'inset(22.5% 31% 32.5% 32%)', o:'50% 66%', f:['translateY(-20%) rotate(-8deg)','translateY(-10%) rotate(5deg)','translateY(-3%) rotate(-2deg)','translateY(1.5%)'] }],
+    covers:[{ r:[32,22.5,37,45] }],
+    marks:[{ f:[3,4], d:'M36 68 L33 70.5 M40 69.5 L38.5 72.5 M64 68 L67 70.5 M60 69.5 L61.5 72.5' }] },
+  'restaurar-respaldo': { bg:'#6C9CCC', n:4,
+    parts:[{ clip:'polygon(0 5%,66% 5%,66% 58.6%,64.3% 58.6%,64.3% 69.8%,35.4% 69.8%,35.4% 58.6%,0 58.6%)', o:'50% 50%', f:['translateY(-20%)','translateY(-11%)','translateY(-4%)','translateY(1.2%)'] }],
+    covers:[{ r:[0,5,66,53.6] }, { r:[35.4,58.6,28.9,11.2], at:[30,70] }] },
+};
+const FRAME = .195;
+const ills = { prev:new Set(), now:new Set(), t:new Map() };
+const gestureCSS = (() => {
+  const pct = (k,T) => (k*100/T).toFixed(2)+'%', css = [], seen = new Set();
+  const vis = (list,T) => { const name = `gv${T}-${list.join('_')}`; if(!seen.has(name)){ seen.add(name); css.push(`@keyframes ${name}{${Array.from({length:T},(_,k)=>`${pct(k,T)}{opacity:${list.includes(k)?1:0}}`).join('')}100%{opacity:0}}`); } return name; };
+  for (const [name,g] of Object.entries(GESTURES)) {
+    const T = g.n + 2;
+    g.parts.forEach((pt,i) => { pt.an = `gp-${name}-${i}`; css.push(`@keyframes ${pt.an}{${pt.f.map((t,k)=>`${pct(k,T)}{transform:${t==='none'?'':t} scale(1.05);opacity:1}`).join('')}${pct(g.n,T)},100%{transform:scale(1.05);opacity:0}}`); });
+    (g.covers||[]).forEach(c => c.an = vis(c.f || Array.from({length:g.n},(_,k)=>k), T));
+    (g.marks||[]).forEach(m => m.an = vis(m.f, T));
+  }
+  const st = document.createElement('style'); st.textContent = css.join('\n'); document.head.append(st);
+})();
+// La hoja copiada no tapa la yema del dedo: se le quita la esquina de abajo a la derecha.
+const sheetPts = ([x,y,w,h]) => { const x1=x+w, y1=y+h, cy=Math.min(y1,59.5); return y1>59.5 ? `${x},${y} ${x1},${y} ${x1},${cy} 50,${cy} 50,${y1} ${x},${y1}` : `${x},${y} ${x1},${y} ${x1},${y1} ${x},${y1}`; };
+const Ill = (name, size=72, live=false) => {
+  const src = `img/${name}.jpg`, g = GESTURES[name], err = `onerror="this.closest('.ill').remove()"`;
+  if (!g) return `<span class="ill${live?' live':''}" style="--s:${size}px" aria-hidden="true"><img src="${src}" alt="" width="${size}" height="${size}" decoding="async" ${err}></span>`;
+  // Si la pantalla se vuelve a dibujar a medio gesto, el gesto sigue desde donde iba en vez de cortarse.
+  const id = `${route.screen}${route.id||''}|${ui.sheet?.type||''}|${name}`, dur = (g.n+2)*FRAME;
+  if (!ills.prev.has(id)) ills.t.set(id, performance.now());
+  ills.now.add(id);
+  const el = (performance.now() - ills.t.get(id)) / 1000, play = el < dur;
+  const v = an => `class="an" style="--an:${an}"`, fit = 'transform="translate(50 50) scale(1.05) translate(-50 -50)"';
+  // Las tapas se pintan con un pedacito de fondo de la propia imagen: un color escrito en CSS no coincide exacto con el JPEG.
+  const patch = ([u,w]=[50,8]) => { const S=30, pos=q=>((q/100-0.5/S)*S/(S-1)*100).toFixed(2)+'%'; return `background-image:url(${src});background-position:${pos(u)} ${pos(w)}`; };
+  const shape = c => c.r ? `polygon(${c.r[0]}% ${c.r[1]}%,${c.r[0]+c.r[2]}% ${c.r[1]}%,${c.r[0]+c.r[2]}% ${c.r[1]+c.r[3]}%,${c.r[0]}% ${c.r[1]+c.r[3]}%)` : `polygon(${(c.p||sheetPts(c.sheet)).split(' ').map(q=>q.split(',').map(z=>z+'%').join(' ')).join(',')})`;
+  const covers = (g.covers||[]).map(c => `<i class="cv an" style="--an:${c.an};${patch(c.at)};clip-path:${shape(c)}"></i>`).join('');
+  const marks = (g.marks||[]).map(m => `<path ${v(m.an)} d="${m.d}"${m.w?` stroke-width="${m.w}"`:''}/>`).join('');
+  return `<span class="ill anim${live?' live':''}${play?' play':''}" style="--s:${size}px;--d:${dur.toFixed(2)}s;--dl:${(-el).toFixed(3)}s;background:${g.bg}" aria-hidden="true">`
+    + `<img src="${src}" alt="" decoding="async" ${err}>`
+    + covers
+    + g.parts.map(pt => `<img class="an" src="${src}" alt="" decoding="async" style="--an:${pt.an};clip-path:${pt.clip};transform-origin:${pt.o}">`).join('')
+    + (marks ? `<svg viewBox="0 0 100 100" preserveAspectRatio="none" fill="none" stroke="${INK}" stroke-width="1.5" stroke-linecap="round"><g ${fit}>${marks}</g></svg>` : '')
+    + `</span>`;
+};
+// Tocar una ilustración animada repite su gesto.
+document.addEventListener('click', e => { const p = e.target.closest('.ill.anim'); if (!p) return; p.style.setProperty('--dl','0s'); p.classList.remove('play'); void p.offsetWidth; p.classList.add('play'); });
+// GESTOS:FIN
+// Línea viva: tres cuadros de ruido que se turnan a 4 por segundo, como stop motion. Quieta con "reducir movimiento" o pestaña oculta.
+const boil = { frame:0, timer:null, reduce: matchMedia('(prefers-reduced-motion: reduce)') };
+function boilSync(){
+  clearInterval(boil.timer); boil.timer = null;
+  if (boil.reduce.matches || document.hidden) { document.documentElement.style.removeProperty('--boil'); return; }
+  boil.timer = setInterval(()=>{ if(!document.querySelector('.ill.live')) return; document.documentElement.style.setProperty('--boil', `url(#boil${[0,1,2,1][boil.frame++ % 4]})`); }, 1000/4);
+}
+document.addEventListener('visibilitychange', boilSync); boil.reduce.addEventListener?.('change', boilSync); boilSync();
+const Logo = (level) => `<div class="logo${level?' level':''}"><i></i><i></i><i></i><i></i></div>`;
+
+function home(){
+  const evs = Object.values(db.events).sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''));
+  return `<div class="screen">
+    <div class="top">${Logo()}<button class="back" data-go="#/perfil">${db.profile.name ? esc(db.profile.name) : 'Tu perfil'} ›</button></div>
+    <div class="body">
+      <h1 class="h1">ReParte</h1><p class="sub"><button class="link" data-go="#/conectar">${cloud.session ? 'Respaldo y conexión' : 'Conectar y recuperar mis eventos'} ›</button></p>
+      <p class="sub">Divide los gastos de un viaje, una cena o un fin de semana. Tú llevas la cuenta; el grupo consulta por un link, sin registro. Al final cada quien sabe cuánto y a quién pagarle.</p>
+      ${evs.length ? `<div class="list" style="margin-top:22px">${evs.map(e => { const t=total(e); return `<button class="row" data-go="#/e/${e.id}">
+          <div class="avatar">${esc(initial(e.name))}</div>
+          <div><div class="t">${esc(e.name)}</div><div class="m">${e.closed?'Cerrado':'Abierto'} · ${e.members.length} persona${e.members.length===1?'':'s'} · ${e.expenses.length} gasto${e.expenses.length===1?'':'s'}</div></div>
+          <div class="amt"><div class="a">${fmtMXN(t)}</div></div></button>`; }).join('')}</div>`
+      : `<div class="card empty" style="margin-top:24px">${Ill('crear-evento',112,true)}Aún no tienes eventos.<br>Crea el primero y comparte el link por WhatsApp.</div>`}
+    </div>
+    <div class="fixed"><button class="btn primary" data-go="#/nuevo">+ Nuevo evento</button></div>
+  </div>`;
+}
+
+function newScreen(){
+  return `<div class="screen">
+    <div class="top"><button class="back" data-go="#/">‹ Inicio</button></div>
+    <div class="body">
+      <div class="head">${Ill('crear-evento',84,true)}<h2 class="h1">¿Cómo se llama?</h2></div>
+      <p class="sub">Un viaje, una cena, una despedida. Un gasto compartido tiene principio y fin.</p>
+      <form id="f-new" style="margin-top:20px">
+        <div class="field"><div class="lbl">Nombre del evento</div><input name="name" placeholder="Las Vegas · octubre" autofocus autocomplete="off" maxlength="40"></div>
+        <div class="field"><div class="lbl">Tu nombre</div><input name="me" placeholder="¿Cómo te llamas?" value="${esc(db.profile.name)}" autocomplete="given-name" maxlength="30"></div>
+        <button class="btn primary" style="margin-top:16px" type="submit">Crear evento</button>
+      </form>
+      <p class="note">Agrega los nombres y registra los gastos de todos. Solo tú podrás corregir y confirmar pagos; el grupo consulta el enlace. Todos los gastos son visibles para quienes tengan el enlace.</p>
+    </div>
+  </div>`;
+}
+
+function profile(){
+  const p = db.profile;
+  return `<div class="screen">
+    <div class="top"><button class="back" data-go="#/">‹ Inicio</button></div>
+    <div class="body">
+      <h2 class="h1">Tu perfil</h2>
+      <p class="sub">Tu nombre y tus datos para cobrar en este dispositivo.</p>
+      <form id="f-profile" style="margin-top:20px">
+        <div class="field"><div class="lbl">Nombre</div><input name="name" value="${esc(p.name)}" placeholder="Diego" maxlength="30"></div>
+        <div class="field"><div class="lbl">CLABE para que te paguen ${bankOf(p.clabe)?`· <span class="verde">${esc(bankOf(p.clabe))}</span>`:''}</div><input name="clabe" inputmode="numeric" value="${esc(fmtClabe(p.clabe))}" placeholder="18 dígitos" data-clabe></div>
+        <button class="btn primary" style="margin-top:16px" type="submit">Guardar</button>
+      </form>
+      <p class="note">ReParte nunca mueve dinero. Tu CLABE se guarda en este navegador; no se incluye en los enlaces ni en el respaldo de la nube. Compártela directamente con quien te paga.</p>
+    </div>
+  </div>`;
+}
+
+function eventScreen(ev){
+  const b = balances(ev), myB = ev.meId ? b[ev.meId] : null;
+  const trs = transfers(ev);
+  const t = total(ev);
+  const mine = ev.meId;
+  const visible = ev.expenses.slice().reverse();
+  return `<div class="screen">
+    <div class="top">
+      <button class="back" data-go="#/">‹ Inicio</button>
+      <button class="pill" data-go="#/e/${ev.id}/invitar">⌗ Invitar</button>
+    </div>
+    <div class="body">
+      <div class="eyebrow">${ev.closed?'Evento cerrado':'Evento abierto'} · ${ev.members.length} persona${ev.members.length===1?'':'s'} · ${canManage(ev)?'organizas tú':'solo consulta'}</div>
+      <h1 class="h1" style="margin-top:4px">${esc(ev.name)}</h1>
+      <p class="sub">${syncStatus(ev)}</p>
+      ${ev.sync?.conflict?'<button class="btn secondary" data-act="resolve-conflict">Respaldar mis cambios y cargar la versión de la nube</button>':''}
+      <p class="note" style="text-align:left">Todos los gastos son visibles para el grupo, incluso los que se reparten entre algunas personas.</p>
+      ${!canManage(ev)?`<button class="pill" data-act="view-person">Ver mi cuenta · ${mine?esc(ev.members.find(m=>m.id===mine)?.name):'elige tu nombre'}</button>`:''}
+      <div class="grid2" style="margin-top:18px">
+        <div class="card"><div class="lbl">Total del evento</div><div class="big">${fmtMXN(t)}</div></div>
+        <div class="card"><div class="lbl">${myB===null?'Tú':myB>0?'Te deben':myB<0?'Debes':'Estás al corriente'}</div>
+          <div class="big ${myB>0?'verde':myB<0?'rojo':'gris'}">${myB===null?'—':myB?fmtMXN(Math.abs(myB)):'—'}</div></div>
+      </div>
+      ${ev.closed ? `<div class="card" style="margin-top:10px;display:flex;align-items:center;gap:12px">${trs.length?Ill('recordatorio',48):Ill('cerrar-evento',48)}<div style="flex:1"><div class="lbl">Liquidación</div><div style="font-size:14px;margin-top:2px">${trs.length?`${trs.length===1?'Falta':'Faltan'} ${trs.length} transferencia${trs.length===1?'':'s'}`:'Todo liquidado'}</div></div><button class="link" data-go="#/e/${ev.id}/cierre">Ver ›</button></div>` : ''}
+      <div class="list">
+        ${visible.length ? visible.map(e => `<button class="row" data-exp="${e.id}">
+          <div class="avatar">${esc(initial(e.title))}</div>
+          <div><div class="t">${esc(e.title)}</div><div class="m">${e.payerId===mine?'Pagaste tú':'Pagó '+esc(nameOf(ev,e.payerId))} · ${e.among.length===ev.members.length?'entre todos':'entre '+e.among.length} · ${fmtDate(e.date)}</div></div>
+          <div class="amt"><div class="a">${fmtCur(e.amt,e.cur)}</div>${e.cur==='USD'?`<div class="fx">≈ ${fmtMXN(toMXN(e))} MXN</div>`:''}</div>
+        </button>`).join('') : `<div class="card empty">${Ill('capturar-gasto',112,true)}Todavía no hay gastos.<br>Toca <b>+ Gasto</b>: monto primero, dos taps.</div>`}
+      </div>
+      ${ev.members.length ? `<div style="margin-top:22px"><div class="eyebrow">Quiénes</div><div class="chips" style="margin-top:8px">${ev.members.map(m=>`<span class="chip ${m.id===mine?'on':''}">${esc(m.id===mine?m.name+' (tú)':m.name)}</span>`).join('')}${canManage(ev)&&!ev.closed?'<button class="chip" data-act="add-member">+ Agregar</button>':''}</div></div>`:''}
+    </div>
+    <div class="fixed">
+      ${ev.closed || !canManage(ev)
+        ? `<button class="btn secondary" data-go="#/e/${ev.id}/resumen">Resumen</button><button class="btn primary" data-go="#/e/${ev.id}/cierre">Liquidación</button>`
+        : `<button class="btn secondary" data-go="#/e/${ev.id}/cierre">Cerrar evento</button><button class="btn primary" data-act="capture">+ Gasto</button>`}
+    </div>
+  </div>`;
+}
+
+function invite(ev){
+  const url = shareURL(ev);
+  const short = url.length > 60 ? url.slice(0, 44) + '…' : url;
+  return `<div class="screen">
+    <div class="top"><button class="back" data-go="#/e/${ev.id}">‹ Volver</button></div>
+    <div class="body">
+      <div class="head">${Ill('compartir-link',84,!url)}<h2 class="h1">Invita al grupo</h2></div>
+      <p class="sub">QR para los que están en la mesa. Link para el que no vino. El grupo consulta; el organizador registra y corrige.</p>
+      <div style="margin:22px 0 14px">${url?qr(url):'<p class="note">Preparando el enlace…</p>'}</div>
+      <div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 14px"><div style="font-size:13px;color:var(--gris);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(short)}</div><button class="link" data-act="copy-link" ${url?'':'disabled'}>Copiar</button></div>
+      ${url?`<a class="btn primary" style="margin-top:12px;text-decoration:none" target="_blank" rel="noopener" href="${wa(`Ya abrí el ReParte de ${ev.name} 👇\n${url}\n\nConsulta la cuenta sin registro. Si falta un gasto o hay un error, avísame.`)}">Compartir por WhatsApp</a>`:''}
+      <p class="note">${ev.sync?.token?'Este enlace consulta la última versión guardada. Se actualiza cada 10 segundos mientras esté abierto y conectado.':'Este enlace lleva una copia de consulta. Debes compartir una nueva después de cada cambio. Conecta el evento para usar un enlace que se actualice.'}</p>
+      <div class="note-ill">${Ill('privacidad',56)}<p class="note">Quien tenga el enlace puede ver todos los gastos. No incluye CLABEs.</p></div>
+    </div>
+  </div>`;
+}
+
+function capture(ev){
+  const c = ui.cap;
+  if (!c) { go('#/e/'+ev.id); return ''; }
+  const cents = Math.round(parseFloat(c.amount||'0')*100) || 0;
+  const all = c.among.length === ev.members.length;
+  return `<div class="screen">
+    <div class="top"><button class="back" data-act="cancel-cap">Cancelar</button>
+      <div class="seg"><button class="${c.cur==='MXN'?'on':''}" data-cur="MXN">MXN</button><button class="${c.cur==='USD'?'on':''}" data-cur="USD">USD</button></div>
+      <span style="width:60px"></span></div>
+    <div class="body" style="padding-bottom:20px">
+      <div class="amount ${c.amount?'':'empty'} ${c.amount.length>7?'small':''}"><span class="cur">${c.cur==='USD'?'US$':'$'}</span>${esc(c.amount||'0')}</div>
+      <div style="text-align:center;font-size:12.5px;color:var(--gris2);min-height:18px">${c.cur==='USD' ? (cents?`≈ ${fmtMXN(Math.round(cents*c.fx))} MXN · `:'') + `tipo de cambio ${c.fx.toFixed(2)} <button class="link" data-act="edit-fx">cambiar</button>` : ''}</div>
+      <div style="display:flex;justify-content:center;margin-top:14px"><button class="pill" data-act="toggle-split">${c.payerId===ev.meId?'Pagaste tú':'Pagó '+esc(nameOf(ev,c.payerId))} · ${all?'entre todos':'entre '+c.among.length} · ${c.date===today()?'hoy':fmtDate(c.date)} <span style="color:var(--gris2)">${c.splitOpen?'▴':'▾'}</span></button></div>
+      ${c.splitOpen ? `<div class="card" style="margin-top:12px">
+        <div class="lbl">Quién pagó</div>
+        <div class="chips" style="margin:8px 0 14px">${ev.members.map(m=>`<button class="chip ${m.id===c.payerId?'on':''}" data-payer="${m.id}">${esc(m.id===ev.meId?'Tú':m.name)}</button>`).join('')}</div>
+        <div class="lbl">Entre quiénes</div>
+        <div class="chips" style="margin:8px 0 14px">${ev.members.map(m=>`<button class="chip ${c.among.includes(m.id)?'on':''}" data-among="${m.id}">${esc(m.id===ev.meId?'Tú':m.name)}</button>`).join('')}</div>
+        <div class="lbl">Fecha</div>
+        <input type="date" value="${c.date}" data-date style="margin-top:6px;font-size:15px;background:var(--crema);border-radius:10px;padding:8px 10px">
+      </div>` : ''}
+      <div class="field" style="margin-top:14px"><input placeholder="Descripción (opcional) · si no, se llama “Gasto”" value="${esc(c.title)}" data-title maxlength="40" autocomplete="off"></div>
+      <div class="keys">${['1','2','3','4','5','6','7','8','9','.','0','⌫'].map(k=>`<button data-key="${k}">${k}</button>`).join('')}</div>
+      <button class="btn primary" style="margin-top:14px" data-act="save-cap" ${cents>0&&c.among.length?'':'disabled'}>${cents>0?`Guardar ${fmtCur(cents,c.cur)}`:'Escribe el monto'}</button>
+      ${c.editId ? `<button class="btn ghost" data-act="delete-cap">Borrar gasto</button>${c.history?.length?`<div class="hist">${c.history.map(h=>esc(h)).join('<br>')}</div>`:''}` : ''}
+    </div>
+  </div>`;
+}
+
+function settle(ev){
+  const b = balances(ev); const trs = transfers(ev); const t = total(ev);
+  const over = ev.members.map(m=>({m, v:b[m.id]})).filter(x=>x.v>0).sort((a,c)=>c.v-a.v);
+  const under = ev.members.map(m=>({m, v:b[m.id]})).filter(x=>x.v<0).sort((a,c)=>a.v-c.v);
+  return `<div class="screen">
+    <div class="top"><button class="back" data-go="#/e/${ev.id}">‹ Gastos</button></div>
+    <div class="body">
+      <div class="head">${Ill('quien-le-paga',84)}<h2 class="h1">Así queda la cuenta</h2></div>
+      <div class="steps" style="margin-top:18px">
+        <div class="step"><div class="n">1</div><div><div class="k">Se gastó en total</div><div class="v">${fmtMXN(t)}</div></div></div>
+        <div class="step"><div class="n">2</div><div><div class="k">Promedio por persona</div><div class="v">${fmtMXN(perHead(ev))}</div><div class="k" style="margin-top:4px">Promedio. Los gastos entre menos personas solo cuentan para ellas.</div></div></div>
+        <div class="step"><div class="n">3</div><div style="flex:1"><div class="k">Saldos pendientes, después de los pagos registrados</div>
+          <div class="lines">${over.length?over.map(x=>`<span><span>${esc(nameOf(ev,x.m.id))}</span><b class="verde">+${fmtMXN(x.v)}</b></span>`).join(''):'<span class="gris">Nadie</span>'}
+          ${under.map(x=>`<span><span>${esc(nameOf(ev,x.m.id))}</span><b class="rojo">−${fmtMXN(-x.v)}</b></span>`).join('')}</div></div></div>
+      </div>
+      <div class="card" style="margin-top:14px"><h3 class="h2">Lo que le toca a cada quien</h3><p class="sub">Pagado en gastos − parte consumida + pagos enviados − pagos recibidos = saldo. Positivo: cobra; negativo: debe.</p>
+        ${ev.members.map(m=>{const x=personTotals(ev,m.id);return `<div class="kv"><span>${esc(m.name)}<br><small>Pagó ${fmtMXN(x.paid)} · le toca ${fmtMXN(x.share)}<br>Envió ${fmtMXN(x.sent)} · recibió ${fmtMXN(x.received)}</small></span><b>${b[m.id]<0?'−':'+'}${fmtMXN(Math.abs(b[m.id]))}</b></div>`;}).join('')}
+        <p class="sub">Reagrupamos los saldos para reducir transferencias: podrías pagar a alguien que no pagó tu gasto original. Tu saldo total no cambia.</p></div>
+      <div class="eyebrow" style="margin-top:26px">${trs.length ? `${trs.length} transferencia${trs.length===1?'':'s'}, ya simplificadas` : 'Todo liquidado'}</div>
+      ${!trs.length && t>0 ? `<div class="card empty" style="margin-top:10px">${Ill('cerrar-evento',112,true)}Nadie le debe a nadie.<br>Las cuentas quedaron parejas.</div>` : ''}
+      <div class="list" style="margin-top:8px">
+        ${trs.map((tr,i)=>{ const p = tr.paid; return `<button class="row" data-pay="${i}">
+          <div><div class="t">${esc(nameOf(ev,tr.from))} → ${esc(nameOf(ev,tr.to))}</div><div class="m">${p?`Ya pagó ${fmtMXN(p)} · falta`:'Toca para ver cómo pagar'}</div></div>
+          <div class="amt"><div class="a">${fmtMXN(tr.amt)}</div></div><span style="color:var(--gris3)">›</span></button>`; }).join('')}
+        ${ev.payments.length ? `<div class="hist" style="text-align:center">${ev.payments.length} pago${ev.payments.length===1?'':'s'} marcado${ev.payments.length===1?'':'s'}</div>`:''}
+      </div>
+      ${!ev.closed ? `<p class="note">Puedes cerrar aunque falte alguien por pagar. El saldo queda visible, no bloqueado.</p>` : ''}
+    </div>
+    <div class="fixed">${!canManage(ev)?`<button class="btn secondary" data-go="#/e/${ev.id}">Volver a los gastos</button>`:ev.closed
+      ? `<button class="btn secondary" data-act="reopen">Reabrir</button><button class="btn primary" data-go="#/e/${ev.id}/resumen">Ver resumen</button>`
+      : `<button class="btn primary" data-act="close-event">Cerrar evento y ver resumen</button>`}</div>
+  </div>`;
+}
+
+function summary(ev){
+  const trs = transfers(ev); const t = total(ev); const n = ev.members.length||1;
+  const fee = ev.fee;
+  return `<div class="screen">
+    <div class="top"><button class="back" data-go="#/e/${ev.id}/cierre">‹ Liquidación</button></div>
+    <div class="body">
+      <div style="display:flex;justify-content:center;margin:16px 0 22px">${Ill('resumen',104,true)}</div>
+      <div class="card">
+        <div class="eyebrow">${ev.closed?'Evento cerrado':'Cuenta provisional'}</div>
+        <h2 class="h2" style="margin-top:4px">${esc(ev.name)}</h2>
+        <div class="sub" style="margin-top:2px">${ev.expenses.length} gasto${ev.expenses.length===1?'':'s'} · ${n} persona${n===1?'':'s'} · ${fmtDate(ev.createdAt)}${ev.closedAt?' – '+fmtDate(ev.closedAt):''}</div>
+        <div style="margin-top:14px">
+          <div class="kv"><span>Total</span><b>${fmtMXN(t)}</b></div>
+          <div class="kv"><span>Promedio por persona</span><b>${fmtMXN(perHead(ev))}</b></div>
+          <div class="kv"><span>Transferencias</span><b>${trs.length?trs.length+' pendiente'+(trs.length===1?'':'s'):'Todas hechas'}</b></div>
+          ${fee ? `<div class="kv"><span>Costo real para ti</span><b>${fmtMXN(Math.round(fee/n))}</b></div>` : ''}
+        </div>
+      </div>
+      ${fee ? `<p class="note">Pagaste ${fmtMXN(fee)} por el evento. Se repartió como primer gasto entre ${n}. Tu costo real: ${fmtMXN(Math.round(fee/n))}.</p>` : `<p class="note">Esta prueba es gratuita. No se agregan cuotas al saldo.</p>`}
+      <div class="list">${trs.map(tr=>`<div class="row"><div><div class="t">${esc(nameOf(ev,tr.from))} → ${esc(nameOf(ev,tr.to))}</div><div class="m">Pendiente</div></div><div class="amt"><div class="a">${fmtMXN(tr.amt)}</div></div></div>`).join('')}</div>
+    </div>
+    <div class="fixed"><button class="btn primary" data-act="share-image">Compartir resumen como imagen</button></div>
+  </div>`;
+}
+
+/* ---------- sheets ---------- */
+function sheet(ev){
+  const s = ui.sheet; let inner = '';
+  if(s.type==='detail'){
+    const exp=ev.expenses.find(x=>x.id===s.id); if(!exp) return '';
+    inner=`<h2 class="h2">${esc(exp.title)}</h2><p class="sub">Pagó ${esc(nameOf(ev,exp.payerId))} · ${fmtCur(exp.amt,exp.cur)} · ${fmtDate(exp.date)}</p>${Object.entries(shares(exp)).map(([id,amt])=>`<div class="kv"><span>${esc(nameOf(ev,id))}</span><b>${fmtMXN(amt)}</b></div>`).join('')}<div class="hist">${(exp.history||[]).map(esc).join('<br>')}</div><p class="note">Para corregirlo, avisa al organizador.</p>`;
+  }
+  else if(s.type==='viewer'){
+    inner=`<h2 class="h2">¿Qué cuenta quieres ver?</h2><p class="sub">Elegir un nombre solo cambia la vista. No permite editar ni confirma tu identidad.</p><div class="chips">${ev.members.map(m=>`<button class="chip" data-claim="${m.id}">${esc(m.name)}</button>`).join('')}</div>`;
+  }
+  else if (s.type==='name') inner = `
+    ${Ill('entrar',64)}<h2 class="h2">¿Cómo te llamas?</h2>
+    <p class="sub">Sin cuenta, sin contraseña. Solo para que los demás sepan quién eres.</p>
+    ${ev.members.length ? `<div class="lbl" style="margin-top:14px">¿Eres alguien de la lista?</div><div class="chips" style="margin-top:8px">${ev.members.map(m=>`<button class="chip" data-claim="${m.id}">${esc(m.name)}</button>`).join('')}</div><div class="lbl" style="margin-top:14px">O agrégate</div>`:''}
+    <form id="f-name"><div class="field"><input name="name" placeholder="Tu nombre" value="${esc(db.profile.name)}" autofocus maxlength="30" autocomplete="given-name"></div>
+    <button class="btn primary" style="margin-top:12px" type="submit">Entrar al evento</button></form>`;
+  else if (s.type==='member') inner = `
+    ${Ill('invitar',64)}<h2 class="h2">Agregar a alguien</h2>
+    <p class="sub">Para quien no quiere entrar con su teléfono. Existe como participante igual.</p>
+    <form id="f-member"><div class="field"><input name="name" placeholder="Nombre" autofocus maxlength="30" autocomplete="off"></div>
+    <button class="btn primary" style="margin-top:12px" type="submit">Agregar</button></form>`;
+  else if (s.type==='fx') inner = `
+    ${Ill('peso-dolar',64)}<h2 class="h2">Tipo de cambio</h2>
+    <p class="sub">Se guarda en este gasto. El de hoy, no el de mañana: así los totales no cambian solos.</p>
+    <form id="f-fx"><div class="field"><div class="lbl">Pesos por dólar</div><input name="fx" inputmode="decimal" value="${ui.cap.fx}" autofocus></div>
+    <button class="btn primary" style="margin-top:12px" type="submit">Usar este</button></form>`;
+  else if (s.type==='pay'){
+    const tr = transfers(ev)[s.i]; if(!tr) { ui.sheet=null; return ''; }
+    const to = ev.members.find(m=>m.id===tr.to); const clabe = fmtClabe(to.clabe); const bank = to.bank || bankOf(to.clabe);
+    const concept = `${ev.name} · ReParte`;
+    const iReceive = tr.to===ev.meId, iPay = tr.from===ev.meId;
+    const msg = `Hola ${to.id===ev.meId?nameOf(ev,tr.from):to.name}, del ${ev.name} ${iPay?'te debo':'quedaron'} ${fmtMXN(tr.amt)}.${clabe&&iReceive?` Mi CLABE: ${clabe}${bank?' ('+bank+')':''}. Concepto: ${concept}.`:''} Lo puedes ver en ReParte: ${shareURL(ev)}`;
+    inner = `
+    ${Ill('copiar-clabe',64)}<div class="lbl">${esc(nameOf(ev,tr.from))} le paga a</div>
+    <h2 class="h2" style="margin-top:2px">${esc(nameOf(ev,tr.to))}</h2>
+    <div class="pay-h">${fmtMXN(tr.amt)}</div>
+    <div class="copybox">
+      <div class="kv"><span>CLABE</span>${clabe?`<b>${esc(clabe)}</b>`:`<span class="gris">${iReceive?'Agrégala en tu perfil':'Aún no la comparte'}</span>`}</div>
+      ${bank?`<div class="kv"><span>Banco</span><b>${esc(bank)}</b></div>`:''}
+      <div class="kv"><span>Concepto</span><b>${esc(concept)}</b></div>
+    </div>
+    ${clabe ? `<button class="btn primary" style="margin-top:14px" data-act="copy-pay" data-text="${esc(`${clabe}\n${fmtMXN(tr.amt)}\n${concept}`)}">Copiar todo</button>` : (iReceive ? `<button class="btn primary" style="margin-top:14px" data-go="#/perfil">Agregar mi CLABE</button>` : '')}
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <a class="btn secondary" style="text-decoration:none" target="_blank" rel="noopener" href="${wa(msg)}">Recordar por WhatsApp</a>
+      ${canManage(ev)&&ev.closed?`<button class="btn secondary" data-act="mark-paid" data-i="${s.i}">Confirmar recibido</button>`:''}
+    </div>
+    ${canManage(ev)&&ev.closed?`<button class="btn ghost" data-act="mark-partial" data-i="${s.i}">Confirmar una parte…</button>`:''}
+    <p class="note" style="margin-top:8px">ReParte no mueve dinero. Solo te da el monto y la CLABE listos para pegar. El organizador confirma el pago después de verificarlo con quien recibe. Primero cierra el evento para registrar pagos.</p>`;
+  }
+  else if (s.type==='partial'){
+    const tr = transfers(ev)[s.i]; if(!tr){ ui.sheet=null; return ''; }
+    inner = `<h2 class="h2">¿Cuánto pagó?</h2><p class="sub">Debe ${fmtMXN(tr.amt)}. Lo que falte sigue visible.</p>
+    <form id="f-partial" data-i="${s.i}"><div class="field"><div class="lbl">Monto en MXN</div><input name="amt" inputmode="decimal" placeholder="1,000" autofocus></div>
+    <button class="btn primary" style="margin-top:12px" type="submit">Marcar pago parcial</button></form>`;
+  }
+  else if (s.type==='close'){
+    inner = `${Ill('cerrar-evento',64)}<h2 class="h2">Cerrar ${esc(ev.name)}</h2><p class="sub">Confirma con el grupo que están todos los gastos. El cierre fija la cuenta; puedes registrar pagos después.</p><p class="note">Prueba gratuita. No se cobra ni se agrega ninguna cuota.</p><button class="btn primary" style="margin-top:16px" data-act="confirm-close">Cerrar sin costo</button><button class="btn ghost" data-act="close-sheet">Todavía no</button>`;
+  }
+  return `<div class="backdrop" data-act="close-sheet"><div class="sheet"><div class="handle"></div>${inner}</div></div>`;
+}
+
+/* ---------- acciones ---------- */
+function requireName(ev, fn){ if (ev.meId && me(ev)) fn(); else { ui.pendingAfterName = fn; ui.sheet = {type:'name'}; render(); } }
+function startCapture(ev, exp){
+  if(!guard(ev)) return;
+  const meId = ev.meId;
+  ui.cap = exp ? { editId: exp.id, amount: (exp.amt/100).toString(), cur: exp.cur, fx: exp.fx||ev.fx, payerId: exp.payerId, among: exp.among.slice(), date: exp.date, title: exp.title==='Gasto'?'':exp.title, splitOpen:false, history: exp.history||[] }
+    : { editId:null, amount:'', cur:'MXN', fx: ev.fx||FX_DEFAULT, payerId: meId, among: smartDefault(ev), date: today(), title:'', splitOpen:false };
+  go(`#/e/${ev.id}/${exp?'editar':'nuevo'}`);
+}
+// Default inteligente: si los últimos dos gastos fueron entre las mismas personas, sugiere esas.
+function smartDefault(ev){
+  const all = ev.members.map(m=>m.id); const last = ev.expenses.slice(-2);
+  if (last.length===2 && last[0].among.length<all.length && JSON.stringify([...last[0].among].sort())===JSON.stringify([...last[1].among].sort())) return last[0].among.filter(id=>all.includes(id));
+  return all;
+}
+function saveCapture(ev){
+  if(!guard(ev)) return;
+  const c = ui.cap; if(!c) return; const cents = Math.round(parseFloat(c.amount||'0')*100); if(!Number.isSafeInteger(cents) || !(cents>0) || !c.among.length || !Number.isFinite(c.fx) || c.fx<=0 || c.fx>10000 || !/^\d{4}-\d{2}-\d{2}$/.test(c.date) || isNaN(Date.parse(c.date))) { toast('Revisa el monto, la fecha y el tipo de cambio.'); return; }
+  const who = me(ev)?.name || 'Alguien';
+  if (c.editId){
+    const e = ev.expenses.find(x=>x.id===c.editId); if(!e){toast('El gasto ya no existe. Vuelve a la cuenta.'); return;} const before = {...e};
+    Object.assign(e, { title: c.title.trim()||'Gasto', amt: cents, cur: c.cur, fx: c.fx, payerId: c.payerId, among: c.among.slice(), date: c.date });
+    e.history = [...(e.history||[]), `${who} editó el ${fmtDate(today())}: ${fmtCur(before.amt,before.cur)} → ${fmtCur(cents,c.cur)}`];
+    save(); ui.cap=null; go('#/e/'+ev.id); toast('Gasto actualizado', ()=>{ if(!undoAllowed(ev)) return; Object.assign(e, before); save(); render(); });
+  } else {
+    const e = { id: uid(), title: c.title.trim()||'Gasto', amt: cents, cur: c.cur, fx: c.fx, payerId: c.payerId, among: c.among.slice(), date: c.date, history:[`${who} lo capturó el ${fmtDate(today())}`] };
+    ev.expenses.push(e); ev.fx = c.fx; save(); ui.cap=null; go('#/e/'+ev.id);
+    toast(`Gasto guardado · ${fmtCur(cents,c.cur)}`, ()=>{ if(!undoAllowed(ev)) return; ev.expenses = ev.expenses.filter(x=>x.id!==e.id); save(); render(); });
+  }
+}
+function markPaid(ev, i, amt){
+  if(!guard(ev,true) || !ev.closed){ toast('Cierra la cuenta antes de confirmar pagos.'); return; }
+  if(amt!==undefined && (!Number.isSafeInteger(amt)||amt<=0)) return;
+  const tr = transfers(ev)[i]; if(!tr) return;
+  const p = { id: uid(), from: tr.from, to: tr.to, amt: Math.min(amt ?? tr.amt, tr.amt), at: today(), recordedBy:ev.organizerId };
+  ev.payments.push(p); save(); ui.sheet=null; render();
+  toast(p.amt<tr.amt ? `Pago parcial de ${fmtMXN(p.amt)} marcado` : 'Marcado como pagado', ()=>{ if(!undoAllowed(ev,true)) return; ev.payments = ev.payments.filter(x=>x.id!==p.id); save(); render(); });
+}
+
+/* ---------- imagen del resumen ---------- */
+async function shareImage(ev){
+  const W=1080, H=Math.max(1350,1100+transfers(ev).length*96); const cv=document.createElement('canvas'); cv.width=W; cv.height=H; const x=cv.getContext('2d');
+  try { await document.fonts.load('80px "Instrument Serif"'); await document.fonts.load('600 32px Inter'); } catch(e){}
+  x.fillStyle='#F6F1E9'; x.fillRect(0,0,W,H);
+  x.fillStyle='#C4552F'; [[0,44],[1,44],[2,44],[3,44]].forEach(([i])=>{ x.fillRect(80+i*22, 120-44, 14, 44); });
+  x.fillStyle='#8A837B'; x.font='500 26px Inter, sans-serif'; x.fillText(ev.closed?'EVENTO CERRADO · REPARTE':'CUENTA PROVISIONAL · REPARTE', 80, 200);
+  x.fillStyle='#1C1917'; x.font='96px "Instrument Serif", Georgia, serif'; x.fillText(ev.name, 80, 300);
+  const n=ev.members.length||1; const trs=transfers(ev);
+  const rows=[['Total', fmtMXN(total(ev))],['Promedio por persona', fmtMXN(perHead(ev))],['Gastos', String(ev.expenses.length)],['Personas', String(n)]];
+  let y=400; rows.forEach(([k,v])=>{ x.fillStyle='#fff'; rr(x,80,y,W-160,110,24); x.fill(); x.strokeStyle='#E6DFD3'; x.lineWidth=2; x.stroke(); x.fillStyle='#6B6560'; x.font='500 28px Inter, sans-serif'; x.fillText(k,110,y+66); x.fillStyle='#1C1917'; x.font='56px "Instrument Serif", Georgia, serif'; x.textAlign='right'; x.fillText(v,W-110,y+72); x.textAlign='left'; y+=124; });
+  y+=30; x.fillStyle='#8A837B'; x.font='500 26px Inter, sans-serif'; x.fillText(trs.length?`${trs.length} TRANSFERENCIA${trs.length===1?'':'S'} PENDIENTE${trs.length===1?'':'S'}`:'TODO LIQUIDADO', 80, y); y+=30;
+  trs.forEach(tr=>{ x.fillStyle='#1C1917'; x.font='500 34px Inter, sans-serif'; x.fillText(`${nameOf(ev,tr.from)} → ${nameOf(ev,tr.to)}`,80,y+52); x.font='48px "Instrument Serif", Georgia, serif'; x.textAlign='right'; x.fillText(fmtMXN(tr.amt),W-80,y+56); x.textAlign='left'; x.fillStyle='#E6DFD3'; x.fillRect(80,y+80,W-160,2); y+=96; });
+  x.fillStyle='#8A837B'; x.font='400 24px Inter, sans-serif'; x.fillText('Hecho con ReParte · el grupo consulta sin registro', 80, H-70);
+  const blob = await new Promise(r=>cv.toBlob(r,'image/png'));
+  const file = new File([blob], `reparte-${ev.name.replace(/\W+/g,'-').toLowerCase()}.png`, {type:'image/png'});
+  if (navigator.canShare && navigator.canShare({files:[file]})) { try { await navigator.share({files:[file], title: ev.name}); return; } catch(e){ if(e.name==='AbortError') return; } }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=file.name; document.body.appendChild(a); a.click(); a.remove(); toast('Imagen del resumen descargada');
+}
+function rr(x,X,Y,w,h,r){ x.beginPath(); x.moveTo(X+r,Y); x.arcTo(X+w,Y,X+w,Y+h,r); x.arcTo(X+w,Y+h,X,Y+h,r); x.arcTo(X,Y+h,X,Y,r); x.arcTo(X,Y,X+w,Y,r); x.closePath(); }
+
+/* ---------- QR (byte mode, EC L, versiones 1–20) ---------- */
+function qr(text){
+  try { const m = qrMatrix(text); const n=m.length; const px=Math.max(1, Math.floor(180/n));
+    return `<div class="qr" style="grid-template-columns:repeat(${n},${px}px);width:${n*px+16}px;height:${n*px+16}px" aria-label="código QR">${m.map(r=>r.map(c=>`<i style="${c?'':'background:transparent'}"></i>`).join('')).join('')}</div>`;
+  } catch(e){ return `<div class="card empty">El link es muy largo para un QR. Compártelo por WhatsApp.</div>`; }
+}
+function qrMatrix(str){
+  const data = new TextEncoder().encode(str);
+  // capacidad byte mode EC-L por versión y bloques (grupos: [ecPerBlock, [ [blocks,dataCw], ... ]])
+  const CAP=[0,17,32,53,78,106,134,154,192,230,271,321,367,425,458,520,586,644,718,792,858];
+  const EC=[null,[7,[[1,19]]],[10,[[1,34]]],[15,[[1,55]]],[20,[[1,80]]],[26,[[1,108]]],[18,[[2,68]]],[20,[[2,78]]],[24,[[2,97]]],[30,[[2,116]]],[18,[[2,68],[2,69]]],[20,[[4,81]]],[24,[[2,92],[2,93]]],[26,[[4,107]]],[30,[[3,115],[1,116]]],[22,[[5,87],[1,88]]],[24,[[5,98],[1,99]]],[28,[[1,107],[5,108]]],[30,[[5,120],[1,121]]],[28,[[3,113],[4,114]]],[28,[[3,107],[5,108]]]];
+  let ver=1; while(ver<=20 && CAP[ver]<data.length) ver++; if(ver>20) throw new Error('too long');
+  const size = ver*4+17; const [ecLen, groups] = EC[ver];
+  const totalData = groups.reduce((a,[b,c])=>a+b*c,0);
+  // bitstream
+  const bits=[]; const put=(v,n)=>{ for(let i=n-1;i>=0;i--) bits.push((v>>i)&1); };
+  put(4,4); put(data.length, ver<10?8:16); data.forEach(b=>put(b,8));
+  put(0, Math.min(4, totalData*8-bits.length)); while(bits.length%8) bits.push(0);
+  const cw=[]; for(let i=0;i<bits.length;i+=8) cw.push(parseInt(bits.slice(i,i+8).join(''),2));
+  for(let p=0; cw.length<totalData; p++) cw.push(p%2?0x11:0xEC);
+  // GF(256)
+  const EXP=new Array(512), LOG=new Array(256); for(let i=0,v=1;i<255;i++){ EXP[i]=v; LOG[v]=i; v<<=1; if(v&256) v^=0x11D; } for(let i=255;i<512;i++) EXP[i]=EXP[i-255];
+  const mul=(a,b)=>(!a||!b)?0:EXP[LOG[a]+LOG[b]];
+  let gen=[1]; for(let i=0;i<ecLen;i++){ const ng=new Array(gen.length+1).fill(0); for(let j=0;j<gen.length;j++){ ng[j]^=gen[j]; ng[j+1]^=mul(gen[j],EXP[i]); } gen=ng; }
+  const blocks=[]; let pos=0; groups.forEach(([cnt,len])=>{ for(let b=0;b<cnt;b++){ const d=cw.slice(pos,pos+len); pos+=len; const r=d.concat(new Array(ecLen).fill(0)); for(let i=0;i<d.length;i++){ const c=r[i]; if(c) for(let j=0;j<gen.length;j++) r[i+j]^=mul(gen[j],c); } blocks.push({d, e:r.slice(d.length)}); } });
+  const out=[]; const maxD=Math.max(...blocks.map(b=>b.d.length)); for(let i=0;i<maxD;i++) blocks.forEach(b=>{ if(i<b.d.length) out.push(b.d[i]); }); for(let i=0;i<ecLen;i++) blocks.forEach(b=>out.push(b.e[i]));
+  // matriz
+  const M=Array.from({length:size},()=>new Array(size).fill(null));
+  const setF=(r,c,v)=>{ if(r>=0&&r<size&&c>=0&&c<size) M[r][c]=v; };
+  const finder=(r,c)=>{ for(let i=-1;i<=7;i++) for(let j=-1;j<=7;j++){ const on=(i>=0&&i<=6&&j>=0&&j<=6)&&(i===0||i===6||j===0||j===6||(i>=2&&i<=4&&j>=2&&j<=4)); setF(r+i,c+j,on?1:0); } };
+  finder(0,0); finder(0,size-7); finder(size-7,0);
+  const AL=[[],[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90]][ver];
+  AL.forEach(r=>AL.forEach(c=>{ if(M[r][c]!==null) return; for(let i=-2;i<=2;i++) for(let j=-2;j<=2;j++) setF(r+i,c+j,(Math.max(Math.abs(i),Math.abs(j))!==1)?1:0); }));
+  for(let i=8;i<size-8;i++){ if(M[6][i]===null) M[6][i]=i%2?0:1; if(M[i][6]===null) M[i][6]=i%2?0:1; }
+  M[size-8][8]=1;
+  const fmtPos=[]; for(let i=0;i<9;i++){ if(i!==6){ fmtPos.push([8,i]); fmtPos.push([i,8]); } } for(let i=0;i<8;i++){ fmtPos.push([8,size-1-i]); fmtPos.push([size-1-i,8]); }
+  fmtPos.forEach(([r,c])=>{ if(M[r][c]===null) M[r][c]=0; });
+  if(ver>=7){ let v=ver; for(let i=0;i<12;i++) v=(v<<1)^((v>>>11)&1?0x1F25:0); const vb=(ver<<12)|v; for(let i=0;i<18;i++){ const b=(vb>>i)&1; M[Math.floor(i/3)][size-11+i%3]=b; M[size-11+i%3][Math.floor(i/3)]=b; } }
+  // datos en zigzag
+  const isFunc=Array.from({length:size},(_,r)=>M[r].map(v=>v!==null));
+  let bi=0; const dbits=[]; out.forEach(b=>{ for(let i=7;i>=0;i--) dbits.push((b>>i)&1); });
+  for(let right=size-1; right>=1; right-=2){ if(right===6) right=5; for(let vert=0; vert<size; vert++){ for(let j=0;j<2;j++){ const c=right-j; const up=((right+1)&2)===0; const r=up?size-1-vert:vert; if(isFunc[r][c]) continue; M[r][c]= bi<dbits.length ? dbits[bi++] : 0; } } }
+  // máscara: probar 8 y elegir la de menor penalización
+  const masks=[(r,c)=>(r+c)%2===0,(r,c)=>r%2===0,(r,c)=>c%3===0,(r,c)=>(r+c)%3===0,(r,c)=>(Math.floor(r/2)+Math.floor(c/3))%2===0,(r,c)=>(r*c)%2+(r*c)%3===0,(r,c)=>((r*c)%2+(r*c)%3)%2===0,(r,c)=>((r+c)%2+(r*c)%3)%2===0];
+  let best=null, bestPen=Infinity;
+  for(let mk=0;mk<8;mk++){
+    const G=M.map((row,r)=>row.map((v,c)=>isFunc[r][c]?v:(v^(masks[mk](r,c)?1:0))));
+    // formato (EC L = 01)
+    let f=(1<<3)|mk; let rem=f; for(let i=0;i<10;i++) rem=(rem<<1)^((rem>>>9)&1?0x537:0); const fb=((f<<10)|rem)^0x5412;
+    const bitsF=[]; for(let i=14;i>=0;i--) bitsF.push((fb>>i)&1);
+    const a=[[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,7],[8,8],[7,8],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8]];
+    const b=[[size-1,8],[size-2,8],[size-3,8],[size-4,8],[size-5,8],[size-6,8],[size-7,8],[8,size-8],[8,size-7],[8,size-6],[8,size-5],[8,size-4],[8,size-3],[8,size-2],[8,size-1]];
+    bitsF.forEach((bit,i)=>{ G[a[i][0]][a[i][1]]=bit; G[b[i][0]][b[i][1]]=bit; });
+    let pen=0; for(let r=0;r<size;r++){ let run=1; for(let c=1;c<size;c++){ if(G[r][c]===G[r][c-1]){ run++; if(run===5) pen+=3; else if(run>5) pen++; } else run=1; } }
+    for(let c=0;c<size;c++){ let run=1; for(let r=1;r<size;r++){ if(G[r][c]===G[r-1][c]){ run++; if(run===5) pen+=3; else if(run>5) pen++; } else run=1; } }
+    let dark=0; G.forEach(row=>row.forEach(v=>dark+=v)); pen += Math.floor(Math.abs(dark*100/(size*size)-50)/5)*10;
+    if(pen<bestPen){ bestPen=pen; best=G; }
+  }
+  return best;
+}
+
+/* ---------- eventos DOM ---------- */
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-go],[data-act],[data-exp],[data-key],[data-cur],[data-payer],[data-among],[data-pay],[data-claim]');
+  if (!t) return;
+  const ev = route.id ? db.events[route.id] : null;
+  if (t.dataset.go){ e.preventDefault(); ui.sheet=null; go(t.dataset.go); return; }
+  if(t.dataset.exp && (!canManage(ev)||ev.closed)){ ui.sheet={type:'detail',id:t.dataset.exp}; render(); return; }
+  if (t.dataset.exp){ if (ev.closed) { toast('El evento está cerrado. Reábrelo para editar.'); return; } requireName(ev, ()=>startCapture(ev, ev.expenses.find(x=>x.id===t.dataset.exp))); return; }
+  if (t.dataset.key !== undefined){ const c=ui.cap; let a=c.amount; const k=t.dataset.key;
+    if(k==='⌫') a=a.slice(0,-1); else if(k==='.'){ if(!a.includes('.')) a=(a||'0')+'.'; } else { if(a.includes('.') && a.split('.')[1].length>=2) return; if(a.replace('.','').length>=9) return; a = a==='0'?k:a+k; }
+    c.amount=a; render(); return; }
+  if (t.dataset.cur){ ui.cap.cur=t.dataset.cur; render(); return; }
+  if (t.dataset.payer){ ui.cap.payerId=t.dataset.payer; render(); return; }
+  if (t.dataset.among){ const c=ui.cap, id=t.dataset.among; if(c.among.includes(id)){ if(c.among.length>1) c.among=c.among.filter(x=>x!==id); } else c.among.push(id); render(); return; }
+  if (t.dataset.pay !== undefined){ ui.sheet={type:'pay', i:+t.dataset.pay}; render(); return; }
+  if(t.dataset.claim){ if(!ev.members.some(m=>m.id===t.dataset.claim)) return; ev.meId=t.dataset.claim; persist(); ui.sheet=null; render(); return; }
+  const act = t.dataset.act;
+  const mutations=['capture','save-cap','delete-cap','add-member','mark-paid','mark-partial','close-event','confirm-close','reopen'];
+  if(mutations.includes(act) && !guard(ev,['mark-paid','mark-partial','reopen'].includes(act))) return;
+  switch(act){
+    case 'undo': if(undoFn){ const f=undoFn; undoFn=null; $('#toast')?.remove(); f(); } break;
+    case 'close-sheet': if(t.classList.contains('backdrop') && e.target!==t) break; ui.sheet=null; ui.pendingAfterName=null; render(); break;
+    case 'view-person': ui.sheet={type:'viewer'}; render(); break;
+    case 'backup': downloadBackup(); break;
+    case 'resolve-conflict': await resolveConflict(ev); break;
+    case 'sync-now': await syncAll(); render(); break;
+    case 'capture': requireName(ev, ()=>startCapture(ev)); break;
+    case 'cancel-cap': ui.cap=null; if(ui.externalDb){db=ui.externalDb;ui.externalDb=null;} go('#/e/'+ev.id); break;
+    case 'toggle-split': ui.cap.splitOpen=!ui.cap.splitOpen; render(); break;
+    case 'edit-fx': ui.sheet={type:'fx'}; render(); break;
+    case 'save-cap': saveCapture(ev); break;
+    case 'delete-cap': { const id=ui.cap.editId; const idx=ev.expenses.findIndex(x=>x.id===id); if(idx<0) break; const [removed]=ev.expenses.splice(idx,1); save(); ui.cap=null; go('#/e/'+ev.id); toast('Gasto borrado', ()=>{ if(!undoAllowed(ev)) return; ev.expenses.splice(idx,0,removed); save(); render(); }); break; }
+    case 'add-member': ui.sheet={type:'member'}; render(); break;
+    case 'copy-link': { const u=new URL(location.href);u.search='';u.hash=ev.sync?.token?'live='+ev.sync.token:'e='+await encodeEvent(ev); (await copy(u.toString())) ? toast('Link copiado') : toast('No se pudo copiar'); break; }
+    case 'copy-pay': { const ok = await copy(t.dataset.text); if(ok){ t.textContent='Copiado ✓'; t.classList.remove('primary'); t.classList.add('ok'); setTimeout(()=>{ if(document.body.contains(t)){ t.textContent='Copiar todo'; t.classList.add('primary'); t.classList.remove('ok'); } },1600); } else toast('No se pudo copiar'); break; }
+    case 'mark-paid': requireName(ev, ()=>markPaid(ev, +t.dataset.i)); break;
+    case 'mark-partial': ui.sheet={type:'partial', i:+t.dataset.i}; render(); break;
+    case 'close-event': requireName(ev, ()=>{ ui.sheet={type:'close'}; render(); }); break;
+    case 'confirm-close': ev.closed=true; ev.closedAt=today(); ev.fee=null; save(); ui.sheet=null; go('#/e/'+ev.id+'/resumen'); break;
+    case 'reopen': if(ev.payments.length && !confirm('Ya hay pagos registrados. Al cambiar gastos se pueden recalcular los destinatarios; los pagos se conservarán. ¿Reabrir?')) break; ev.closed=false; save(); render(); toast('Evento reabierto'); break;
+    case 'share-image': shareImage(ev); break;
+  }
+});
+document.addEventListener('submit', async e => {
+  e.preventDefault(); const f=e.target; const ev = route.id ? db.events[route.id] : null; const v = n => f.elements[n]?.value.trim() || '';
+  if(['f-name','f-member','f-fx','f-partial'].includes(f.id) && !guard(ev,f.id==='f-partial')) return;
+  if(f.id==='f-connect' || f.id==='f-verify'){ await connectSubmit(f); return; }
+  if (f.id==='f-new'){ const name=v('name'), meName=v('me'); if(!name || !meName){ toast('Escribe el evento y tu nombre como organizador.'); return; } const ev2=newEvent(name); if(meName) addMember(ev2, meName, true); go('#/e/'+ev2.id); toast(meName?`Listo. Comparte el link para que entren.`:'Evento creado. Ponte tu nombre cuando quieras participar.'); }
+  else if (f.id==='f-profile'){ db.profile.name=v('name'); db.profile.clabe=v('clabe').replace(/\D/g,''); db.profile.bank=bankOf(db.profile.clabe); Object.values(db.events).forEach(e=>{ const m=e.members.find(m=>m.id===e.organizerId); if(m && canManage(e)){ m.name=db.profile.name||m.name; m.clabe=db.profile.clabe; m.bank=db.profile.bank; } }); save(); toast('Guardado'); go('#/'); }
+  else if (f.id==='f-name'){ const name=v('name'); if(!name) return; const m=addMember(ev, name, true); ui.sheet=null; const fn=ui.pendingAfterName; ui.pendingAfterName=null; render(); toast(`Ya estás dentro, ${m.name}. Sin cuenta, sin app.`); fn&&fn(); }
+  else if (f.id==='f-member'){ const name=v('name'); if(!name) return; addMember(ev, name, false); if(ui.cap) ui.cap.among.push(ev.members[ev.members.length-1].id); ui.sheet=null; render(); toast(`${name} ya está en el evento`); }
+  else if (f.id==='f-fx'){ const fx=parseFloat(v('fx').replace(',','.')); if(Number.isFinite(fx) && fx>0 && fx<=10000){ ui.cap.fx=fx; } else {toast('Escribe un tipo de cambio válido.'); return;} ui.sheet=null; render(); }
+  else if (f.id==='f-partial'){ const amt=Math.round(parseFloat(v('amt').replace(/[^\d.]/g,''))*100); if(amt>0) markPaid(ev, +f.dataset.i, amt); }
+});
+document.addEventListener('input', e => {
+  const t=e.target;
+  if (t.dataset.title !== undefined) ui.cap.title = t.value;
+  if (t.dataset.date !== undefined && t.value) ui.cap.date = t.value;
+  if (t.dataset.clabe !== undefined){ const p=t.selectionStart; t.value=fmtClabe(t.value); }
+});
+document.addEventListener('keydown', e => {
+  if (!ui.cap || route.screen!=='nuevo' && route.screen!=='editar') return;
+  if (document.activeElement && document.activeElement.tagName==='INPUT') return;
+  if (/^[0-9.]$/.test(e.key)) { $(`[data-key="${e.key}"]`)?.click(); }
+  else if (e.key==='Backspace') $('[data-key="⌫"]')?.click();
+  else if (e.key==='Enter') $('[data-act="save-cap"]')?.click();
+});
+/* ---------- conexión opcional: Supabase REST, sin dependencias ---------- */
+const cloud = {
+  url: document.querySelector('meta[name="reparte-supabase-url"]')?.content.replace(/\/$/,'') || '',
+  key: document.querySelector('meta[name="reparte-supabase-key"]')?.content || '',
+  session:null, busy:false, error:'', opening:null, email:''
+};
+try { cloud.session=JSON.parse(localStorage.getItem('reparte.session')); } catch(e){}
+const configured = () => /^https:\/\//.test(cloud.url) && !!cloud.key;
+function storeSession(session){
+  cloud.session={...session,expires_at:session.expires_at||Math.floor(Date.now()/1000)+session.expires_in};
+  localStorage.setItem('reparte.session',JSON.stringify(cloud.session));
+}
+async function cloudRequest(path,body,token){
+  if(!configured()) throw Error('La conexión aún no está habilitada.');
+  const headers={apikey:cloud.key,'Content-Type':'application/json'};
+  if(token) headers.Authorization='Bearer '+token;
+  const res=await fetch(cloud.url+path,{method:body===undefined?'GET':'POST',headers,body:body===undefined?undefined:JSON.stringify(body),cache:'no-store',signal:AbortSignal.timeout(15000)});
+  const value=await res.json().catch(()=>null);
+  if(!res.ok){ const err=Error(value?.message||value?.msg||'No se pudo conectar. Tus cambios siguen en este dispositivo.'); err.code=value?.code; throw err; }
+  return value;
+}
+async function accessToken(){
+  if(!cloud.session) throw Error('Conecta tu correo para guardar en la nube.');
+  if(cloud.session.expires_at<Date.now()/1000+60){
+    const next=await cloudRequest('/auth/v1/token?grant_type=refresh_token',{refresh_token:cloud.session.refresh_token});
+    storeSession(next);
+  }
+  return cloud.session.access_token;
+}
+function scheduleSync(){ clearTimeout(syncTimer); syncTimer=setTimeout(()=>syncAll(),500); }
+function syncStatus(ev){
+  if(ev.sync?.conflict) return 'Hay cambios en otro dispositivo. Conservamos tu copia; descárgala antes de cargar la versión de la nube.';
+  if(ev.sync?.token){
+    if(!navigator.onLine) return 'Sin conexión. Ves la última copia guardada.';
+    if(ev.role==='viewer') return cloud.error?'No se pudo actualizar. Ves la última copia guardada.':'Consulta compartida · se actualiza mientras esté abierta.';
+    if(ev.sync.last!==JSON.stringify(publicEvent(ev))) return 'Cambios guardados aquí, pendientes de enviar.';
+    return 'Guardado en la nube · el grupo puede consultar los cambios.';
+  }
+  return ev.role==='owner'?'Guardado en este navegador. Conecta tu correo para respaldar y compartir actualizaciones.':'Copia de consulta; no se actualiza sola.';
+}
+function connectionScreen(){
+  return `<div class="screen"><div class="top"><button class="back" data-go="#/">‹ Inicio</button></div><div class="body"><div class="head">${Ill('respaldo',84)}<h1 class="h1">Tu cuenta, a salvo</h1></div>
+  <p class="sub">Como organizador, conecta tu correo para recuperar eventos en otro teléfono. El grupo consulta sin registrarse. Todos los gastos se comparten; las CLABEs se quedan en este navegador.</p>
+  ${!configured()?'<div class="card" style="margin-top:20px">La conexión aún no está habilitada. Mientras tanto, descarga un respaldo y comparte copias de consulta.</div>':cloud.session?`<p class="sub">Conectado como ${esc(cloud.session.user.email)}</p><button class="btn secondary" data-act="sync-now">Guardar y recuperar eventos</button>`:`<form id="f-connect"><div class="field"><div class="lbl">Tu correo</div><input name="email" type="email" required autocomplete="email" value="${esc(cloud.email)}"></div><button class="btn primary" style="margin-top:12px">Enviar código</button></form>${cloud.email?`<form id="f-verify"><div class="field"><div class="lbl">Código del correo</div><input name="code" inputmode="numeric" autocomplete="one-time-code" required maxlength="10"></div><button class="btn primary" style="margin-top:12px">Conectar y recuperar</button></form>`:''}`}
+  ${cloud.error?`<p class="sub rojo" role="status">${esc(cloud.error)}</p>`:''}
+  <button class="btn secondary" style="margin-top:20px" data-act="backup">Descargar respaldo de este dispositivo</button>
+  <input id="restore-file" class="file-in" type="file" accept="application/json,.json"><label for="restore-file" class="row" style="margin-top:10px">${Ill('restaurar-respaldo',48)}<div><div class="t">Restaurar un respaldo…</div><div class="m">Elige el archivo .json que descargaste</div></div></label>
+  <p class="note">El respaldo contiene tus eventos y datos bancarios locales. Guárdalo para ti. No incluye tu sesión de correo.</p></div></div>`;
+}
+async function connectSubmit(form){
+  const button=form.querySelector('button'); button.disabled=true;
+  cloud.error='';
+  try {
+    if(form.id==='f-connect'){
+      const email=form.elements.email.value.trim();
+      await cloudRequest('/auth/v1/otp',{email,create_user:true}); cloud.email=email;
+      toast('Revisa tu correo y escribe el código.');
+    } else {
+      const result=await cloudRequest('/auth/v1/verify',{email:cloud.email,token:form.elements.code.value.trim(),type:'email'});
+      storeSession(result); await syncAll(); toast('Correo conectado.');
+    }
+  } catch(e){ cloud.error=e.message; }
+  render();
+}
+async function syncAll(){
+  if(cloud.busy || !configured() || !navigator.onLine) return;
+  cloud.busy=true; const before=JSON.stringify(db.events); const oldError=cloud.error;
+  try {
+    if(cloud.session){
+      const token=await accessToken();
+      // Fetch before publishing so recovery never replaces a newer server version.
+      const rows=await cloudRequest('/rest/v1/reparte_events?select=id,snapshot,version,view_token,owner_id',undefined,token);
+      const remote=new Map(rows.map(row=>[row.id,row]));
+      for(const row of rows){
+        const local=db.events[row.id];
+        if(!local || local.role==='viewer') installOwned(row);
+        else if(local.sync?.ownerId===cloud.session.user.id && row.version>local.sync.version){
+          if(ui.cap || local.sync.last!==JSON.stringify(publicEvent(local))) local.sync.conflict=true;
+          else installOwned(row);
+        }
+      }
+      for(const ev of Object.values(db.events)){
+        if(!canManage(ev) || ev.sync?.conflict || !ev.members.length) continue;
+        const snapshot=publicEvent(ev), serialized=JSON.stringify(snapshot);
+        if(ev.sync?.last===serialized) continue;
+        if(remote.has(ev.id) && !ev.sync){ ev.sync={conflict:true,ownerId:cloud.session.user.id}; continue; }
+        try {
+          const result=await cloudRequest('/rest/v1/rpc/save_reparte_event',{p_id:ev.id,p_snapshot:snapshot,p_version:ev.sync?.version||0},token);
+          // Preserve edits made while this request was in flight; last is the sent snapshot.
+          ev.sync={ownerId:cloud.session.user.id,version:result.version,token:result.view_token,last:serialized};
+        } catch(e){ if(e.code==='40001') ev.sync={...ev.sync,conflict:true}; else throw e; }
+      }
+    }
+    const ev=route.id && db.events[route.id];
+    if(ev?.role==='viewer' && ev.sync?.token) await fetchLive(ev.sync.token,false);
+    cloud.error='';
+  } catch(e){ cloud.error=e.message; }
+  finally {
+    cloud.busy=false;
+    if(before!==JSON.stringify(db.events)) persist();
+    // Avoid losing text inputs or interrupting an open keypad.
+    if((before!==JSON.stringify(db.events)||oldError!==cloud.error) && !ui.cap && !ui.sheet && !['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) render();
+  }
+}
+function installOwned(row){
+  const old=db.events[row.id]; const ev=validateEvent(row.snapshot);
+  ev.role='owner'; ev.meId=ev.organizerId;
+  // Bank details are local only, never supplied by a reader or the public RPC.
+  ev.members.forEach(m=>{const prev=old?.role==='owner' && old.members.find(p=>p.id===m.id); if(prev){m.clabe=prev.clabe;m.bank=prev.bank;} });
+  ev.sync={ownerId:row.owner_id,version:row.version,token:row.view_token,last:JSON.stringify(publicEvent(ev))};
+  db.events[ev.id]=ev;
+}
+async function fetchLive(token,navigate){
+  if(!/^[0-9a-f-]{36}$/i.test(token)) throw Error('El enlace no es válido.');
+  const result=await cloudRequest('/rest/v1/rpc/read_reparte_event',{p_token:token});
+  if(!result) throw Error('No se encontró este evento.');
+  const ev=validateEvent(result.snapshot); const old=db.events[ev.id];
+  if(old?.role!=='owner'){
+    ev.role='viewer'; ev.meId=old?.meId||null;
+    ev.sync={token,version:result.version}; db.events[ev.id]=ev; persist();
+  }
+  if(navigate) go('#/e/'+ev.id);
+}
+async function openLive(token){
+  if(cloud.opening===token) return;
+  cloud.opening=token;
+  try { await fetchLive(token,true); cloud.error=''; }
+  catch(e){ cloud.error=e.message; const cached=Object.values(db.events).find(ev=>ev.sync?.token===token); go(cached?'#/e/'+cached.id:'#/conectar'); toast(cached?'Sin conexión: abrimos la última copia guardada.':e.message); }
+  finally { cloud.opening=null; }
+}
+function downloadBackup(){
+  const blob=new Blob([JSON.stringify({format:'reparte-backup-v2',savedAt:new Date().toISOString(),events:db.events,profile:db.profile},null,2)],{type:'application/json'});
+  const a=document.createElement('a'), url=URL.createObjectURL(blob); a.href=url;a.download='reparte-respaldo-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+async function restoreBackup(file){
+  if(!file || file.size>10000000) throw Error('Elige un respaldo de hasta 10 MB.');
+  const backup=JSON.parse(await file.text());
+  if(backup.format!=='reparte-backup-v2'||!backup.events||typeof backup.events!=='object') throw Error('No es un respaldo de ReParte.');
+  const restored=Object.values(backup.events).map(raw=>{
+    const ev=validateEvent(raw); ev.role=raw.role==='owner'?'owner':'viewer'; ev.meId=ev.role==='owner'?ev.organizerId:null;
+    // Restoring data grants no server permissions; Supabase checks the signed-in owner.
+    if(raw.sync) ev.sync={ownerId:raw.sync.ownerId,token:raw.sync.token,version:raw.sync.version,last:raw.sync.last,conflict:!!raw.sync.conflict};
+    ev.members.forEach(m=>{ const original=raw.members.find(x=>x.id===m.id); m.clabe=String(original.clabe||'').replace(/\D/g,'').slice(0,18); m.bank=bankOf(m.clabe); });
+    return ev;
+  });
+  if(restored.some(ev=>db.events[ev.id])) throw Error('El respaldo contiene eventos que ya están aquí. Restáuralo en otro navegador para no reemplazar cambios.');
+  restored.forEach(ev=>db.events[ev.id]=ev);
+  if(!db.profile.name && backup.profile){db.profile={name:String(backup.profile.name||'').slice(0,100),clabe:String(backup.profile.clabe||'').replace(/\D/g,'').slice(0,18)};db.profile.bank=bankOf(db.profile.clabe);}
+  persist(); scheduleSync(); toast('Respaldo restaurado.'); render();
+}
+async function resolveConflict(ev){
+  if(!confirm('Se descargará un respaldo de tus cambios. Después cargaremos la cuenta de la nube; no se combinarán automáticamente. ¿Continuar?')) return;
+  downloadBackup();
+  try { const token=await accessToken();const rows=await cloudRequest('/rest/v1/reparte_events?id=eq.'+encodeURIComponent(ev.id)+'&select=id,snapshot,version,view_token,owner_id',undefined,token); if(!rows.length) throw Error('No encontramos la versión de la nube.');installOwned(rows[0]);persist();render(); }
+  catch(e){toast(e.message);}
+}
+document.addEventListener('change',async e=>{if(e.target.id==='restore-file'){try{await restoreBackup(e.target.files[0]);}catch(err){toast(err.message);}}});
+window.addEventListener('storage',e=>{
+  if(e.key===LS && e.newValue){
+    try{
+      const incoming=JSON.parse(e.newValue);
+      if(ui.cap){ui.externalDb=incoming;toast('Hay cambios en otra pestaña. Tu borrador sigue aquí; cancela para cargar la otra versión.');return;}
+      db=incoming;render();
+    }catch(err){}
+  }
+});
+window.addEventListener('online',()=>syncAll());
+window.addEventListener('focus',()=>syncAll());
+document.addEventListener('visibilitychange',()=>{if(!document.hidden) syncAll();});
+setInterval(()=>{if(!document.hidden) syncAll();},10000);
+
+window.addEventListener('hashchange', render);
+persist();
+render();
+scheduleSync();
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>

@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Solitario Klondike: ordena las cuatro escaleras del as al rey." />
+<title>Solitario</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='44' font-size='30' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E♠%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .mesa { padding: 8px 5px 0; user-select: none; -webkit-user-select: none; }
+  .fila-alta { display: flex; gap: 5px; justify-content: center; margin-bottom: 10px; }
+  .hueco {
+    border-radius: 12px; border: 1.5px dashed var(--tile-border); background: color-mix(in srgb, var(--card) 40%, transparent);
+    /* El palo del hueco dice qué base es: en --faint daba 2:1 y no se leía. */
+    display: flex; align-items: center; justify-content: center; color: var(--sub); font-size: 18px; position: relative;
+  }
+  .carta {
+    border-radius: 12px; background: var(--card); border: 1px solid var(--tile-border);
+    position: relative; cursor: pointer; overflow: hidden;
+  }
+  .carta.abajo {
+    background: var(--accent);
+    background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--card) 12%, transparent) 0 5px, transparent 5px 10px);
+    border-color: color-mix(in srgb, var(--accent) 70%, var(--ink));
+  }
+  /* 600 es el peso más alto de la DM Sans del repo; 800 lo engordaba el navegador. */
+  .carta .esq { position: absolute; top: 2px; left: 4px; font-weight: 600; line-height: 1; }
+  .carta .esq small { display: block; font-size: 80%; margin-top: -1px; }
+  .carta .pip { position: absolute; bottom: 2px; right: 5px; opacity: .9; }
+  /* Rojo de la paleta (--bad): 5,3:1 sobre la carta y ΔE 30 frente a la tinta. */
+  .carta.roja { color: var(--bad); }
+  .carta.negra { color: var(--ink); }
+  .cols { display: flex; gap: 5px; justify-content: center; }
+  .colu { position: relative; flex-shrink: 0; }
+  .colu .carta, .colu .hueco { position: absolute; left: 0; }
+  /* Elegir a mano: se toca el origen y luego el destino */
+  .carta.elegida { outline: 3px solid var(--accent); outline-offset: 1px; z-index: 3; }
+  /* Verde algo más oscuro que --good para el aro de destino: --good puro daba 2,9:1 sobre el papel. */
+  .carta.destino, .hueco.destino {
+    outline: 3px solid color-mix(in srgb, var(--good) 70%, var(--ink)); outline-offset: 1px; border-color: var(--good);
+  }
+  .hueco.destino { border-style: solid; background: color-mix(in srgb, var(--good) 18%, transparent); }
+  .pista { text-align: center; font-family: var(--display); font-style: italic; font-size: 13.5px; font-weight: 400; min-height: 18px; padding: 2px 0 4px;
+    color: color-mix(in srgb, var(--sub) 85%, var(--ink)); }
+  .statusrow { display: flex; justify-content: center; gap: 18px; padding: 8px 0 0; font-size: 12.5px; font-weight: 600; color: var(--sub); }
+  .statusrow b { color: var(--ink); }
+  .tools { display: flex; gap: 8px; justify-content: center; padding: 10px 0 calc(14px + env(safe-area-inset-bottom)); }
+  .tool {
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600; font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); box-shadow: var(--shadow-sutil);
+  }
+  .tool:active { opacity: .6; }
+  .tool.brillo { background: var(--accent); color: var(--accent-ink); }
+  .tool:disabled { opacity: .4; cursor: default; }
+  .shakec { animation: shake .35s var(--ease); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const PALOS = ['♠', '♥', '♣', '♦'];
+const ROJO = (s) => s === 1 || s === 3;
+const RANGO = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+
+const S = {
+  robar: store.get('sol.robar', 1),
+  stock: [], waste: [], found: [[], [], [], []], tab: [],
+  hist: [], done: false,
+  sel: null,   // {tipo:'waste'} | {tipo:'found', s} | {tipo:'tab', c, k}
+};
+const clock = makeClock(() => $('#clock'));
+
+const REGLAS = `<p>El objetivo: subir las 52 cartas a las <b>cuatro bases</b> de arriba a la derecha, por palo y en orden, del as al rey.</p>
+<p>En las columnas se apilan cartas descendentes <b>alternando color</b> (un 8 rojo sobre un 9 negro). Una columna vacía solo acepta un rey. Toca una carta para <b>tomarla</b> y luego toca a dónde la quieres llevar: los destinos legales se marcan en verde. <b>Nada sube solo a la base</b>, así que puedes retener cartas bajas para armar la mesa — que es de lo que trata el juego.</p>
+<p>Toca el mazo para robar; cuando se agota, tocarlo recicla el descarte. Cuando la mano ya se puede terminar de corrido aparece <b>Terminar ✨</b>, y si de plano ya no hay jugada posible el juego lo dice y cierra la mano. Cada modo de robo lleva <b>su propio récord</b>.</p>`;
+
+/* ── Estado ──────────────────────────────────────────────────────────── */
+function baraja() {
+  const d = [];
+  for (let s = 0; s < 4; s++) for (let v = 1; v <= 13; v++) d.push({ v, s });
+  return shuffle(d);
+}
+
+function repartir() {
+  const d = baraja();
+  S.tab = Array.from({ length: 7 }, () => []);
+  for (let c = 0; c < 7; c++) {
+    for (let k = 0; k <= c; k++) {
+      S.tab[c].push({ ...d.pop(), up: k === c });
+    }
+  }
+  S.stock = d;
+  S.waste = [];
+  S.found = [[], [], [], []];
+  S.hist = [];
+  S.done = false;
+  S.sel = null;
+}
+
+const estadoActual = () => ({ stock: S.stock, waste: S.waste, found: S.found, tab: S.tab });
+/* Copia para explorar sin tocar la partida. Solo las cartas de la mesa se
+   modifican (al voltearse), así que solo esas se copian una por una: con
+   JSON.stringify la búsqueda tardaba hasta 200 ms. */
+const clonar = (st) => ({
+  stock: st.stock.slice(), waste: st.waste.slice(),
+  found: [st.found[0].slice(), st.found[1].slice(), st.found[2].slice(), st.found[3].slice()],
+  tab: st.tab.map((col) => col.map((cd) => ({ v: cd.v, s: cd.s, up: cd.up }))),
+});
+
+function snapshot() {
+  S.hist.push(JSON.stringify(estadoActual()));
+  if (S.hist.length > 300) S.hist.shift();
+}
+function undo() {
+  if (!S.hist.length) return;
+  const st = JSON.parse(S.hist.pop());
+  S.stock = st.stock; S.waste = st.waste; S.found = st.found; S.tab = st.tab;
+  S.sel = null;
+  if (S.done) { S.done = false; clock.resume(); }
+  paint();
+}
+
+/* ── Reglas ──────────────────────────────────────────────────────────── */
+const baseOk = (st, cd) => st.found[cd.s].length === cd.v - 1;
+function colOk(st, cd, c) {
+  const col = st.tab[c];
+  if (!col.length) return cd.v === 13;
+  const top = col[col.length - 1];
+  return top.up && ROJO(top.s) !== ROJO(cd.s) && top.v === cd.v + 1;
+}
+// Solo se puede levantar una escalera bien formada (descendente y alternando color).
+function runOk(col, k) {
+  for (let i = k; i < col.length; i++) {
+    if (!col[i].up) return false;
+    if (i > k && !(col[i - 1].v === col[i].v + 1 && ROJO(col[i - 1].s) !== ROJO(col[i].s))) return false;
+  }
+  return true;
+}
+function voltear(st) {
+  for (const col of st.tab) if (col.length && !col[col.length - 1].up) col[col.length - 1].up = true;
+}
+const totalBases = (st) => st.found.reduce((a, f) => a + f.length, 0);
+
+const puedeBase = (cd) => baseOk(estadoActual(), cd);
+const puedeCol = (cd, c) => colOk(estadoActual(), cd, c);
+const voltearPuntas = () => voltear(estadoActual());
+
+/* ── Motor: ¿se puede terminar? ¿queda alguna jugada? ─────────────────
+   Antes «Terminar ✨» aparecía con solo tener el mazo vacío y todo boca
+   arriba, y al pulsarlo podía no hacer nada. Ahora el botón solo sale si
+   la simulación de verdad sube las 52. */
+function autoFinPasos(st) {
+  const pasos = [];
+  let secas = 0;
+  for (;;) {
+    let movio = false;
+    for (let c = 0; c < 7; c++) {
+      const col = st.tab[c], cd = col[col.length - 1];
+      if (cd && cd.up && baseOk(st, cd)) { col.pop(); st.found[cd.s].push(cd); pasos.push({ t: 'tab', c }); movio = true; }
+    }
+    const w = st.waste[st.waste.length - 1];
+    if (w && baseOk(st, w)) { st.waste.pop(); st.found[w.s].push(w); pasos.push({ t: 'waste' }); movio = true; }
+    if (movio) { secas = 0; continue; }
+    const quedan = st.stock.length + st.waste.length;
+    if (!quedan || secas > quedan + 2) break;     // ya dimos la vuelta entera sin avanzar
+    if (!st.stock.length) { st.stock = st.waste.slice().reverse(); st.waste = []; pasos.push({ t: 'reciclar' }); }
+    else { for (let k = 0; k < S.robar && st.stock.length; k++) st.waste.push(st.stock.pop()); pasos.push({ t: 'robar' }); }
+    secas++;
+  }
+  return totalBases(st) === 52 ? pasos : null;
+}
+
+const puedeTerminar = () => autoFinPasos(clonar(estadoActual())) !== null;
+
+// Clave compacta del estado, para no repetir posiciones en la búsqueda.
+const cch = (cd) => String.fromCharCode(65 + cd.s * 13 + cd.v) + (cd.up === false ? '_' : '');
+const claveEstado = (st) =>
+  st.stock.map(cch).join('') + '|' + st.waste.map(cch).join('') + '|' +
+  st.found.map((f) => f.length).join(',') + '|' + st.tab.map((c) => c.map(cch).join('')).join('/');
+
+function sucesores(st) {
+  const out = [];
+  if (st.stock.length || st.waste.length) {                 // robar o reciclar
+    const n = clonar(st);
+    if (!n.stock.length) { n.stock = n.waste.slice().reverse(); n.waste = []; }
+    else for (let k = 0; k < S.robar && n.stock.length; k++) n.waste.push(n.stock.pop());
+    out.push(n);
+  }
+  const w = st.waste[st.waste.length - 1];
+  if (w) for (let c = 0; c < 7; c++) if (colOk(st, w, c)) {
+    const n = clonar(st); n.waste.pop(); n.tab[c].push({ v: w.v, s: w.s, up: true }); voltear(n); out.push(n);
+  }
+  for (let s = 0; s < 4; s++) {                             // bajar una carta de la base
+    const f = st.found[s], cd = f[f.length - 1];
+    if (!cd) continue;
+    for (let c = 0; c < 7; c++) if (colOk(st, cd, c)) {
+      const n = clonar(st); n.found[s].pop(); n.tab[c].push({ v: cd.v, s: cd.s, up: true }); voltear(n); out.push(n);
+    }
+  }
+  for (let a = 0; a < 7; a++) {
+    const col = st.tab[a];
+    for (let k = 0; k < col.length; k++) {
+      if (!col[k].up) continue;
+      if (!runOk(col, k)) break;
+      for (let c = 0; c < 7; c++) {
+        if (c === a) continue;
+        if (k === 0 && !st.tab[c].length) continue;         // columna entera a otra vacía: no cambia nada
+        if (!colOk(st, col[k], c)) continue;
+        const n = clonar(st);
+        for (const cd of n.tab[a].splice(k)) n.tab[c].push({ v: cd.v, s: cd.s, up: true });
+        voltear(n); out.push(n);
+      }
+    }
+  }
+  return out;
+}
+
+// ¿Alguna carta puede subir ya a una base?
+function subeAlgo(st) {
+  const w = st.waste[st.waste.length - 1];
+  if (w && baseOk(st, w)) return true;
+  for (const col of st.tab) {
+    const cd = col[col.length - 1];
+    if (cd && cd.up && baseOk(st, cd)) return true;
+  }
+  return false;
+}
+
+/* ¿Existe ALGUNA secuencia de jugadas legales que suba una carta más?
+   Si no, la mano está muerta de verdad: se prueban también las pasadas
+   completas del mazo. Ante la duda (búsqueda muy grande) decimos que sí,
+   para no cerrarle la partida a nadie por cansancio. */
+const TOPE_BUSQUEDA = 9000;
+function hayJugada() {
+  const inicio = clonar(estadoActual());
+  if (subeAlgo(inicio)) return true;
+  const base0 = totalBases(inicio);
+  const vistos = new Set([claveEstado(inicio)]);
+  const pila = [inicio];
+  let n = 0;
+  while (pila.length) {
+    const st = pila.pop();
+    for (const nx of sucesores(st)) {
+      if (++n > TOPE_BUSQUEDA) return true;
+      const k = claveEstado(nx);
+      if (vistos.has(k)) continue;
+      vistos.add(k);
+      if (totalBases(nx) > base0 || subeAlgo(nx)) return true;
+      pila.push(nx);
+    }
+  }
+  return false;
+}
+
+/* ── Interacción ─────────────────────────────────────────────────────── */
+function cartasSel() {
+  const s = S.sel;
+  if (!s) return null;
+  if (s.tipo === 'waste') return S.waste.length ? [S.waste[S.waste.length - 1]] : null;
+  if (s.tipo === 'found') { const f = S.found[s.s]; return f.length ? [f[f.length - 1]] : null; }
+  const col = S.tab[s.c];
+  return col.length > s.k ? col.slice(s.k) : null;
+}
+function quitarSel() {
+  const s = S.sel;
+  if (s.tipo === 'waste') S.waste.pop();
+  else if (s.tipo === 'found') S.found[s.s].pop();
+  else S.tab[s.c] = S.tab[s.c].slice(0, s.k);
+}
+
+function trasJugada() {
+  S.sel = null;
+  voltearPuntas();
+  vibrate(12);
+  paint();
+  if (checkWin()) return;
+  revisarAtorada();
+}
+
+function moverACol(c) {
+  const cards = cartasSel();
+  if (!cards || !colOk(estadoActual(), cards[0], c)) return false;
+  if (S.sel.tipo === 'tab' && S.sel.c === c) return false;
+  snapshot(); quitarSel();
+  for (const cd of cards) S.tab[c].push({ v: cd.v, s: cd.s, up: true });
+  return true;
+}
+
+function moverABase(s) {
+  const cards = cartasSel();
+  if (!cards || cards.length !== 1 || S.sel.tipo === 'found') return false;
+  const cd = cards[0];
+  if (cd.s !== s || !baseOk(estadoActual(), cd)) return false;
+  snapshot(); quitarSel();
+  S.found[s].push({ v: cd.v, s: cd.s });
+  return true;
+}
+
+function tapStock() {
+  if (S.done) return;
+  S.sel = null;
+  if (!S.stock.length && !S.waste.length) { paint(); return; }
+  snapshot();
+  if (!S.stock.length) { S.stock = S.waste.reverse(); S.waste = []; }
+  else for (let k = 0; k < S.robar && S.stock.length; k++) S.waste.push(S.stock.pop());
+  vibrate(8);
+  paint();
+  revisarAtorada();
+}
+
+function tapWaste() {
+  if (S.done) return;
+  if (S.sel && S.sel.tipo === 'waste') { S.sel = null; paint(); return; }
+  if (!S.waste.length) return;
+  S.sel = { tipo: 'waste' };
+  vibrate(6);
+  paint();
+}
+
+function tapBase(s) {
+  if (S.done) return;
+  if (S.sel && moverABase(s)) return trasJugada();
+  if (S.sel && S.sel.tipo === 'found' && S.sel.s === s) { S.sel = null; paint(); return; }
+  if (S.sel) { sacudir(`[data-base="${s}"]`); return; }
+  if (S.found[s].length) { S.sel = { tipo: 'found', s }; vibrate(6); paint(); }
+}
+
+function tapTab(c, k) {
+  if (S.done) return;
+  const col = S.tab[c];
+  // ¿es un destino para lo que traigo en la mano?
+  if (S.sel) {
+    const mismo = S.sel.tipo === 'tab' && S.sel.c === c && S.sel.k === k;
+    if (mismo) { S.sel = null; paint(); return; }
+    if (moverACol(c)) return trasJugada();
+    if (!col.length || k < 0) { sacudir(`[data-colwrap="${c}"]`); return; }
+  }
+  if (k < 0 || !col.length) return;
+  const carta = col[k];
+  if (!carta.up) {
+    if (k === col.length - 1) { snapshot(); carta.up = true; S.sel = null; paint(); revisarAtorada(); }
+    return;
+  }
+  if (!runOk(col, k)) { sacudir(`[data-colwrap="${c}"]`); return; }
+  S.sel = { tipo: 'tab', c, k };
+  vibrate(6);
+  paint();
+}
+
+function sacudir(sel) {
+  const el = $(sel);
+  if (el) { el.classList.remove('shakec'); void el.offsetWidth; el.classList.add('shakec'); }
+  vibrate(40);
+}
+
+async function autoFin() {
+  if (S.done) return;
+  const pasos = autoFinPasos(clonar(estadoActual()));
+  if (!pasos) return;
+  snapshot();
+  S.sel = null;
+  for (const p of pasos) {
+    if (p.t === 'tab') { const cd = S.tab[p.c].pop(); S.found[cd.s].push({ v: cd.v, s: cd.s }); }
+    else if (p.t === 'waste') { const cd = S.waste.pop(); S.found[cd.s].push({ v: cd.v, s: cd.s }); }
+    else if (p.t === 'robar') { for (let k = 0; k < S.robar && S.stock.length; k++) S.waste.push(S.stock.pop()); }
+    else { S.stock = S.waste.reverse(); S.waste = []; }
+    paint();
+    await delay(p.t === 'tab' || p.t === 'waste' ? 70 : 30);
+  }
+  checkWin();
+}
+
+/* ── Pintado ─────────────────────────────────────────────────────────── */
+let CW = 50, CH = 73;
+
+function cartaHTML(cd, extra, clases) {
+  const cls = clases ? ' ' + clases : '';
+  if (!cd.up) return `<div class="carta abajo${cls}" ${extra || ''} style="width:${CW}px;height:${CH}px;"></div>`;
+  const color = ROJO(cd.s) ? 'roja' : 'negra';
+  return `<div class="carta ${color}${cls}" ${extra || ''} style="width:${CW}px;height:${CH}px;">
+    <span class="esq" style="font-size:${Math.round(CW * .38)}px;">${RANGO[cd.v]}<small>${PALOS[cd.s]}</small></span>
+    <span class="pip" style="font-size:${Math.round(CW * .46)}px;">${PALOS[cd.s]}</span>
+  </div>`;
+}
+
+function renderPlay() {
+  // Las cartas se veían en 48×67 con media pantalla libre: ahora ocupan
+  // todo el ancho disponible y son más altas.
+  CW = Math.max(44, Math.min(68, Math.floor((Math.min(innerWidth, 480) - 10 - 6 * 5) / 7)));
+  CH = Math.round(CW * 1.46);
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Solitario', `<span class="chip">Robar ${S.robar}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="scroll">
+      <div class="mesa">
+        <div class="fila-alta" id="alta"></div>
+        <div class="pista" id="pista"></div>
+        <div class="cols" id="cols"></div>
+      </div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-undo">Deshacer</button>
+      <button class="tool brillo" id="t-fin" style="display:none;">Terminar ✨</button>
+      <button class="tool" id="t-nueva">Nueva</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#t-undo').onclick = undo;
+  $('#t-fin').onclick = autoFin;
+  $('#t-nueva').onclick = () => confirmarNueva();
+  $('#t-salir').onclick = () => { clock.stop(); renderSetup(); };
+  paint();
+}
+
+function paint() {
+  if (!$('#alta')) return;  // el jugador ya se fue de la pantalla
+  const sel = cartasSel();
+  const st = estadoActual();
+  const destCols = new Set(), destBases = new Set();
+  if (sel) {
+    for (let c = 0; c < 7; c++) {
+      if (S.sel.tipo === 'tab' && S.sel.c === c) continue;
+      if (colOk(st, sel[0], c)) destCols.add(c);
+    }
+    if (sel.length === 1 && S.sel.tipo !== 'found' && baseOk(st, sel[0])) destBases.add(sel[0].s);
+  }
+
+  // fila alta: mazo · descarte · (hueco) · 4 bases
+  const alta = [];
+  alta.push(S.stock.length
+    ? `<div class="carta abajo" id="stock" style="width:${CW}px;height:${CH}px;"></div>`
+    : `<div class="hueco" id="stock" style="width:${CW}px;height:${CH}px;">↻</div>`);
+  const w = S.waste[S.waste.length - 1];
+  alta.push(w
+    ? cartaHTML({ ...w, up: true }, 'id="waste"', S.sel && S.sel.tipo === 'waste' ? 'elegida' : '')
+    : `<div class="hueco" id="waste" style="width:${CW}px;height:${CH}px;"></div>`);
+  alta.push(`<div style="width:${Math.floor(CW * .4)}px;"></div>`);
+  for (let s = 0; s < 4; s++) {
+    const f = S.found[s];
+    const marca = (destBases.has(s) ? 'destino' : '') + (S.sel && S.sel.tipo === 'found' && S.sel.s === s ? ' elegida' : '');
+    alta.push(f.length
+      ? cartaHTML({ ...f[f.length - 1], up: true }, `data-base="${s}"`, marca)
+      : `<div class="hueco ${marca}" data-base="${s}" style="width:${CW}px;height:${CH}px;">${PALOS[s]}</div>`);
+  }
+  $('#alta').innerHTML = alta.join('');
+  $('#stock').onclick = tapStock;
+  $('#waste').onclick = tapWaste;
+  $('#alta').onclick = (e) => {
+    const el = e.target.closest('[data-base]');
+    if (el) tapBase(Number(el.dataset.base));
+  };
+
+  // columnas
+  // Hay alto de sobra: las cartas boca arriba se abren más para leerse mejor.
+  const offUp = Math.round(CH * .42), offDown = Math.round(CH * .15);
+  const colsHTML = S.tab.map((col, c) => {
+    let top = 0;
+    const cartas = col.map((cd, k) => {
+      const elegida = S.sel && S.sel.tipo === 'tab' && S.sel.c === c && k >= S.sel.k;
+      const marca = (elegida ? 'elegida' : '') + (destCols.has(c) && k === col.length - 1 ? ' destino' : '');
+      const html = `<div style="position:absolute;top:${top}px;left:0;" data-col="${c}" data-k="${k}">${cartaHTML(cd, '', marca)}</div>`;
+      top += cd.up ? offUp : offDown;
+      return html;
+    });
+    const alto = (col.length ? top - (col[col.length - 1].up ? offUp : offDown) : 0) + CH;
+    return `<div class="colu" data-colwrap="${c}" style="width:${CW}px;height:${Math.max(alto, CH)}px;">
+      ${col.length ? cartas.join('') : `<div class="hueco ${destCols.has(c) ? 'destino' : ''}" data-col="${c}" data-k="-1" style="width:${CW}px;height:${CH}px;position:absolute;top:0;"></div>`}
+    </div>`;
+  }).join('');
+  $('#cols').innerHTML = colsHTML;
+  $('#cols').onclick = (e) => {
+    const el = e.target.closest('[data-col]');
+    if (!el) return;
+    tapTab(Number(el.dataset.col), Number(el.dataset.k));
+  };
+  const fin = !S.done && puedeTerminar();
+  $('#t-fin').style.display = fin ? '' : 'none';
+  $('#t-undo').disabled = !S.hist.length;
+  $('#pista').textContent = fin ? 'Ya se puede terminar de corrido: dale a Terminar ✨'
+    : sel ? 'Ahora toca a dónde la llevas (verde) o vuelve a tocarla para soltarla'
+    : '';
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+/* Cada modo de robo lleva su propio récord: si no, el tiempo del fácil
+   (Robar 1) aplastaba para siempre al de Robar 3. */
+const winsDe = (r) => store.get('sol.wins.' + r, 0);
+const bestDe = (r) => store.get('sol.best.' + r, null);
+
+function anotaGanada(r, secs) {
+  store.set('sol.wins.' + r, winsDe(r) + 1);
+  const best = bestDe(r);
+  const record = best === null || secs < best;
+  if (record) store.set('sol.best.' + r, secs);
+  const partes = [1, 3].filter((k) => bestDe(k) !== null).map((k) => `Robar ${k}: ${fmtTime(bestDe(k))}`);
+  store.set('sol.hub', partes.join(' · '));
+  return record;
+}
+
+function renderSetup() {
+  clock.stop();
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Solitario', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Modo de robo</div></div>
+        <div class="seg" id="seg-r">
+          <button data-v="1" class="${S.robar === 1 ? 'sel' : ''}">Robar 1</button>
+          <button data-v="3" class="${S.robar === 3 ? 'sel' : ''}">Robar 3</button>
+        </div>
+        <div class="row-hint" style="padding: 10px 2px 6px;">Robar 3 es el clásico difícil. Cada modo lleva su propio récord.</div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejor tiempo, por modo de robo</div>
+      <div class="bests" id="bests"></div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Repartir</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const pintaBests = () => {
+    $('#bests').innerHTML = [1, 3].map((r) => {
+      const b = bestDe(r);
+      return `<div class="b"><div class="bn">${b === null ? '—' : fmtTime(b)}</div>
+        <div class="bl">Robar ${r} · ${winsDe(r)} ganado${winsDe(r) === 1 ? '' : 's'}</div></div>`;
+    }).join('');
+  };
+  pintaBests();
+  bindSeg('seg-r', (v) => { S.robar = Number(v); store.set('sol.robar', S.robar); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  repartir();
+  renderPlay();
+  clock.start();
+}
+
+function confirmarNueva() {
+  openModal(`
+    <h3>¿Repartir de nuevo?</h3>
+    <p>Se pierde la partida en curso.</p>
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-si">Sí, repartir</button>
+      <button class="btn btn-soft" id="m-no">Seguir jugando</button>
+    </div>
+  `, closeModal);
+  $('#m-si').onclick = () => { closeModal(); startGame(); };
+  $('#m-no').onclick = closeModal;
+}
+
+function checkWin() {
+  if (!S.found.every((f) => f.length === 13)) return false;
+  S.done = true;
+  clock.stop();
+  const secs = clock.seconds;
+  const isRecord = anotaGanada(S.robar, secs);
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡Solitario ganado!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${winsDe(S.robar)}</div><div class="l">ganados con robar ${S.robar}</div></div>
+    </div>
+    ${isRecord ? `<p style="text-align:center;"><span class="record">🏆 ¡Mejor tiempo con robar ${S.robar}!</span></p>` : ''}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otra partida</button>
+      <button class="btn btn-ghost" id="m-out">Salir</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  return true;
+}
+
+/* Antes la mano se podía atorar sin que el juego dijera nada: seguía el
+   reloj y hasta ofrecía «Terminar ✨». Ahora se avisa y se cierra. */
+function revisarAtorada() {
+  if (S.done || puedeTerminar() || hayJugada()) return;
+  S.done = true;
+  clock.stop();
+  const subidas = S.found.reduce((a, f) => a + f.length, 0);
+  const tapadas = S.tab.reduce((a, col) => a + col.filter((cd) => !cd.up).length, 0);
+  vibrate([60, 40, 60]);
+  openModal(`
+    <h3>Ya no hay jugadas</h3>
+    <p style="text-align:center;">Ninguna carta puede subir a las bases, ni moviendo columnas ni dando la vuelta entera al mazo. Esta mano se atoró — no todas se pueden ganar.</p>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${subidas}</div><div class="l">en las bases</div></div>
+      <div class="stat"><div class="n">${tapadas}</div><div class="l">sin voltear</div></div>
+      <div class="stat"><div class="n">${fmtTime(clock.seconds)}</div><div class="l">tiempo</div></div>
+    </div>
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Repartir otra</button>
+      ${S.hist.length ? '<button class="btn btn-soft" id="m-undo">Deshacer y seguir viendo</button>' : ''}
+      <button class="btn btn-ghost" id="m-out">Salir</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  if ($('#m-undo')) $('#m-undo').onclick = () => { closeModal(); undo(); };
+  $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>

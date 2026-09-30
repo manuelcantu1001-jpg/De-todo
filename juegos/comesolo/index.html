@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Come solo (senku): salta fichas para comerlas y deja las menos posibles." />
+<title>Come solo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E◉%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* margin-top auto reparte el espacio libre con los mandos: tablero centrado. */
+  .cwrap { display: flex; justify-content: center; padding: 20px 14px 0; margin-top: auto; }
+  .cgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; width: min(92vw, 380px); }
+  .cc { aspect-ratio: 1; border: none; border-radius: 999px; padding: 0; background: transparent; }
+  /* El hoyo se recorta con un filete, no con la sombra hundida de la piel vieja:
+     --soft sobre el crema da 1,16:1 y sin borde no se distinguía del fondo. */
+  .cc.hoyo { background: var(--soft); border: 1px solid var(--linea-fuerte); box-shadow: none; cursor: pointer; }
+  .cc.ficha { background: var(--second); box-shadow: var(--shadow); cursor: pointer; border: 1px solid var(--linea-fuerte); }
+  .cc.ficha.sel { background: var(--accent); transform: scale(1.08); }
+  .cc.destino { outline: 3px dashed var(--accent); outline-offset: -3px; }
+  /* Etiquetas técnicas en mono (como .dato) y números en sans a peso medio. */
+  .marcador { display: flex; justify-content: center; align-items: baseline; gap: 20px; padding-top: 16px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--bg-sub); }
+  .marcador b { color: var(--bg-ink); font-size: 16px; font-weight: 500; font-family: var(--font); letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    box-shadow: var(--shadow-sutil); }
+  .tool:active { opacity: .6; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* Cada tablero tiene su propia meta y no son la misma.
+   En el Inglés (32 fichas) sí se puede quedar una sola, y hasta en el centro.
+   En el Europeo (36) es IMPOSIBLE: el invariante de la «regla de tres» —los
+   dos coloreados (fila+col)%3 y (fila−col)%3 cambian de paridad en cada
+   salto— no admite ningún final de una ficha. El mínimo real ahí es 2,
+   comprobado además con búsqueda exhaustiva y 200 000 partidas al azar. */
+const TABLEROS = {
+  ingles:  { nombre: 'Inglés',  extra: [], total: 32, meta: 1 },
+  europeo: { nombre: 'Europeo', extra: [[1, 1], [1, 5], [5, 1], [5, 5]], total: 36, meta: 2 },
+};
+const MAX_UNDO = 3;
+
+const S = {
+  tablero: store.get('comesolo.tablero', 'ingles'),
+  celda: null, valida: null, sel: -1, hist: [],
+  jugando: false, movs: 0, undos: 0,
+};
+const clock = makeClock(() => $('#clock'));
+
+const REGLAS = `<p>Una ficha <b>salta por encima de otra</b> (en horizontal o vertical) hasta un hoyo vacío, y la saltada <b>se come</b>. Toca una ficha y luego el hoyo punteado a donde quieres saltar.</p>
+<p>El juego termina cuando ya nadie puede saltar, y cada tablero tiene <b>su propia meta</b>: en el <b>Inglés</b> se puede dejar <b>una sola</b> ficha (y de lujo, en el centro); en el <b>Europeo</b> dejar una es <b>matemáticamente imposible</b> — el mínimo alcanzable es <b>2</b>, y llegar ahí ya es perfecto.</p>
+<p>Tu marca es la menor cantidad de fichas que dejas; a igual cantidad, desempata el reloj. El <b>deshacer</b> está limitado a ${MAX_UNDO} por partida, para que la marca signifique algo.</p>`;
+
+const I = (r, c) => r * 7 + c;
+
+function esValida(r, c, tab) {
+  if (r < 0 || r > 6 || c < 0 || c > 6) return false;
+  if ((r >= 2 && r <= 4) || (c >= 2 && c <= 4)) return true;
+  return TABLEROS[tab].extra.some(([er, ec]) => er === r && ec === c);
+}
+
+function armarTablero() {
+  S.valida = new Array(49).fill(false);
+  S.celda = new Array(49).fill(0); // 0 fuera/vacío · 1 ficha
+  for (let r = 0; r < 7; r++) for (let c = 0; c < 7; c++) {
+    if (esValida(r, c, S.tablero)) { S.valida[I(r, c)] = true; S.celda[I(r, c)] = 1; }
+  }
+  S.celda[I(3, 3)] = 0;
+  S.sel = -1; S.hist = []; S.jugando = true; S.movs = 0; S.undos = 0;
+  clock.start();
+}
+
+function saltosDe(i) {
+  if (S.celda[i] !== 1) return [];
+  const r = Math.floor(i / 7), c = i % 7, out = [];
+  for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+    const m = I(r + dr, c + dc), d = I(r + 2 * dr, c + 2 * dc);
+    if (r + 2 * dr < 0 || r + 2 * dr > 6 || c + 2 * dc < 0 || c + 2 * dc > 6) continue;
+    if (S.valida[d] && S.celda[m] === 1 && S.celda[d] === 0 && S.valida[m]) out.push({ m, d });
+  }
+  return out;
+}
+
+const quedanSaltos = () => S.celda.some((v, i) => v === 1 && saltosDe(i).length);
+const fichas = () => S.celda.filter((v) => v === 1).length;
+
+function renderSetup() {
+  clock.stop();
+  const bests = ['ingles', 'europeo'].map((t) => {
+    const b = store.get('comesolo.best.' + t, null);
+    const n = b && typeof b === 'object' ? b.n : b;   // marcas viejas eran un número
+    return `<div class="b"><div class="bn">${n || '—'}</div><div class="bl">${TABLEROS[t].nombre} · mínimo ${TABLEROS[t].meta}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Come solo', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Tablero</div></div>
+        <div class="seg" id="seg-t">
+          <button data-v="ingles" class="${S.tablero === 'ingles' ? 'sel' : ''}">Inglés · 32</button>
+          <button data-v="europeo" class="${S.tablero === 'europeo' ? 'sel' : ''}">Europeo · 36</button>
+        </div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Menos fichas dejadas</div>
+      <div class="bests">${bests}</div>
+      <div class="row-hint" id="meta-hint" style="text-align:center;"></div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => {
+    $('#meta-hint').innerHTML = S.tablero === 'ingles'
+      ? 'Inglés: se puede dejar <b>1 ficha</b>, y con suerte en el centro.'
+      : 'Europeo: dejar 1 es <b>imposible</b> (lo prueba la regla de tres). Perfecto aquí son <b>2</b>.';
+  };
+  bindSeg('seg-t', (v) => { S.tablero = v; store.set('comesolo.tablero', v); hint(); });
+  hint();
+  $('#new').onclick = () => { armarTablero(); renderPlay(); };
+  bindHowto(REGLAS);
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Come solo', `<span class="chip">${TABLEROS[S.tablero].nombre}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="marcador"><span>Quedan <b id="nf"></b></span><span>Meta <b>${TABLEROS[S.tablero].meta}</b></span><span>Saltos <b id="nc">0</b></span></div>
+    <div class="cwrap">
+      <div class="cgrid" id="cgrid">
+        ${S.celda.map((_, i) => `<button class="cc" data-i="${i}"></button>`).join('')}
+      </div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-undo">Deshacer</button>
+      <button class="tool" id="t-otra">Reiniciar</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#cgrid').onclick = (e) => {
+    const b = e.target.closest('.cc');
+    if (b) tap(Number(b.dataset.i));
+  };
+  $('#t-undo').onclick = deshacer;
+  $('#t-otra').onclick = () => { armarTablero(); paint(); };
+  $('#t-salir').onclick = () => { S.jugando = false; clock.stop(); renderSetup(); };
+  paint();
+}
+
+const undosLibres = () => MAX_UNDO - S.undos;
+
+function paint() {
+  const destinos = S.sel >= 0 ? saltosDe(S.sel).map((s) => s.d) : [];
+  $$('.cc').forEach((el) => {
+    const i = Number(el.dataset.i);
+    if (!S.valida[i]) { el.className = 'cc'; return; }
+    el.className = 'cc ' + (S.celda[i] === 1 ? 'ficha' : 'hoyo') +
+      (i === S.sel ? ' sel' : '') + (destinos.includes(i) ? ' destino' : '');
+  });
+  $('#nf').textContent = fichas();
+  $('#nc').textContent = S.movs;
+  const u = $('#t-undo');
+  if (u) {
+    u.textContent = `Deshacer (${undosLibres()})`;
+    u.disabled = !S.hist.length || undosLibres() <= 0;
+  }
+}
+
+function tap(i) {
+  if (!S.jugando || !S.valida[i]) return;
+  if (S.celda[i] === 1) {
+    S.sel = S.sel === i ? -1 : i;
+    vibrate(6);
+    paint();
+    return;
+  }
+  if (S.sel < 0) return;
+  const salto = saltosDe(S.sel).find((s) => s.d === i);
+  if (!salto) return;
+  S.hist.push({ celda: S.celda.slice(), movs: S.movs });
+  S.celda[S.sel] = 0; S.celda[salto.m] = 0; S.celda[i] = 1;
+  S.sel = -1; S.movs++;
+  vibrate(10);
+  paint();
+  if (!quedanSaltos()) terminar();
+}
+
+// Deshacer limitado: con deshacer infinito la marca se forzaba a mano.
+function deshacer() {
+  if (!S.hist.length || undosLibres() <= 0) return;
+  const st = S.hist.pop();
+  S.celda = st.celda; S.movs = st.movs;
+  S.undos++;
+  S.sel = -1; S.jugando = true;
+  clock.resume();
+  paint();
+}
+
+function terminar() {
+  S.jugando = false;
+  clock.stop();
+  const secs = clock.seconds;
+  const n = fichas();
+  const T = TABLEROS[S.tablero];
+  const centro = S.celda[I(3, 3)] === 1;
+  const prev = store.get('comesolo.best.' + S.tablero, null);
+  const prevN = prev && typeof prev === 'object' ? prev.n : prev;   // marcas viejas eran un número
+  const isRecord = !prevN || n < prevN || (n === prevN && secs < (prev.secs ?? Infinity));
+  if (isRecord) {
+    store.set('comesolo.best.' + S.tablero, { n, secs, movs: S.movs });
+    store.set('come.hub', `${T.nombre}: ${n} ficha${n === 1 ? '' : 's'}`);
+  }
+  // «Perfecto» es la meta REAL de este tablero, no un 1 que aquí no existe.
+  const perfecto = n <= T.meta;
+  let titulo;
+  if (perfecto) titulo = S.tablero === 'ingles'
+    ? (centro ? '¡Perfecto y al centro!' : '¡Perfecto: una sola!')
+    : '¡Perfecto: el mínimo posible!';
+  else titulo = isRecord ? '¡Récord!' : 'Ya no hay saltos';
+  const nota = perfecto
+    ? (S.tablero === 'europeo' ? 'En el Europeo no se puede bajar de 2: acabas de tocar el techo.' : '')
+    : `Te faltaron <b>${n - T.meta}</b> para el mínimo de este tablero (<b>${T.meta}</b>).`;
+  if (perfecto || isRecord) confetti();
+  vibrate(perfecto ? [30, 60, 30, 60, 30] : 20);
+  setTimeout(() => {
+    openModal(`
+      <h3>${titulo}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${n}</div><div class="l">quedaron</div></div>
+        <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+        <div class="stat"><div class="n">${isRecord ? n : prevN}</div><div class="l">tu mejor</div></div>
+      </div>
+      ${nota ? `<p style="text-align:center;">${nota}</p>` : ''}
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra vez</button>
+        ${undosLibres() > 0 && S.hist.length ? `<button class="btn btn-ghost" id="m-undo">Deshacer último salto (${undosLibres()})</button>` : ''}
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); armarTablero(); paint(); };
+    if ($('#m-undo')) $('#m-undo').onclick = () => { closeModal(); deshacer(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 600);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

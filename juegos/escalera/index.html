@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Ve de una palabra a otra cambiando una sola letra por paso. Cada escalón tiene que ser una palabra." />
+<title>Escalera de palabras</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EE%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Todo con prefijo esc- : la barra compartida ya se rompió dos veces por
+     nombres genéricos (.seg de la naval, .meta del ludo). */
+  .esc-zona { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+  .esc-marca { display: flex; justify-content: center; gap: 20px; padding: 4px 16px 2px; }
+  .esc-marca span {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--sub); display: flex; align-items: baseline; gap: 6px;
+  }
+  .esc-marca b {
+    font-family: var(--font); font-size: 16px; font-weight: 500; color: var(--ink);
+    letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums;
+  }
+
+  /* La escalera: salida clavada arriba, meta clavada abajo y los escalones
+     desplazándose en medio. El hueco entre tu paso y la meta se cierra solo. */
+  .esc-esc { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 2px 16px 0; }
+  .esc-fija { flex: none; }
+  .esc-medio {
+    position: relative; flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    display: flex; flex-direction: column; gap: 5px; padding: 6px 0;
+    /* En retos cortos sobra alto entre la salida y la meta: se reparte entre los
+       peldaños en vez de dejar un claro al final (solo aquí, no en el inicio). */
+    justify-content: space-evenly;
+    /* hilo de la escalera: se ve solo por los huecos entre escalones */
+    background: linear-gradient(var(--linea), var(--linea)) center top / 1px 100% no-repeat;
+  }
+
+  .esc-rot {
+    font-family: var(--mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--sub); text-align: center; padding: 2px 0 3px;
+  }
+  .esc-rot.alta { color: var(--accent-texto); padding: 4px 0 0; }
+
+  .esc-fila { display: flex; gap: 5px; justify-content: center; flex: none; }
+  .esc-let {
+    width: var(--esc-t); height: var(--esc-t); border-radius: 10px;
+    border: var(--trazo) solid var(--linea-fuerte); background: var(--card); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--title-font); font-size: calc(var(--esc-t) * .46); font-weight: 500;
+    text-transform: uppercase; user-select: none; padding: 0;
+  }
+  /* Extremos: el bloque beige los agrupa sin dibujar caja. */
+  .esc-fila.extremo .esc-let { background: var(--panel); border-color: transparent; }
+  /* La meta lleva el filete terracota, pero la letra va en tinta: el terracota
+     sobre el rosa pálido se quedaba en 4,0:1 y estas letras no son texto grande. */
+  .esc-fila.destino .esc-let { background: var(--accent-soft); border: 1.5px solid var(--accent-texto); color: var(--ink); }
+  /* La letra que cambiaste en ese escalón. */
+  .esc-let.nueva { background: var(--accent-texto); border-color: transparent; color: var(--accent-ink); }
+  /* Escalones que todavía faltan para el mínimo: dibujan cuánto queda por subir
+     en vez de dejar un hueco vacío en medio de la pantalla. */
+  .esc-fila.hueca .esc-let { background: transparent; border-style: dashed; border-color: var(--linea); }
+
+  /* Tu paso: va en su sitio de la escalera (después de lo andado y antes de lo
+     que falta) y con casillas grandes, que son botones. */
+  .esc-borrador { --esc-t: 44px; flex: none; padding: 3px 0; }
+  .esc-borrador .esc-let { cursor: pointer; border-width: 1.5px; }
+  .esc-borrador .esc-let.sel { border-color: var(--accent-texto); background: var(--accent-soft); }
+  .esc-borrador .esc-let.cambia { background: var(--accent-texto); border-color: transparent; color: var(--accent-ink); }
+  .esc-borrador .esc-let.cambia.sel { box-shadow: none; outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  .esc-tools {
+    margin: 0 12px calc(10px + env(safe-area-inset-bottom));
+    display: flex; gap: 7px; justify-content: center;
+  }
+  .esc-tools button {
+    flex: 1 1 0; min-width: 0; border: var(--trazo) solid var(--linea-fuerte); cursor: pointer;
+    font-family: var(--title-font); font-weight: 500; font-size: 12.5px;
+    padding: 11px 4px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+  }
+  .esc-tools button:active { opacity: .6; }
+  .esc-tools button:disabled { color: var(--faint); border-color: var(--linea); cursor: default; }
+
+  .esc-pie { font-family: var(--display); font-style: italic; font-size: 13px; color: var(--sub); text-align: center; padding: 2px 16px 0; }
+  /* «Poner» a 12,5px se salía de su tecla en pantallas de 375: la fila lleva
+     nueve teclas y a esa le tocan 36px. */
+  .kbd button.esc-ok { font-size: 11px; letter-spacing: -.01em; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script src="../../banco-es.js"></script>
+<script src="../../vocab-es.js"></script>
+<script>
+'use strict';
+
+/* ══ NÚCLEO DE LA ESCALERA (grafo + generador) ══════════════════════════
+   Esta parte no toca el DOM: se puede correr aparte para medirla. */
+
+/* Nombres propios que se colaron en el banco y en el vocabulario. No son
+   palabras del español, así que ni se proponen ni se aceptan como paso. */
+const NOMBRES = new Set(['carla', 'garcia', 'tamara', 'marcia', 'paula', 'lola', 'rita', 'victor']);
+
+/* lo/hi = largo del camino mínimo (pasos, o sea cambios de letra) que se
+   admite en ese nivel. tope = hasta qué punto del banco curado se buscan los
+   extremos: cuanto más bajo, más conocidas son las dos palabras. */
+const CFG = {
+  facil:   { largos: [4],    lo: 3, hi: 4,  tope: 3000 },
+  normal:  { largos: [4, 5], lo: 5, hi: 6,  tope: 4000 },
+  dificil: { largos: [5],    lo: 7, hi: 8,  tope: 5000 },
+  experto: { largos: [5, 6], lo: 9, hi: 13, tope: 6000 },
+};
+const PINTA = {
+  facil:   '4 letras · camino de 3 a 4 pasos',
+  normal:  '4 o 5 letras · camino de 5 a 6 pasos',
+  dificil: '5 letras · camino de 7 a 8 pasos',
+  experto: '5 o 6 letras · camino de 9 a 13 pasos',
+};
+
+const GRAFOS = new Map();
+
+/* Grafo de las palabras de «len» letras: vecinas = difieren en una sola letra.
+   Nodos = banco curado + vocabulario amplio (el mismo conjunto que el juego
+   acepta como paso). Las aristas salen por cubos de patrón con comodín:
+   O(N·len) en vez de comparar todas contra todas. */
+function grafo(len) {
+  if (GRAFOS.has(len)) return GRAFOS.get(len);
+  const pal = [], idx = new Map(), rank = [];
+  const meter = (n, r) => {
+    if (!n || n.length !== len || NOMBRES.has(n) || idx.has(n)) return;
+    idx.set(n, pal.length); pal.push(n); rank.push(r);
+  };
+  for (const e of Banco.list) meter(e.n, e.rank);
+  for (const e of Vocab.list) meter(e.n, 1e6 + e.rank);
+  const cubos = new Map();
+  for (let i = 0; i < pal.length; i++) {
+    const w = pal[i];
+    for (let k = 0; k < len; k++) {
+      const p = w.slice(0, k) + '_' + w.slice(k + 1);
+      let l = cubos.get(p); if (!l) cubos.set(p, l = []); l.push(i);
+    }
+  }
+  const ady = []; for (let i = 0; i < pal.length; i++) ady.push([]);
+  for (const l of cubos.values()) {
+    for (let a = 0; a < l.length; a++) for (let b = a + 1; b < l.length; b++) { ady[l[a]].push(l[b]); ady[l[b]].push(l[a]); }
+  }
+  const g = { len, pal, idx, ady, rank };
+  GRAFOS.set(len, g);
+  return g;
+}
+
+/* Distancias en pasos desde «s» a todo el grafo (búsqueda en anchura). */
+function anchura(g, s) {
+  const d = new Int32Array(g.pal.length).fill(-1);
+  d[s] = 0;
+  const q = new Int32Array(g.pal.length);
+  q[0] = s; let fin = 1;
+  for (let h = 0; h < fin; h++) {
+    const x = q[h], dx = d[x] + 1, ve = g.ady[x];
+    for (let i = 0; i < ve.length; i++) { const y = ve[i]; if (d[y] < 0) { d[y] = dx; q[fin++] = y; } }
+  }
+  return d;
+}
+
+const SEM = new Map();
+function semillas(g, tope) {
+  const k = g.len + ':' + tope;
+  if (SEM.has(k)) return SEM.get(k);
+  const out = [];
+  for (let i = 0; i < g.pal.length; i++) if (g.rank[i] < tope) out.push(i);
+  SEM.set(k, out);
+  return out;
+}
+
+/* Devuelve un reto con camino GARANTIZADO: la meta se elige entre las palabras
+   a las que la búsqueda en anchura llegó desde la salida, así que la distancia
+   que se anuncia es un camino real y además el más corto que existe. */
+function generar(diff, rnd) {
+  const azar = rnd || randInt;
+  const c = CFG[diff];
+  let respaldo = null;
+  for (let intento = 0; intento < 300; intento++) {
+    const len = c.largos[azar(c.largos.length)];
+    const g = grafo(len);
+    const sem = semillas(g, c.tope);
+    if (!sem.length) continue;
+    const s = sem[azar(sem.length)];
+    const d = anchura(g, s);
+    const cand = [], lejos = [];
+    for (let i = 0; i < sem.length; i++) {
+      const t = sem[i], dt = d[t];
+      if (dt >= c.lo && dt <= c.hi) cand.push(t);
+      else if (dt >= c.lo) lejos.push(t);
+    }
+    if (cand.length) {
+      const t = cand[azar(cand.length)];
+      return { g, ini: s, fin: t, min: d[t], distIni: d };
+    }
+    if (!respaldo && lejos.length) {
+      const t = lejos[azar(lejos.length)];
+      respaldo = { g, ini: s, fin: t, min: d[t], distIni: d };
+    }
+  }
+  return respaldo;
+}
+/* ══ FIN NÚCLEO ═══════════════════════════════════════════════════════ */
+
+const NIV = ['facil', 'normal', 'dificil', 'experto'];
+
+const S = {
+  diff: store.get('esc.diff', 'facil'),
+  g: null, ini: -1, fin: -1, min: 0,
+  distMeta: null,        // pasos que faltan desde cada palabra hasta la meta
+  pasos: [],             // índices de las palabras puestas, sin la salida
+  pistas: 0,
+  draft: [], cur: 0,
+  jugando: false,
+  tMsg: null, tFin: null,
+};
+
+const REGLAS = `<p>Ve de la palabra de <b>arriba</b> a la de <b>abajo</b> cambiando <b>una sola letra</b> en cada paso. Ejemplo: gato → gata → rata.</p>
+<p>Cada escalón tiene que ser una palabra de la lista del juego: el mismo vocabulario con el que se arma el reto, así que lo que se te exige y lo que se te acepta son lo mismo. Sin tildes; la <b>ñ</b> sí cuenta.</p>
+<p>Toca una casilla de <i>tu paso</i> para elegir dónde escribir, teclea la letra y pulsa <b>Poner</b>. <b>Deshacer</b> quita el último escalón.</p>
+<p>Arriba ves el <b>mínimo</b>: los pasos del camino más corto que existe, calculado por el juego. La <b>pista</b> te pone el siguiente paso de un camino mínimo, pero ese reto ya no cuenta como clavado.</p>
+<p>Tu marca son las <b>escaleras clavadas</b>: las que terminas justo en el mínimo y sin pista.</p>`;
+
+/* ── Pantalla de inicio ──────────────────────────────────────────────── */
+function renderSetup() {
+  pararTemporizadores();
+  S.jugando = false;
+  const bests = NIV.map((d) => {
+    const c = store.get('esc.best.' + d, 0);
+    const t = store.get('esc.tot.' + d, 0);
+    return `<div class="b"><div class="bn">${c || '—'}</div><div class="bl">${DIFF_LABEL[d]}${t ? ' · ' + t : ''}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Escalera de palabras', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div><div class="row-hint" id="d-hint"></div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Escaleras clavadas · retos resueltos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => { if ($('#d-hint')) $('#d-hint').textContent = PINTA[S.diff]; };
+  hint();
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('esc.diff', v); hint(); });
+  $('#new').onclick = empezar;
+  bindHowto(REGLAS);
+}
+
+function pararTemporizadores() {
+  if (S.tMsg) { clearTimeout(S.tMsg); S.tMsg = null; }
+  if (S.tFin) { clearTimeout(S.tFin); S.tFin = null; }
+}
+
+/* ── Arranque de un reto ─────────────────────────────────────────────── */
+function empezar() {
+  pararTemporizadores();
+  let p = generar(S.diff);
+  if (!p) p = generar('facil');
+  if (!p) { renderSetup(); return; }
+  S.g = p.g; S.ini = p.ini; S.fin = p.fin; S.min = p.min;
+  S.distMeta = anchura(p.g, p.fin);
+  S.pasos = [];
+  S.pistas = 0;
+  S.jugando = true;
+  reiniciaBorrador();
+  renderPlay();
+}
+
+const actualIdx = () => (S.pasos.length ? S.pasos[S.pasos.length - 1] : S.ini);
+const actual = () => S.g.pal[actualIdx()];
+
+function reiniciaBorrador() {
+  S.draft = actual().split('');
+  S.cur = 0;
+}
+
+/* ── Pantalla de juego ───────────────────────────────────────────────── */
+function renderPlay() {
+  const tam = S.min <= 4 ? 40 : S.min <= 6 ? 36 : S.min <= 8 ? 32 : 28;
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Escalera de palabras', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
+    <div class="esc-zona">
+      <div class="esc-marca">
+        <span>Pasos <b id="esc-n">0</b></span>
+        <span>Mínimo <b id="esc-m">${S.min}</b></span>
+        <span>Pistas <b id="esc-p">0</b></span>
+      </div>
+      <div class="esc-esc" style="--esc-t:${tam}px;">
+        <div class="esc-fija">
+          <div class="esc-rot">Salida</div>
+          ${filaHTML(S.g.pal[S.ini], -1, 'extremo')}
+        </div>
+        <div class="esc-medio" id="esc-medio"></div>
+        <div class="esc-fija">
+          ${filaHTML(S.g.pal[S.fin], -1, 'destino')}
+          <div class="esc-rot alta">Meta</div>
+        </div>
+      </div>
+      <div class="esc-pie" id="esc-pie"></div>
+      <div class="msg" id="esc-msg"></div>
+      <div class="kbd" id="esc-kbd">
+        ${['QWERTYUIOP', 'ASDFGHJKLÑ'].map((f) =>
+          `<div class="krow">${[...f].map((c) => `<button data-ch="${c.toLowerCase()}">${c}</button>`).join('')}</div>`).join('')}
+        <div class="krow">
+          <button class="wide esc-ok" data-ch="+">Poner</button>
+          ${[...'ZXCVBNM'].map((c) => `<button data-ch="${c.toLowerCase()}">${c}</button>`).join('')}
+          <button class="wide" data-ch="-" aria-label="Quitar letra"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H9l-6 6 6 6h11a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"></path><path d="M17 10l-4 4M13 10l4 4"></path></svg></button>
+        </div>
+      </div>
+    </div>
+    <div class="esc-tools">
+      <button id="t-pista">Pista</button>
+      <button id="t-deshacer">Deshacer</button>
+      <button id="t-nueva">Otro reto</button>
+      <button id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#esc-kbd').onclick = (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    b.blur();   // si queda enfocada, un Enter físico la vuelve a pulsar
+    tecla(b.dataset.ch);
+  };
+  $('#esc-medio').onclick = (e) => {
+    const b = e.target.closest('[data-i]');
+    if (!b) return;
+    S.cur = Number(b.dataset.i);
+    pintar();
+  };
+  $('#t-pista').onclick = pista;
+  $('#t-deshacer').onclick = deshacer;
+  $('#t-nueva').onclick = empezar;
+  $('#t-salir').onclick = renderSetup;
+  pintar();
+}
+
+function filaHTML(w, cambio, clase) {
+  return `<div class="esc-fila ${clase || ''}">` +
+    [...w].map((c, i) => `<div class="esc-let ${i === cambio ? 'nueva' : ''}">${esc(c)}</div>`).join('') + '</div>';
+}
+
+function difIdx(a, b) {
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return i;
+  return -1;
+}
+
+function pintar() {
+  if (!$('#esc-medio')) return;   // el jugador ya se fue de la pantalla
+  const filas = [];
+  for (let k = 0; k < S.pasos.length; k++) {
+    const prev = k === 0 ? S.g.pal[S.ini] : S.g.pal[S.pasos[k - 1]];
+    const w = S.g.pal[S.pasos[k]];
+    filas.push(filaHTML(w, difIdx(prev, w), S.pasos[k] === S.fin ? 'destino' : ''));
+  }
+  // Tu paso ocupa su peldaño: justo detrás de lo andado.
+  const base = actual();
+  const draft = S.draft.map((c, i) => {
+    const cambia = c !== base[i] ? 'cambia' : '';
+    return `<button class="esc-let ${cambia} ${i === S.cur ? 'sel' : ''}" data-i="${i}">${esc(c)}</button>`;
+  }).join('');
+  if (S.jugando) filas.push(`<div class="esc-borrador"><div class="esc-fila" id="esc-draft">${draft}</div></div>`);
+  // Peldaños que aún faltan para llegar a la meta en el mínimo: el hueco de en
+  // medio dice cuánto queda por subir, en vez de quedarse en blanco.
+  const faltan = Math.max(0, (S.min - 1) - S.pasos.length - (S.jugando ? 1 : 0));
+  const hueco = `<div class="esc-fila hueca">${'<div class="esc-let"></div>'.repeat(S.g.len)}</div>`;
+  const medio = $('#esc-medio');
+  medio.innerHTML = filas.join('') + hueco.repeat(faltan);
+  const br = medio.querySelector('.esc-borrador') || medio.lastElementChild;
+  if (br) medio.scrollTop = Math.max(0, br.offsetTop + br.offsetHeight - medio.clientHeight * 0.74);
+
+  $('#esc-n').textContent = S.pasos.length;
+  $('#esc-p').textContent = S.pistas;
+  const sobra = S.pasos.length - S.min;
+  $('#esc-pie').textContent = !S.jugando ? 'Reto terminado'
+    : sobra < 0 ? `Te quedan ${-sobra} paso${sobra === -1 ? '' : 's'} para clavarla`
+    : sobra === 0 ? 'Ya gastaste el mínimo: el siguiente ya sobra'
+    : `Llevas ${sobra} paso${sobra === 1 ? '' : 's'} de más`;
+  const dis = !S.jugando;
+  $('#t-pista').disabled = dis;
+  $('#t-deshacer').disabled = dis || S.pasos.length === 0;
+}
+
+function aviso(txt, clase) {
+  const el = $('#esc-msg');
+  if (!el) return;
+  el.textContent = txt || '';
+  el.className = 'msg' + (clase ? ' ' + clase : '');
+  if (S.tMsg) clearTimeout(S.tMsg);
+  if (txt) S.tMsg = setTimeout(() => { const e2 = $('#esc-msg'); if (e2) { e2.textContent = ''; e2.className = 'msg'; } }, 2600);
+}
+
+function sacude() {
+  const el = $('#esc-draft');
+  if (!el) return;
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+}
+
+/* ── Teclado ─────────────────────────────────────────────────────────── */
+function tecla(ch) {
+  if (!S.jugando || !$('#esc-draft')) return;
+  if (ch === '+') { poner(); return; }
+  if (ch === '-') {
+    S.draft[S.cur] = actual()[S.cur];
+    S.cur = Math.max(0, S.cur - 1);
+    pintar();
+    return;
+  }
+  if (!/^[a-zñ]$/.test(ch)) return;
+  S.draft[S.cur] = ch;
+  S.cur = Math.min(S.g.len - 1, S.cur + 1);
+  pintar();
+}
+
+function poner() {
+  const base = actual();
+  const w = S.draft.join('');
+  let dif = 0;
+  for (let i = 0; i < w.length; i++) if (w[i] !== base[i]) dif++;
+  if (dif === 0) { aviso('Cambia una letra para dar el paso.', 'check'); return; }
+  if (dif > 1) { aviso('Solo se puede cambiar una letra por paso.', 'err'); sacude(); vibrate(20); return; }
+  const j = S.g.idx.get(w);
+  if (j === undefined) { aviso(`«${w}» no está en la lista del juego.`, 'err'); sacude(); vibrate(20); return; }
+  if (j === S.ini || S.pasos.indexOf(j) >= 0) { aviso(`Ya pasaste por «${w}».`, 'err'); sacude(); vibrate(20); return; }
+  avanzar(j);
+}
+
+function avanzar(j) {
+  S.pasos.push(j);
+  reiniciaBorrador();
+  vibrate(8);
+  aviso('');
+  pintar();
+  if (j === S.fin) ganar();
+}
+
+/* ── Pista: siguiente paso de un camino mínimo desde donde estás ─────── */
+function pista() {
+  if (!S.jugando) return;
+  const x = actualIdx();
+  const d = S.distMeta[x];
+  if (d <= 0) return;
+  let elegido = -1;
+  for (const y of S.g.ady[x]) {
+    if (S.distMeta[y] === d - 1 && y !== S.ini && S.pasos.indexOf(y) < 0) { elegido = y; break; }
+  }
+  // Se enredó dando vueltas: el único atajo vuelve sobre una palabra ya puesta.
+  // No se cobra la pista, porque no se puede dar el paso.
+  if (elegido < 0) { aviso('El atajo pasa por una palabra que ya usaste: deshaz un paso.', 'check'); return; }
+  S.pistas++;
+  aviso(`Pista: ${S.g.pal[elegido]}`, 'check');
+  avanzar(elegido);
+}
+
+function deshacer() {
+  if (!S.jugando || !S.pasos.length) return;
+  S.pasos.pop();
+  reiniciaBorrador();
+  aviso('');
+  pintar();
+}
+
+/* ── Fin ─────────────────────────────────────────────────────────────── */
+function ganar() {
+  S.jugando = false;
+  const sobra = S.pasos.length - S.min;
+  const clavada = sobra === 0 && S.pistas === 0;
+  const kTot = 'esc.tot.' + S.diff, kCla = 'esc.best.' + S.diff;
+  const tot = store.get(kTot, 0) + 1;
+  const cla = store.get(kCla, 0) + (clavada ? 1 : 0);
+  store.set(kTot, tot);
+  if (clavada) {
+    store.set(kCla, cla);
+    // al hub, la del nivel más alto que tenga alguna clavada
+    let alto = null;
+    for (const d of NIV) if (store.get('esc.best.' + d, 0) > 0) alto = d;
+    if (alto) store.set('esc.hub', `${store.get('esc.best.' + alto, 0)} clavada${store.get('esc.best.' + alto, 0) === 1 ? '' : 's'} · ${DIFF_LABEL[alto]}`);
+  }
+  pintar();
+  if (clavada) { confetti(); vibrate([30, 60, 30]); } else vibrate(20);
+  if (S.tFin) clearTimeout(S.tFin);
+  S.tFin = setTimeout(() => {
+    S.tFin = null;
+    openModal(`
+      <h3>${clavada ? '¡Clavada!' : '¡Llegaste!'}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${S.pasos.length}</div><div class="l">pasos</div></div>
+        <div class="stat"><div class="n">${S.min}</div><div class="l">mínimo</div></div>
+        <div class="stat"><div class="n">${S.pistas}</div><div class="l">pistas</div></div>
+      </div>
+      <p style="text-align:center;">${clavada
+        ? `No había camino más corto. Llevas <b>${cla}</b> clavada${cla === 1 ? '' : 's'} en ${DIFF_LABEL[S.diff]}.`
+        : (S.pistas ? 'Con pista no cuenta como clavada.' : `Te sobraron <b>${sobra}</b> paso${sobra === 1 ? '' : 's'}.`) +
+          ` Clavadas en ${DIFF_LABEL[S.diff]}: <b>${cla}</b> de ${tot}.`}</p>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otro reto</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); empezar(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 620);
+}
+
+/* Teclado físico, por si se juega en un navegador de escritorio. */
+document.addEventListener('keydown', (e) => {
+  if (!S.jugando || !$('#esc-draft')) return;
+  if (e.key === 'Enter') { tecla('+'); e.preventDefault(); return; }
+  if (e.key === 'Backspace') { tecla('-'); e.preventDefault(); return; }
+  if (e.key === 'ArrowLeft') { S.cur = Math.max(0, S.cur - 1); pintar(); e.preventDefault(); return; }
+  if (e.key === 'ArrowRight') { S.cur = Math.min(S.g.len - 1, S.cur + 1); pintar(); e.preventDefault(); return; }
+  const c = norm(e.key);
+  if (c.length === 1) tecla(c);
+});
+
+renderSetup();
+</script>
+</body>
+</html>

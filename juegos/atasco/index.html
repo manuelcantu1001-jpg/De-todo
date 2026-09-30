@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Saca el coche rojo del estacionamiento: cada vehículo solo se desliza por su eje." />
+<title>Atasco</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='43' font-size='30' font-family='Georgia,serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Todo lleva prefijo ata- : las clases genéricas (.tool, .zona, .seg) ya
+     pisaron el estilo compartido en otros juegos de la colección. */
+  .ata-zona { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
+
+  .ata-marcador { display: flex; justify-content: center; gap: 20px; padding: 6px 16px 0; }
+  .ata-marcador span {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--sub); display: flex; align-items: baseline; gap: 7px;
+  }
+  .ata-marcador b {
+    font-family: var(--font); font-size: 17px; font-weight: 500; color: var(--ink);
+    letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums;
+  }
+
+  .ata-wrap { display: flex; justify-content: center; padding: 12px 0 0; }
+  .ata-board {
+    position: relative; width: min(84vw, 320px); height: min(84vw, 320px);
+    background: var(--card); border: 2px solid var(--linea-fuerte); border-radius: 14px;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  /* Rejilla: filete finísimo, solo para leer las casillas. */
+  .ata-rej { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(6, 1fr); }
+  .ata-rej span { border-right: var(--trazo) solid var(--linea); border-bottom: var(--trazo) solid var(--linea); }
+  .ata-rej span:nth-child(6n) { border-right: none; }
+  .ata-rej span:nth-child(n+31) { border-bottom: none; }
+
+  /* La salida: se corta el borde en la fila 2 y una flecha marca por dónde. */
+  .ata-hueco { position: absolute; right: -2px; width: 2px; background: var(--bg); }
+  .ata-hueco::before, .ata-hueco::after { content: ''; position: absolute; right: 0; width: 2px; height: 6px; background: var(--accent-texto); }
+  .ata-hueco::before { top: -6px; }
+  .ata-hueco::after { bottom: -6px; }
+  .ata-flecha { position: absolute; left: calc(100% + 5px); display: flex; align-items: center; color: var(--accent-texto); }
+
+  .ata-v {
+    position: absolute; padding: 0; border: 0; background: none; cursor: pointer;
+    left: calc(var(--c) * 100% / 6); top: calc(var(--f) * 100% / 6);
+    width: calc(var(--w) * 100% / 6); height: calc(var(--h) * 100% / 6);
+    transition: left var(--dur) var(--ease), top var(--dur) var(--ease), transform .42s var(--ease), opacity .42s var(--ease);
+    touch-action: none; -webkit-tap-highlight-color: transparent;
+  }
+  .ata-v.ata-arr { transition: none; z-index: 3; }
+  .ata-v i {
+    position: absolute; inset: 3px; border-radius: 11px; display: block;
+    background: var(--col); border: var(--trazo) solid var(--linea-fuerte);
+  }
+  /* Cabina: un rectángulo aclarado que da forma de vehículo sin dibujar detalle. */
+  .ata-v i::after {
+    content: ''; position: absolute; border-radius: 6px;
+    background: color-mix(in srgb, var(--card) 38%, transparent);
+  }
+  .ata-v.ata-h i::after { inset: 24% 30%; }
+  .ata-v.ata-vv i::after { inset: 30% 24%; }
+  .ata-v.ata-rojo i { border-color: color-mix(in srgb, var(--ink) 42%, transparent); }
+  .ata-v.ata-sel i { outline: 3px solid var(--ink); outline-offset: -3px; }
+  .ata-v.ata-fuera { transform: translateX(118%); opacity: 0; }
+
+  .ata-dest {
+    position: absolute; padding: 0; border: 0; background: none; z-index: 4; cursor: pointer;
+    left: calc(var(--c) * 100% / 6); top: calc(var(--f) * 100% / 6);
+    width: calc(100% / 6); height: calc(100% / 6);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ata-dest::after {
+    content: ''; width: 32%; height: 32%; border-radius: var(--pastilla);
+    background: var(--accent-texto); opacity: .62;
+  }
+  .ata-dest:active::after { opacity: 1; }
+
+  .ata-pie { text-align: center; padding: 10px 18px 0; font-family: var(--display); font-style: italic; font-size: 14px; color: var(--sub); min-height: 20px; }
+
+  .ata-tools { margin: 0 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 9px; justify-content: center; padding-top: 12px; }
+  .ata-tool {
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 500;
+    font-size: 13px; padding: 11px 16px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    min-height: 42px;
+  }
+  .ata-tool:active { opacity: .6; }
+  .ata-tool:disabled { color: var(--faint); border-color: var(--linea); cursor: default; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ── Motor ───────────────────────────────────────────────────────────
+   Tablero 6×6. Cada vehículo se desliza solo por su eje y no atraviesa a
+   otro. Un movimiento = una casilla que avanza un vehículo.
+   El grafo de estados es NO DIRIGIDO (todo deslizamiento se puede deshacer),
+   así que el mínimo de cada estado sale de un recorrido en anchura
+   multi-origen desde los estados con el coche rojo pegado al borde. */
+
+const N = 6, FS = 2;          /* tablero y fila de la salida */
+const TOPE = 26000;           /* estados por componente; más allá se descarta */
+const MAXV = 16;              /* vehículos como mucho */
+
+const BUF = new Uint8Array(TOPE * MAXV);   /* posiciones de cada estado */
+const KEY = new Float64Array(TOPE);        /* clave numérica de cada estado */
+const ADY = new Int32Array(TOPE * 32);     /* vecinos, en plano */
+const ADN = new Int32Array(TOPE);          /* cuántos vecinos tiene cada uno */
+const DIST = new Int32Array(TOPE);
+const COLA = new Int32Array(TOPE);
+const GRID = new Uint8Array(N * N);
+const REJ = new Uint8Array(N * N);
+const POW = [1, 6, 36, 216, 1296, 7776, 46656, 279936, 1679616, 10077696, 60466176,
+  362797056, 2176782336, 13060694016, 78364164096, 470184984576];
+const MAPA = new Map();
+
+/* Enumera el componente conexo entero del reparto. Devuelve cuántos estados
+   tiene, o 0 si pasa del tope: con el componente truncado las distancias
+   saldrían infladas y el juego mentiría con el mínimo. */
+function componente(defs, ini) {
+  const nv = defs.length;
+  MAPA.clear();
+  let n = 1, k0 = 0;
+  for (let i = 0; i < nv; i++) { BUF[i] = ini[i]; k0 += ini[i] * POW[i]; }
+  KEY[0] = k0; MAPA.set(k0, 0);
+  for (let cab = 0; cab < n; cab++) {
+    const off = cab * MAXV, base = KEY[cab], aoff = cab * 32;
+    GRID.fill(255);
+    for (let i = 0; i < nv; i++) {
+      const d = defs[i], p = BUF[off + i];
+      if (d.h) { const b = d.f * N + p; for (let k = 0; k < d.len; k++) GRID[b + k] = i; }
+      else { const b = p * N + d.f; for (let k = 0; k < d.len; k++) GRID[b + k * N] = i; }
+    }
+    let c = 0;
+    for (let i = 0; i < nv; i++) {
+      const d = defs[i], p = BUF[off + i], fijo = d.h ? d.f * N : d.f;
+      for (let s = 0; s < 2; s++) {
+        let q, celda;
+        if (s === 0) { if (p === 0) continue; q = p - 1; celda = d.h ? fijo + q : q * N + fijo; }
+        else { if (p + d.len >= N) continue; q = p + 1; celda = d.h ? fijo + p + d.len : (p + d.len) * N + fijo; }
+        if (GRID[celda] !== 255) continue;
+        const k = base + (q - p) * POW[i];
+        let j = MAPA.get(k);
+        if (j === undefined) {
+          if (n >= TOPE) return 0;
+          j = n++;
+          const noff = j * MAXV;
+          for (let t = 0; t < nv; t++) BUF[noff + t] = BUF[off + t];
+          BUF[noff + i] = q;
+          KEY[j] = k; MAPA.set(k, j);
+        }
+        ADY[aoff + c++] = j;
+      }
+    }
+    ADN[cab] = c;
+  }
+  return n;
+}
+
+/* Distancia mínima de cada estado a la salida (anchura multi-origen). */
+function distancias(n, defs) {
+  const meta = N - defs[0].len;
+  let fin = 0;
+  for (let i = 0; i < n; i++) {
+    if (BUF[i * MAXV] === meta) { DIST[i] = 0; COLA[fin++] = i; } else DIST[i] = -1;
+  }
+  for (let cab = 0; cab < fin; cab++) {
+    const u = COLA[cab], aoff = u * 32, du = DIST[u] + 1, c = ADN[u];
+    for (let t = 0; t < c; t++) {
+      const v = ADY[aoff + t];
+      if (DIST[v] < 0) { DIST[v] = du; COLA[fin++] = v; }
+    }
+  }
+  return fin;
+}
+
+const posDe = (i, nv) => Array.from(BUF.subarray(i * MAXV, i * MAXV + nv));
+
+/* Reparto al azar YA RESUELTO (el rojo pegado a la salida): así el componente
+   contiene con seguridad estados de salida. Primero los bloqueadores
+   verticales que cruzan la fila de salida —sin ellos el coche sale de un
+   tirón— y luego se rellena. Ningún horizontal en la fila de salida: quedaría
+   atrancado para siempre y el tablero no tendría solución. */
+function reparto(nVeh, nBloq) {
+  const g = new Uint8Array(N * N).fill(255);
+  const defs = [{ len: 2, h: true, f: FS }], pos = [N - 2];
+  g[FS * N + 4] = 0; g[FS * N + 5] = 0;
+  const cols = shuffle([0, 1, 2, 3]);
+  for (let b = 0; b < nBloq; b++) {
+    const c = cols[b], len = Math.random() < 0.4 ? 3 : 2, op = [];
+    for (let f = 0; f + len <= N; f++) if (f <= FS && FS < f + len) op.push(f);
+    const f = op[randInt(op.length)];
+    let libre = true;
+    for (let k = 0; k < len; k++) if (g[(f + k) * N + c] !== 255) { libre = false; break; }
+    if (!libre) continue;
+    const i = defs.length;
+    for (let k = 0; k < len; k++) g[(f + k) * N + c] = i;
+    defs.push({ len, h: false, f: c }); pos.push(f);
+  }
+  let it = 0;
+  while (defs.length < nVeh && it < 400) {
+    it++;
+    const len = Math.random() < 0.3 ? 3 : 2, h = Math.random() < 0.5;
+    if (h) {
+      const f = randInt(N); if (f === FS) continue;
+      const c = randInt(N - len + 1);
+      let libre = true;
+      for (let k = 0; k < len; k++) if (g[f * N + c + k] !== 255) { libre = false; break; }
+      if (!libre) continue;
+      const i = defs.length;
+      for (let k = 0; k < len; k++) g[f * N + c + k] = i;
+      defs.push({ len, h: true, f: f }); pos.push(c);
+    } else {
+      const c = randInt(N), f = randInt(N - len + 1);
+      let libre = true;
+      for (let k = 0; k < len; k++) if (g[(f + k) * N + c] !== 255) { libre = false; break; }
+      if (!libre) continue;
+      const i = defs.length;
+      for (let k = 0; k < len; k++) g[(f + k) * N + c] = i;
+      defs.push({ len, h: false, f: c }); pos.push(f);
+    }
+  }
+  return { defs, pos };
+}
+
+/* Cada nivel es un tramo del mínimo REAL de movimientos. Los cortes salen de
+   medir 300 tableros por nivel: 6-10 / 11-17 / 18-25 / 26 o más. */
+const PERFIL = {
+  facil:   { veh: [9, 11],  bloq: [2, 3], rango: [6, 10],   texto: '6 a 10 movimientos' },
+  normal:  { veh: [10, 12], bloq: [3, 3], rango: [11, 17],  texto: '11 a 17 movimientos' },
+  dificil: { veh: [11, 13], bloq: [3, 4], rango: [18, 25],  texto: '18 a 25 movimientos' },
+  experto: { veh: [11, 13], bloq: [3, 4], rango: [26, 999], texto: '26 movimientos o más' },
+};
+
+/* Devuelve un tablero cuyo mínimo real cae en el rango del nivel. */
+function genera(nivel, presupuesto) {
+  const P = PERFIL[nivel], t0 = Date.now();
+  let mejor = null;
+  for (let configs = 1; configs <= 4000; configs++) {
+    const nv = P.veh[0] + randInt(P.veh[1] - P.veh[0] + 1);
+    const nb = P.bloq[0] + randInt(P.bloq[1] - P.bloq[0] + 1);
+    const { defs, pos } = reparto(nv, nb);
+    const n = componente(defs, pos);
+    if (n) {
+      distancias(n, defs);
+      /* Se elige primero la DISTANCIA (uniforme entre las que hay en el rango)
+         y luego un estado de esa distancia: si no, casi siempre saldría el
+         extremo bajo del rango, que es donde hay más estados. */
+      let tope = -1, topeI = -1;
+      const cuenta = new Map();
+      for (let i = 0; i < n; i++) {
+        const d = DIST[i];
+        if (d >= P.rango[0] && d <= P.rango[1]) cuenta.set(d, (cuenta.get(d) || 0) + 1);
+        if (d > tope) { tope = d; topeI = i; }
+      }
+      if (cuenta.size) {
+        const ds = Array.from(cuenta.keys());
+        const dObj = ds[randInt(ds.length)];
+        let pick = randInt(cuenta.get(dObj));
+        for (let i = 0; i < n; i++) {
+          if (DIST[i] === dObj && pick-- === 0) return { defs: defs, pos: posDe(i, defs.length), min: dObj };
+        }
+      }
+      if (tope >= 1 && (!mejor || tope > mejor.min)) mejor = { defs: defs, pos: posDe(topeI, defs.length), min: tope };
+    }
+    if (Date.now() - t0 > presupuesto) break;
+  }
+  return mejor;
+}
+
+/* Color de cada vehículo. El rojo es el coche del jugador (terracota de la
+   casa); los demás reparten las tintas 2..8 sin que dos vecinos coincidan.
+   El color no significa nada: lo que hay que distinguir es el rojo del resto,
+   y ahí la separación es de ΔE 31 como mínimo. */
+function colorea(defs, pos) {
+  const nv = defs.length, celdas = [];
+  for (let i = 0; i < nv; i++) {
+    const d = defs[i], cs = [];
+    for (let k = 0; k < d.len; k++) cs.push(d.h ? [d.f, pos[i] + k] : [pos[i] + k, d.f]);
+    celdas.push(cs);
+  }
+  const tocan = (i, j) => {
+    for (const a of celdas[i]) for (const b of celdas[j]) {
+      if (Math.abs(a[0] - b[0]) <= 1 && Math.abs(a[1] - b[1]) <= 1) return true;
+    }
+    return false;
+  };
+  const orden = shuffle([1, 2, 3, 4, 5, 6, 7]);   /* tinta-2 … tinta-8 */
+  const uso = new Map(orden.map((c) => [c, 0]));
+  const cols = new Array(nv).fill(-1);
+  cols[0] = 0;
+  for (let i = 1; i < nv; i++) {
+    const veto = new Set();
+    for (let j = 1; j < nv; j++) if (j !== i && cols[j] > 0 && tocan(i, j)) veto.add(cols[j]);
+    let elegido = -1, menos = Infinity;
+    for (const c of orden) {
+      if (veto.has(c)) continue;
+      if (uso.get(c) < menos) { menos = uso.get(c); elegido = c; }
+    }
+    if (elegido < 0) elegido = orden[0];
+    cols[i] = elegido;
+    uso.set(elegido, uso.get(elegido) + 1);
+  }
+  return cols.map((c, i) => i === 0 ? 'var(--accent)'
+    : `color-mix(in srgb, var(--tinta-${c + 1}) 88%, var(--ink))`);
+}
+
+/* ── Estado de la partida ────────────────────────────────────────────── */
+const S = {
+  diff: store.get('atasco.diff', 'normal'),
+  defs: null, pos: null, col: null, min: 0, mov: 0,
+  hist: [], sel: -1, jugando: false, gen: 0, tFin: null, arr: null,
+};
+
+const REGLAS = `<p>El vehículo <b>terracota</b> tiene que salir por el hueco del borde derecho.</p>
+<p>Cada vehículo se mueve <b>solo por su eje</b>: los horizontales a izquierda y derecha, los verticales arriba y abajo. Ninguno gira ni atraviesa a otro.</p>
+<p>Arrástralo con el dedo, o <b>tócalo</b> y toca después uno de los puntos que aparecen.</p>
+<p><b>Cada casilla que avanza un vehículo cuenta un movimiento.</b> Arriba ves el <b>mínimo</b> real de ese tablero: el juego lo calcula resolviéndolo antes de dártelo, no es una estimación.</p>
+<p>Tu marca son los movimientos <b>de más</b> sobre ese mínimo: 0 es el camino perfecto. <b>Deshacer</b> también descuenta lo que borra.</p>`;
+
+/* ── Pantalla de inicio ──────────────────────────────────────────────── */
+function renderSetup() {
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('ata.best.' + d, null);
+    return `<div class="b"><div class="bn">${b == null ? '—' : '+' + b}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Atasco', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div><div class="row-hint" id="d-hint"></div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Movimientos de más sobre el mínimo</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => { $('#d-hint').textContent = PERFIL[S.diff].texto; };
+  hint();
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('atasco.diff', v); hint(); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+/* ── Partida ─────────────────────────────────────────────────────────── */
+function startGame() {
+  clearTimeout(S.tFin); S.tFin = null; S.gen++;
+  /* Red de seguridad: si ningún reparto sirviera (nunca ha pasado en 1.200
+     tableros medidos), se cae a uno con el rojo solo, que sale en 4. */
+  const t = genera(S.diff, 1500) || genera('facil', 800)
+    || { defs: [{ len: 2, h: true, f: FS }], pos: [0], min: 4 };
+  S.defs = t.defs; S.pos = t.pos.slice(); S.min = t.min;
+  S.col = colorea(t.defs, t.pos);
+  S.mov = 0; S.hist = []; S.sel = -1; S.arr = null; S.jugando = true;
+  renderPlay();
+}
+
+function vehHTML(i) {
+  const d = S.defs[i], p = S.pos[i];
+  const clase = d.h ? 'ata-h' : 'ata-vv';
+  return `<button class="ata-v ${clase}${i === 0 ? ' ata-rojo' : ''}" data-i="${i}"
+    aria-label="${d.len === 3 ? 'Camión' : 'Coche'} ${i === 0 ? 'rojo' : i}"
+    style="--c:${d.h ? p : d.f}; --f:${d.h ? d.f : p}; --w:${d.h ? d.len : 1}; --h:${d.h ? 1 : d.len}; --col:${S.col[i]};"><i></i></button>`;
+}
+
+function renderPlay() {
+  const mejor = store.get('ata.best.' + S.diff, null);
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Atasco', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
+    <div class="ata-zona">
+      <div class="ata-marcador">
+        <span>Movimientos <b id="mv">0</b></span>
+        <span>Mínimo <b id="mn">${S.min}</b></span>
+        <span>Mejor <b id="mj">${mejor == null ? '—' : '+' + mejor}</b></span>
+      </div>
+      <div class="ata-wrap">
+        <div class="ata-board" id="tab">
+          <div class="ata-rej">${'<span></span>'.repeat(36)}</div>
+          <div class="ata-hueco" style="top: calc(${FS} * 100% / 6); height: calc(100% / 6);"></div>
+          <div class="ata-flecha" style="top: calc(${FS} * 100% / 6); height: calc(100% / 6);" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"></path></svg>
+          </div>
+          <div id="dest"></div>
+          ${S.defs.map((_, i) => vehHTML(i)).join('')}
+        </div>
+      </div>
+      <div class="ata-pie" id="pie">Arrastra un vehículo por su eje</div>
+    </div>
+    <div class="ata-tools">
+      <button class="ata-tool" id="t-deshacer" disabled>Deshacer</button>
+      <button class="ata-tool" id="t-nueva">Otro tablero</button>
+      <button class="ata-tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#t-deshacer').onclick = deshacer;
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = () => { clearTimeout(S.tFin); S.tFin = null; S.gen++; S.jugando = false; renderSetup(); };
+  ligaTablero();
+  pinta();
+}
+
+/* Ocupación del tablero en la posición actual. */
+function ocupa() {
+  REJ.fill(255);
+  for (let i = 0; i < S.defs.length; i++) {
+    const d = S.defs[i], p = S.pos[i];
+    if (d.h) { const b = d.f * N + p; for (let k = 0; k < d.len; k++) REJ[b + k] = i; }
+    else { const b = p * N + d.f; for (let k = 0; k < d.len; k++) REJ[b + k * N] = i; }
+  }
+}
+
+/* Casillas libres delante y detrás del vehículo i. */
+function hueco(i) {
+  ocupa();
+  const d = S.defs[i], p = S.pos[i], fijo = d.h ? d.f * N : d.f;
+  let a = 0, b = 0;
+  while (p - a - 1 >= 0 && REJ[d.h ? fijo + p - a - 1 : (p - a - 1) * N + fijo] === 255) a++;
+  while (p + d.len + b < N && REJ[d.h ? fijo + p + d.len + b : (p + d.len + b) * N + fijo] === 255) b++;
+  return { atras: a, frente: b };
+}
+
+function pinta() {
+  if (!$('#tab')) return;
+  for (let i = 0; i < S.defs.length; i++) {
+    const el = $(`.ata-v[data-i="${i}"]`);
+    if (!el) continue;
+    const d = S.defs[i], p = S.pos[i];
+    el.style.setProperty('--c', d.h ? p : d.f);
+    el.style.setProperty('--f', d.h ? d.f : p);
+    el.classList.toggle('ata-sel', i === S.sel);
+  }
+  $('#mv').textContent = S.mov;
+  $('#t-deshacer').disabled = !S.hist.length;
+  const sobra = S.mov - S.min;
+  $('#pie').textContent = S.mov === 0
+    ? 'Arrastra un vehículo por su eje'
+    : (sobra > 0 ? `${sobra} movimiento${sobra === 1 ? '' : 's'} de más` : 'Vas dentro del mínimo');
+  pintaDestinos();
+}
+
+/* Puntos de destino del vehículo seleccionado: uno por cada casilla a la que
+   puede llegar de este lado o del otro. */
+function pintaDestinos() {
+  const caja = $('#dest');
+  if (!caja) return;
+  if (S.sel < 0 || !S.jugando) { caja.innerHTML = ''; return; }
+  const i = S.sel, d = S.defs[i], p = S.pos[i], { atras, frente } = hueco(i);
+  let html = '';
+  for (let k = 1; k <= atras; k++) {
+    const q = p - k;
+    html += `<button class="ata-dest" data-p="${q}" aria-label="Mover ${k}" style="--c:${d.h ? q : d.f}; --f:${d.h ? d.f : q};"></button>`;
+  }
+  for (let k = 1; k <= frente; k++) {
+    const q = p + k, celda = q + d.len - 1;
+    html += `<button class="ata-dest" data-p="${q}" aria-label="Mover ${k}" style="--c:${d.h ? celda : d.f}; --f:${d.h ? d.f : celda};"></button>`;
+  }
+  caja.innerHTML = html;
+}
+
+function mueve(i, q) {
+  const p = S.pos[i];
+  if (q === p) return;
+  S.hist.push([i, p]);
+  S.pos[i] = q;
+  S.mov += Math.abs(q - p);
+  S.sel = -1;
+  vibrate(8);
+  pinta();
+  if (S.pos[0] === N - S.defs[0].len) gana();
+}
+
+function deshacer() {
+  if (!S.hist.length || !S.jugando) return;
+  const [i, p] = S.hist.pop();
+  S.mov -= Math.abs(S.pos[i] - p);
+  S.pos[i] = p;
+  S.sel = -1;
+  pinta();
+}
+
+/* ── Arrastre y toque ────────────────────────────────────────────────
+   La caja del tablero se mide UNA vez, al posar el dedo: medirla en cada
+   pointermove obliga al navegador a recalcular la disposición entera. */
+function ligaTablero() {
+  const tab = $('#tab');
+  if (!tab) return;
+
+  tab.addEventListener('pointerdown', (e) => {
+    if (!S.jugando) return;
+    const dest = e.target.closest('.ata-dest');
+    if (dest) { mueve(S.sel, Number(dest.dataset.p)); return; }
+    const b = e.target.closest('.ata-v');
+    if (!b) { if (S.sel >= 0) { S.sel = -1; pinta(); } return; }
+    const i = Number(b.dataset.i), d = S.defs[i];
+    const r = tab.getBoundingClientRect();
+    const cel = r.width / N;
+    const { atras, frente } = hueco(i);
+    S.arr = { i: i, el: b, id: e.pointerId, cel: cel, h: d.h,
+      x0: e.clientX, y0: e.clientY, min: -atras * cel, max: frente * cel, off: 0, lejos: false };
+    b.classList.add('ata-arr');
+    try { b.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+
+  tab.addEventListener('pointermove', (e) => {
+    const a = S.arr;
+    if (!a || e.pointerId !== a.id) return;
+    const dx = e.clientX - a.x0, dy = e.clientY - a.y0;
+    if (Math.abs(dx) > 7 || Math.abs(dy) > 7) a.lejos = true;
+    const v = a.h ? dx : dy;
+    a.off = Math.max(a.min, Math.min(a.max, v));
+    a.el.style.transform = a.h ? `translateX(${a.off}px)` : `translateY(${a.off}px)`;
+  });
+
+  const suelta = (e) => {
+    const a = S.arr;
+    if (!a || e.pointerId !== a.id) return;
+    S.arr = null;
+    a.el.style.transform = '';
+    const pasos = Math.round(a.off / a.cel);
+    if (pasos !== 0) {
+      S.sel = -1;
+      mueve(a.i, S.pos[a.i] + pasos);
+    } else if (!a.lejos) {
+      S.sel = S.sel === a.i ? -1 : a.i;
+      pinta();
+    }
+    requestAnimationFrame(() => a.el.classList.remove('ata-arr'));
+  };
+  tab.addEventListener('pointerup', suelta);
+  tab.addEventListener('pointercancel', suelta);
+}
+
+/* ── Final ───────────────────────────────────────────────────────────── */
+const ORDEN = ['facil', 'normal', 'dificil', 'experto'];
+
+function gana() {
+  S.jugando = false;
+  S.sel = -1;
+  pintaDestinos();
+  const gen = ++S.gen;
+  /* El coche se va por la salida en el cuadro siguiente: si se le pone la
+     clase ya mismo todavía lleva la transición apagada del arrastre. */
+  const rojo = $('.ata-v[data-i="0"]');
+  if (rojo) requestAnimationFrame(() => requestAnimationFrame(() => rojo.classList.add('ata-fuera')));
+  const sobra = S.mov - S.min;
+  const k = 'ata.best.' + S.diff;
+  const best = store.get(k, null);
+  const record = best == null || sobra < best;
+  if (record) {
+    store.set(k, sobra);
+    if ($('#mj')) $('#mj').textContent = '+' + sobra;
+    let alto = null;
+    for (const d of ORDEN) if (store.get('ata.best.' + d, null) != null) alto = d;
+    const v = store.get('ata.best.' + alto, 0);
+    store.set('ata.hub', (v === 0 ? 'Mínimo clavado' : '+' + v + ' sobre el mínimo') + ' · ' + DIFF_LABEL[alto]);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  S.tFin = setTimeout(() => {
+    if (gen !== S.gen) return;
+    openModal(`
+      <h3>${sobra === 0 ? '¡Camino perfecto!' : (record ? '¡Récord!' : '¡Fuera del atasco!')}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${S.mov}</div><div class="l">movimientos</div></div>
+        <div class="stat"><div class="n">${S.min}</div><div class="l">mínimo</div></div>
+        <div class="stat"><div class="n">+${sobra}</div><div class="l">de más</div></div>
+      </div>
+      <p style="text-align:center;">${sobra === 0
+        ? 'Igualaste el mínimo: no se podía sacar en menos.'
+        : `Tu mejor marca en ${DIFF_LABEL[S.diff]}: <b>+${record ? sobra : best}</b> sobre el mínimo.`}</p>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otro tablero</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 700);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

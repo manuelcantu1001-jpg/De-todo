@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Torres de Hanoi: pasa la torre completa moviendo un disco a la vez." />
+<title>Torres de Hanoi</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E≡%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* A 375 de ancho, con el chip «Experto» y el reloj, el título partía en dos
+     renglones: se deja encoger un poco antes que romperse. */
+  .topbar h1 { white-space: nowrap; font-size: clamp(17px, 5.4vw, 23px); }
+  /* margin-top auto reparte el espacio libre con los mandos: torres centradas. */
+  .hwrap { display: flex; justify-content: center; gap: 8px; padding: 26px 14px 0; margin-top: auto; }
+  .poste {
+    flex: 1; max-width: 130px; min-height: 220px; border: none; cursor: pointer; padding: 0 4px 10px;
+    background: transparent; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 5px;
+    position: relative; border-radius: 12px;
+  }
+  /* Poste y base en --sub (4,3:1 sobre el crema): con --tile-border quedaban a
+     1,51:1 y el poste, que es el botón, casi no se veía. */
+  .poste::before { content: ''; position: absolute; bottom: 8px; top: 24px; width: 8px; border-radius: 12px; background: var(--sub); }
+  .poste::after { content: ''; position: absolute; bottom: 4px; left: 6px; right: 6px; height: 9px; border-radius: 12px; background: var(--sub); }
+  .poste.sel { background: var(--accent-soft); }
+  /* Cada disco lleva su tinta en `color` y el fondo la hereda: así el filete se
+     deriva de esa misma tinta oscurecida. Tinta-3, 5, 6 y 7 quedan a 2,7–2,9:1
+     sobre el crema y el filete al 26 % no las recortaba. */
+  .disco {
+    height: 22px; border-radius: 12px; z-index: 1; background: currentColor;
+    border: 1.5px solid color-mix(in srgb, currentColor 55%, var(--ink)); }
+  .disco.c1 { color: var(--tinta-1); } .disco.c2 { color: var(--tinta-2); }
+  .disco.c3 { color: var(--tinta-3); } .disco.c4 { color: var(--tinta-4); }
+  .disco.c5 { color: var(--tinta-5); } .disco.c6 { color: var(--tinta-6); }
+  .disco.c7 { color: var(--tinta-7); }
+  .poste.sel .disco:last-child { transform: translateY(-8px); }
+  /* Etiquetas técnicas en mono (como .dato) y números en sans a peso medio. */
+  .marcador { display: flex; justify-content: center; align-items: baseline; gap: 20px; padding-top: 20px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--bg-sub); }
+  .marcador b { color: var(--bg-ink); font-size: 16px; font-weight: 500; font-family: var(--font); letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    box-shadow: var(--shadow-sutil); }
+  .tool:active { opacity: .6; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const CFG = { facil: 4, normal: 5, dificil: 6, experto: 7 };
+
+const S = {
+  diff: store.get('hanoi.diff', 'normal'),
+  n: 0, postes: null, sel: -1, moves: 0, jugando: false,
+  clock: makeClock(() => $('#clk')),
+};
+
+const REGLAS = `<p>Pasa la torre completa del primer poste al <b>tercero</b>, moviendo <b>un disco a la vez</b>: toca un poste para levantar su disco de arriba y otro poste para soltarlo.</p>
+<p>La única regla: un disco <b>nunca puede quedar sobre otro más chico</b>.</p>
+<p>El mínimo posible es 2ⁿ−1 movimientos: 15 con 4 discos, 31 con 5, 63 con 6 y 127 con 7. Tu marca es el mejor tiempo con el que lo consigues sin pasarte de ese mínimo.</p>`;
+
+function renderSetup() {
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('hanoi.best.' + d, 0);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Torres de Hanoi', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Discos</div><div class="row-hint" id="d-hint"></div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejor tiempo con el mínimo</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => { const n = CFG[S.diff]; $('#d-hint').textContent = `${n} discos · mínimo ${Math.pow(2, n) - 1}`; };
+  hint();
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('hanoi.diff', v); hint(); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  S.n = CFG[S.diff];
+  S.postes = [Array.from({ length: S.n }, (_, i) => S.n - i), [], []]; // grande abajo
+  S.sel = -1; S.moves = 0; S.jugando = true;
+  renderPlay();
+  S.clock.start();
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Torres de Hanoi', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clk">0:00</span>`)}
+    <div class="marcador"><span>Movimientos <b id="mv">0</b></span><span>Mínimo <b>${Math.pow(2, S.n) - 1}</b></span></div>
+    <div class="hwrap" id="hwrap">
+      ${[0, 1, 2].map((p) => `<button class="poste" data-p="${p}"></button>`).join('')}
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-otra">Reiniciar</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#hwrap').onclick = (e) => {
+    const b = e.target.closest('.poste');
+    if (b) tap(Number(b.dataset.p));
+  };
+  $('#t-otra').onclick = startGame;
+  $('#t-salir').onclick = () => { S.jugando = false; S.clock.stop(); renderSetup(); };
+  paint();
+}
+
+function paint() {
+  $$('.poste').forEach((el) => {
+    const p = Number(el.dataset.p);
+    el.classList.toggle('sel', p === S.sel);
+    // El array va de la base a la cima; en pantalla se apila al revés:
+    // el disco grande abajo y el chico arriba, como la torre de verdad.
+    el.innerHTML = S.postes[p].slice().reverse().map((d) =>
+      `<div class="disco c${d}" style="width:${34 + (d - 1) * (62 / Math.max(1, S.n - 1))}%"></div>`).join('');
+  });
+  $('#mv').textContent = S.moves;
+}
+
+function tap(p) {
+  if (!S.jugando) return;
+  if (S.sel < 0) {
+    if (!S.postes[p].length) return;
+    S.sel = p;
+    vibrate(6);
+    paint();
+    return;
+  }
+  if (p === S.sel) { S.sel = -1; paint(); return; }
+  const de = S.postes[S.sel], a = S.postes[p];
+  const disco = de[de.length - 1];
+  if (a.length && a[a.length - 1] < disco) {
+    vibrate([50, 40, 50]);
+    const el = $(`.poste[data-p="${p}"]`);
+    el.classList.add('shake');
+    setTimeout(() => el.classList.remove('shake'), 420);
+    return;
+  }
+  a.push(de.pop());
+  S.sel = -1;
+  S.moves++;
+  vibrate(8);
+  paint();
+  if (S.postes[2].length === S.n) ganar();
+}
+
+function ganar() {
+  S.jugando = false;
+  S.clock.stop();
+  const t = S.clock.seconds;
+  const min = Math.pow(2, S.n) - 1;
+  const perfecta = S.moves === min;
+  // La marca es el tiempo, pero solo cuenta si resolviste con el mínimo:
+  // así el reto no se agota al descubrir la secuencia óptima.
+  const best = store.get('hanoi.best.' + S.diff, 0);
+  const isRecord = perfecta && (!best || t < best);
+  if (isRecord) {
+    store.set('hanoi.best.' + S.diff, t);
+    store.set('han.hub', `Mínimo en ${fmtTime(t)}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  setTimeout(() => {
+    openModal(`
+      <h3>${isRecord ? '¡Récord de tiempo!' : perfecta ? '¡Perfecto: el mínimo!' : '¡Torre pasada!'}</h3>
+      ${perfecta ? '' : `<p style="text-align:center;">Con ${min} movimientos habría sido perfecta: inténtalo otra vez para marcar tiempo.</p>`}
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${fmtTime(t)}</div><div class="l">tiempo</div></div>
+        <div class="stat"><div class="n">${S.moves}<span style="font-size:15px;color:var(--sub);">/${min}</span></div><div class="l">movimientos</div></div>
+        <div class="stat"><div class="n">${best ? fmtTime(isRecord ? t : best) : '—'}</div><div class="l">mejor</div></div>
+      </div>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra vez</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 600);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Damas clásicas con capturas obligatorias, contra la app o a dos." />
+<title>Damas</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E◉%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* El tablero se lleva el alto sobrante y se centra en él: así el marcador y
+     «Salir» bajan a la zona del pulgar en vez de dejar papel muerto debajo. */
+  .boardwrap { display: flex; justify-content: center; align-items: center; padding: 12px 12px 0; flex: 1; }
+  .tab {
+    display: grid; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow);
+    touch-action: manipulation; user-select: none; -webkit-user-select: none; border: 1px solid var(--linea-fuerte); }
+  .sq { display: flex; align-items: center; justify-content: center; position: relative; }
+  /* Las casillas jugables (clase .oscura, por tradición) se pintan CLARAS y las
+     inertes en beige: sobre el beige la ficha terracota daba 2,6:1 y la azul
+     2,0:1; sobre la tarjeta dan 4,2 y 5,5. El damero se sigue leyendo (ΔE 12). */
+  .sq.clara { background: color-mix(in srgb, var(--ink) 16%, var(--panel)); }
+  .sq.oscura { background: var(--tile-bg); cursor: pointer; }
+  .sq.oscura.dest::after {
+    content: ''; width: 30%; height: 30%; border-radius: 999px;
+    background: var(--accent);
+  }
+  .sq.oscura.selsq { outline: 3px solid var(--accent); outline-offset: -3px; }
+  .pieza {
+    width: 76%; height: 76%; border-radius: 999px; position: relative;
+    border: 2px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  }
+  /* Ficha de la app en azul tinta-2 (ΔE 41 frente a la terracota); --second era gris azulado y apenas contrastaba. */
+  .pieza.pa { background: var(--accent); }
+  .pieza.pb { background: var(--tinta-2); }
+  .pieza .corona { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: color-mix(in srgb, var(--card) 90%, transparent); }
+  /* El aviso de turno va en tinta (el terracota a 15 px daba 3,85:1 sobre el papel
+     y el azul 3,0) y el color del jugador se lleva a un punto delante del texto. */
+  .turnrow { text-align: center; padding: 12px 0 0; font-family: var(--display); font-style: italic; font-size: 17px; font-weight: 400; color: var(--bg-ink); }
+  .turnrow .who { color: var(--ink); }
+  .turnrow .who::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 999px; background: var(--accent); margin-right: 8px; vertical-align: 1px; }
+  .turnrow .who.o::before { background: var(--tinta-2); }
+  .turnrow .who.neutro::before { display: none; }
+  .turnrow .aviso { font-family: var(--mono); font-style: normal; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+  .turnrow .aviso.come { color: var(--bad); }
+  .turnrow .aviso.tablas { color: color-mix(in srgb, var(--warn) 70%, var(--ink)); }
+  .scorebar { display: flex; justify-content: center; gap: 14px; margin: 14px 16px 0; }
+  .scorebar .b { flex: 0 1 110px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 6px; text-align: center; border: 1px solid var(--linea-fuerte); }
+  .scorebar .bn { font-family: var(--title-font); font-size: 22px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .scorebar .bl { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); margin-top: 3px; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    box-shadow: var(--shadow-sutil); }
+  .tool:active { opacity: .6; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const N = 8;
+const CORONA = '<svg viewBox="0 0 24 24" width="60%" height="60%" fill="currentColor"><path d="M4 17h16l1.2-8-4.7 3-4.5-6-4.5 6-4.7-3z"></path></svg>';
+
+/* Sin regla de tablas, un final de dama contra dama no termina nunca. */
+const LIMITE_SIN_COMER = 50;   // jugadas (medias) sin captura ni coronación
+const REPETICIONES = 3;        // misma posición y mismo turno
+
+const S = {
+  mode: store.get('damas.mode', 'app'),
+  level: store.get('damas.level', 'normal'),
+  b: null,               // [64] = null | {p:'A'|'B', k:bool}
+  turn: 'A', starter: 'A', over: false, thinking: false, anim: false,
+  sel: -1, movs: [],     // movimientos legales del turno
+  score: { A: 0, B: 0, E: 0 },
+  sinComer: 0, vistas: null,
+};
+
+const REGLAS = `<p>Las fichas avanzan <b>una diagonal</b> hacia el frente. Se come <b>saltando</b> por encima de la ficha rival hasta la casilla libre — y comer es <b>obligatorio</b>, incluidos los saltos en cadena con la misma ficha.</p>
+<p>Al llegar a la última fila, la ficha se <b>corona</b> como dama y puede moverse y comer también hacia atrás.</p>
+<p>Pierde quien se queda sin movimientos (o sin fichas). Hay <b>tablas</b> si pasan ${LIMITE_SIN_COMER} jugadas sin comer ni coronar, o si la misma posición se repite ${REPETICIONES} veces — así los finales de dama contra dama sí terminan.</p>
+<p>Toca una ficha tuya para ver sus jugadas; los puntos marcan a dónde puede ir. <b>Tus victorias se guardan por nivel.</b></p>`;
+
+/* ── Marca por nivel ─────────────────────────────────────────────────── */
+const NIVELES = ['facil', 'normal', 'experto'];
+const victorias = (n) => store.get('damas.wins.' + n, 0);
+
+function anotaVictoria(nivel) {
+  const n = victorias(nivel) + 1;
+  store.set('damas.wins.' + nivel, n);
+  // Al hub va la marca del nivel más alto en el que se haya ganado.
+  let alto = null;
+  for (const v of NIVELES) if (victorias(v) > 0) alto = v;
+  if (alto) {
+    const k = victorias(alto);
+    store.set('damas.hub', `${DIFF_LABEL[alto]}: ${k} victoria${k === 1 ? '' : 's'}`);
+  }
+  return n;
+}
+
+function bestsHTML() {
+  return NIVELES.map((v) =>
+    `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
+}
+
+/* ── Movimientos ─────────────────────────────────────────────────────── */
+const fila = (i) => Math.floor(i / N), col = (i) => i % N;
+const dentro = (r, c) => r >= 0 && r < N && c >= 0 && c < N;
+const adelante = (p) => (p === 'A' ? -1 : 1);
+
+function dirsDe(pz) {
+  if (pz.k) return [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+  const d = adelante(pz.p);
+  return [[d, -1], [d, 1]];
+}
+
+function saltosDesde(b, i, pz, capturadas) {
+  const out = [];
+  const r = fila(i), c = col(i);
+  for (const [dr, dc] of dirsDe(pz)) {
+    const r1 = r + dr, c1 = c + dc, r2 = r + dr * 2, c2 = c + dc * 2;
+    if (!dentro(r2, c2)) continue;
+    const medio = r1 * N + c1, dest = r2 * N + c2;
+    if (capturadas.includes(medio)) continue;
+    const v = b[medio];
+    if (!v || v.p === pz.p) continue;
+    if (b[dest]) continue;
+    // salta y sigue (coronar corta la cadena)
+    const nuevasCap = [...capturadas, medio];
+    const corona = !pz.k && ((pz.p === 'A' && fila(dest) === 0) || (pz.p === 'B' && fila(dest) === N - 1));
+    let colas = [];
+    if (!corona) colas = saltosDesde(b, dest, pz, nuevasCap);
+    if (colas.length) {
+      for (const cola of colas) out.push({ path: [dest, ...cola.path], cap: [medio, ...cola.cap] });
+    } else {
+      out.push({ path: [dest], cap: [medio] });
+    }
+  }
+  return out;
+}
+
+function movimientosDe(b, p) {
+  const capturas = [], simples = [];
+  for (let i = 0; i < 64; i++) {
+    const pz = b[i];
+    if (!pz || pz.p !== p) continue;
+    const saltos = saltosDesde(b, i, pz, []);
+    for (const s of saltos) capturas.push({ from: i, path: s.path, cap: s.cap });
+    if (!capturas.length) {
+      const r = fila(i), c = col(i);
+      for (const [dr, dc] of dirsDe(pz)) {
+        const r1 = r + dr, c1 = c + dc;
+        if (dentro(r1, c1) && !b[r1 * N + c1]) simples.push({ from: i, path: [r1 * N + c1], cap: [] });
+      }
+    }
+  }
+  return capturas.length ? capturas : simples;
+}
+
+const coronaEn = (pz, dest) =>
+  !pz.k && ((pz.p === 'A' && fila(dest) === 0) || (pz.p === 'B' && fila(dest) === N - 1));
+
+function aplicar(b, m) {
+  const pz = b[m.from];
+  b[m.from] = null;
+  for (const c of m.cap) b[c] = null;
+  const dest = m.path[m.path.length - 1];
+  b[dest] = { p: pz.p, k: pz.k || coronaEn(pz, dest) };
+}
+
+// Clave de posición para la repetición triple: tablero + a quién le toca.
+const clavePos = () =>
+  S.b.map((x) => (x ? (x.p === 'A' ? (x.k ? 'a' : 'A') : (x.k ? 'b' : 'B')) : '.')).join('') + S.turn;
+
+/* ── IA ──────────────────────────────────────────────────────────────── */
+function evalB(b) {
+  let s = 0;
+  for (let i = 0; i < 64; i++) {
+    const pz = b[i];
+    if (!pz) continue;
+    let v = pz.k ? 165 : 100;
+    if (!pz.k) v += (pz.p === 'B' ? fila(i) : (7 - fila(i))) * 2;   // avance
+    s += pz.p === 'B' ? v : -v;
+  }
+  return s;
+}
+
+function minimax(b, p, depth, alfa, beta) {
+  const movs = movimientosDe(b, p);
+  if (!movs.length) return p === 'B' ? -50000 - depth : 50000 + depth;
+  if (depth === 0) return evalB(b);
+  const esB = p === 'B';
+  let mejor = esB ? -Infinity : Infinity;
+  for (const m of movs) {
+    const b2 = b.map((x) => (x ? { ...x } : null));
+    aplicar(b2, m);
+    const v = minimax(b2, p === 'A' ? 'B' : 'A', depth - 1, alfa, beta);
+    if (esB) { mejor = Math.max(mejor, v); alfa = Math.max(alfa, v); }
+    else { mejor = Math.min(mejor, v); beta = Math.min(beta, v); }
+    if (alfa >= beta) break;
+  }
+  return mejor;
+}
+
+function appMove() {
+  const movs = movimientosDe(S.b, 'B');
+  if (S.level === 'facil') {
+    return movs[randInt(movs.length)];
+  }
+  const depth = S.level === 'normal' ? 4 : 7;
+  let best = -Infinity, bestMovs = [];
+  for (const m of movs) {
+    const b2 = S.b.map((x) => (x ? { ...x } : null));
+    aplicar(b2, m);
+    const v = minimax(b2, 'A', depth, -Infinity, Infinity) + Math.random() * 4;
+    if (v > best) { best = v; bestMovs = [m]; }
+    else if (v === best) bestMovs.push(m);
+  }
+  return bestMovs[randInt(bestMovs.length)];
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Damas', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Modo</div></div>
+        <div class="seg" id="seg-m">
+          <button data-v="app" class="${S.mode === 'app' ? 'sel' : ''}">Vs. app</button>
+          <button data-v="2p" class="${S.mode === '2p' ? 'sel' : ''}">2 jugadores</button>
+        </div>
+        <div id="lvl-wrap" style="${S.mode === 'app' ? '' : 'display:none;'}">
+          <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
+          ${diffSegHTML('seg-d', S.level, ['facil', 'normal', 'experto'])}
+        </div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Victorias vs. app, por nivel</div>
+      <div class="bests">${bestsHTML()}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-m', (v) => { S.mode = v; store.set('damas.mode', v); $('#lvl-wrap').style.display = v === 'app' ? '' : 'none'; });
+  bindSeg('seg-d', (v) => { S.level = v; store.set('damas.level', v); });
+  $('#new').onclick = () => { S.score = { A: 0, B: 0, E: 0 }; S.starter = 'A'; startRound(true); };
+  bindHowto(REGLAS);
+}
+
+function startRound(first) {
+  S.b = new Array(64).fill(null);
+  for (let i = 0; i < 64; i++) {
+    const r = fila(i), c = col(i);
+    if ((r + c) % 2 !== 1) continue;
+    if (r < 3) S.b[i] = { p: 'B', k: false };
+    else if (r > 4) S.b[i] = { p: 'A', k: false };
+  }
+  S.turn = S.starter;
+  S.over = false; S.thinking = false; S.anim = false; S.sel = -1;
+  S.sinComer = 0;
+  S.vistas = new Map();
+  S.movs = movimientosDe(S.b, S.turn);
+  S.vistas.set(clavePos(), 1);
+  if (first) renderPlay(); else { paint(); updateTurn(); }
+  maybeApp();
+}
+
+function renderPlay() {
+  const cell = Math.min(46, Math.floor((Math.min(402, innerWidth) * .94) / N));
+  const sqs = [];
+  for (let i = 0; i < 64; i++) {
+    const oscura = (fila(i) + col(i)) % 2 === 1;
+    sqs.push(`<div class="sq ${oscura ? 'oscura' : 'clara'}" data-i="${i}" style="width:${cell}px;height:${cell}px;"></div>`);
+  }
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Damas', `<span class="chip">${S.mode === 'app' ? 'Vs. app · ' + DIFF_LABEL[S.level] : '2 jugadores'}</span>`)}
+    <div class="turnrow" id="turnrow"></div>
+    <div class="boardwrap"><div class="tab" id="board" style="grid-template-columns: repeat(${N}, ${cell}px);">${sqs.join('')}</div></div>
+    <div class="scorebar">
+      <div class="b"><div class="bn" id="sa">0</div><div class="bl">${S.mode === 'app' ? 'Tú' : 'Jugador 1'}</div></div>
+      <div class="b"><div class="bn" id="se">0</div><div class="bl">Tablas</div></div>
+      <div class="b"><div class="bn" id="sb">0</div><div class="bl">${S.mode === 'app' ? 'App' : 'Jugador 2'}</div></div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#board').onclick = (e) => {
+    const sq = e.target.closest('.sq.oscura');
+    if (sq) tap(Number(sq.dataset.i));
+  };
+  $('#t-salir').onclick = renderSetup;
+  paint();
+  updateTurn();
+}
+
+function updateTurn() {
+  const el = $('#turnrow');
+  if (!el || S.over) return;
+  const who = S.turn === 'A'
+    ? (S.mode === 'app' ? 'Tu turno' : 'Turno del Jugador 1')
+    : (S.mode === 'app' ? 'Piensa la app…' : 'Turno del Jugador 2');
+  const faltan = LIMITE_SIN_COMER - S.sinComer;
+  const aviso = S.movs.length && S.movs[0].cap.length && (S.mode === '2p' || S.turn === 'A')
+    ? ' <span class="aviso come">· comer es obligatorio</span>'
+    : (faltan <= 12 ? ` <span class="aviso tablas">· tablas en ${faltan}</span>` : '');
+  el.innerHTML = `<span class="who ${S.turn === 'B' ? 'o' : ''}">${who}</span>` + aviso;
+}
+
+function paint() {
+  if (!$('#sa')) return;  // el jugador ya se fue de la pantalla
+  const dests = new Set(S.sel >= 0 ? S.movs.filter((m) => m.from === S.sel).map((m) => m.path[m.path.length - 1]) : []);
+  $$('.sq.oscura').forEach((el) => {
+    const i = Number(el.dataset.i);
+    const pz = S.b[i];
+    el.innerHTML = pz
+      ? `<div class="pieza ${pz.p === 'A' ? 'pa' : 'pb'}">${pz.k ? `<span class="corona">${CORONA}</span>` : ''}</div>`
+      : '';
+    el.classList.toggle('selsq', i === S.sel);
+    el.classList.toggle('dest', dests.has(i));
+  });
+  $('#sa').textContent = S.score.A;
+  $('#sb').textContent = S.score.B;
+  if ($('#se')) $('#se').textContent = S.score.E;
+}
+
+function tap(i) {
+  if (S.over || S.thinking || S.anim) return;
+  if (S.mode === 'app' && S.turn === 'B') return;
+  const pz = S.b[i];
+  if (pz && pz.p === S.turn) {
+    S.sel = (S.sel === i) ? -1 : i;
+    paint();
+    return;
+  }
+  if (S.sel >= 0) {
+    const m = S.movs.find((mv) => mv.from === S.sel && mv.path[mv.path.length - 1] === i);
+    if (m) return jugar(m);
+  }
+  vibrate(30);
+}
+
+/* Los saltos en cadena se ven uno por uno: antes la ficha se teletransportaba
+   y desaparecían tres rivales de golpe. */
+async function jugar(m) {
+  S.anim = true;
+  S.sel = -1;
+  const pz = S.b[m.from];
+  const dest = m.path[m.path.length - 1];
+  const corona = coronaEn(pz, dest);
+  S.b[m.from] = null;
+  for (let i = 0; i < m.path.length; i++) {
+    const aqui = m.path[i];
+    S.b[aqui] = { p: pz.p, k: pz.k };
+    paint();
+    vibrate(m.cap.length ? [18, 26] : 12);
+    if (m.cap[i] !== undefined) {
+      if (m.cap.length > 1) await delay(170);
+      S.b[m.cap[i]] = null;
+      paint();
+    }
+    if (i < m.path.length - 1) { await delay(230); S.b[aqui] = null; }
+  }
+  if (corona) { S.b[dest] = { p: pz.p, k: true }; paint(); await delay(160); }
+  S.anim = false;
+
+  // Contadores de tablas: comer o coronar «refresca» la partida.
+  if (m.cap.length || corona) S.sinComer = 0; else S.sinComer++;
+  S.turn = S.turn === 'A' ? 'B' : 'A';
+  S.movs = movimientosDe(S.b, S.turn);
+  paint();
+  if (!S.movs.length) return endRound(S.turn === 'A' ? 'B' : 'A');
+  const clave = clavePos();
+  const veces = (S.vistas.get(clave) || 0) + 1;
+  S.vistas.set(clave, veces);
+  if (veces >= REPETICIONES) return endRound('E', `La misma posición se repitió ${REPETICIONES} veces.`);
+  if (S.sinComer >= LIMITE_SIN_COMER) return endRound('E', `Pasaron ${LIMITE_SIN_COMER} jugadas sin comer ni coronar.`);
+  updateTurn();
+  maybeApp();
+}
+
+function maybeApp() {
+  if (S.mode !== 'app' || S.turn !== 'B' || S.over) return;
+  S.thinking = true;
+  setTimeout(() => {
+    S.thinking = false;
+    if (S.over) return;
+    jugar(appMove());
+  }, 420 + randInt(500));
+}
+
+function endRound(winner, porque) {
+  if (!$('#turnrow')) return;  // el jugador ya se fue de la pantalla
+  S.over = true;
+  S.anim = false;
+  S.score[winner]++;
+  paint();
+  let title, pie = porque ? `<p style="text-align:center;">${esc(porque)}</p>` : '';
+  if (winner === 'E') {
+    title = 'Tablas';
+  } else if (S.mode === 'app') {
+    if (winner === 'A') {
+      title = '¡Ganaste!';
+      pie += `<p style="text-align:center;">Llevas <b>${anotaVictoria(S.level)}</b> victoria(s) en <b>${DIFF_LABEL[S.level]}</b></p>`;
+      confetti(); vibrate([30, 60, 30]);
+    } else title = 'Ganó la app';
+  } else {
+    title = winner === 'A' ? 'Ganó el Jugador 1' : 'Ganó el Jugador 2';
+    confetti();
+  }
+  $('#turnrow').innerHTML = `<span class="who ${winner === 'E' ? 'neutro' : winner === 'B' ? 'o' : ''}">${title}</span>`;
+  setTimeout(() => {
+    S.starter = S.starter === 'A' ? 'B' : 'A';
+    openModal(`
+      <h3>${title}</h3>
+      <p style="text-align:center;">Marcador: <b>${S.score.A}</b> – <b>${S.score.E}</b> – <b>${S.score.B}</b></p>
+      ${pie}
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Siguiente ronda</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startRound(false); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 1100);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

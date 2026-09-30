@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Reversi contra la app: voltea fichas y domina el tablero." />
+<title>Reversi</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E◐%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* El tablero se lleva el alto sobrante y se centra en él: así el marcador y
+     «Salir» bajan a la zona del pulgar en vez de dejar papel muerto debajo. */
+  .rwrap { display: flex; justify-content: center; align-items: center; padding: 14px 12px 0; flex: 1; }
+  /* Casillas en --good tal cual y marco más oscuro: con las casillas aclaradas
+     la ficha crema daba 2,6:1; sobre --good da 3,1 y la de tinta 4,2. */
+  .rboard {
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px;
+    width: min(94vw, 420px); background: color-mix(in srgb, var(--good) 70%, var(--ink)); padding: 6px; border-radius: 12px;
+    box-shadow: var(--shadow); border: 1px solid var(--linea-fuerte); }
+  .rc {
+    aspect-ratio: 1; border: none; border-radius: 10px; cursor: pointer; padding: 0;
+    background: var(--good); position: relative;
+  }
+  .rc .disc {
+    position: absolute; inset: 12%; border-radius: 999px; transition: transform .18s var(--ease), background .18s var(--ease);
+    border: var(--trazo) solid color-mix(in srgb, var(--ink) 30%, transparent);
+  }
+  .rc .disc.p1 { background: var(--ink); }
+  .rc .disc.p2 { background: var(--card); }
+  .rc .disc.nuevo { animation: popIn .25s var(--ease); }
+  /* Punto de jugada legal: crema casi opaco (ΔE 28 frente al verde); al 50 % de blanco se perdía. */
+  .rc .dot { position: absolute; inset: 36%; border-radius: 999px; background: color-mix(in srgb, var(--card) 85%, transparent); }
+  .turnrow { text-align: center; padding: 14px 0 0; font-family: var(--display); font-style: italic; font-size: 17px; font-weight: 400; color: var(--bg-ink); min-height: 24px; }
+  .scorebar { display: flex; justify-content: center; gap: 14px; margin: 14px 16px 0; }
+  .scorebar .b { flex: 0 1 120px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 6px; text-align: center; border: 1px solid var(--linea-fuerte); }
+  .scorebar .bn { font-family: var(--title-font); font-size: 22px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .scorebar .bl { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); margin-top: 3px; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    box-shadow: var(--shadow-sutil); }
+  .tool:active { opacity: .6; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const CFG = { facil: 1, normal: 3, dificil: 5, experto: 6 };
+const S = {
+  diff: store.get('reversi.diff', 'normal'),
+  b: null, turn: 1, over: false, thinking: false, pases: 0,
+};
+
+// Pesos posicionales (esquinas oro, casillas C/X venenosas)
+const Q = [
+  [120, -20, 20, 5],
+  [-20, -40, -5, -5],
+  [20, -5, 15, 3],
+  [5, -5, 3, 3],
+];
+const W = [];
+for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+  W.push(Q[Math.min(r, 7 - r)][Math.min(c, 7 - c)]);
+}
+
+const REGLAS = `<p>Tú llevas las <b>negras</b>. Cada ficha que pongas debe <b>encerrar</b> fichas rivales en línea recta (horizontal, vertical o diagonal): todas las encerradas <b>se voltean</b> a tu color.</p>
+<p>Si no puedes poner, pasas turno. Al llenarse el tablero (o quedarse ambos sin jugadas), gana quien tenga <b>más fichas</b>.</p>
+<p>Consejo clásico: las <b>esquinas</b> valen oro, y las casillas pegadas a ellas son peligrosas. Los puntitos marcan tus jugadas legales.</p>`;
+
+/* ── Reglas ──────────────────────────────────────────────────────────── */
+function flipsDe(b, p, i) {
+  if (b[i]) return null;
+  const r0 = Math.floor(i / 8), c0 = i % 8, opp = 3 - p;
+  const out = [];
+  for (const [dr, dc] of [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]) {
+    let r = r0 + dr, c = c0 + dc;
+    const linea = [];
+    while (r >= 0 && r < 8 && c >= 0 && c < 8 && b[r * 8 + c] === opp) { linea.push(r * 8 + c); r += dr; c += dc; }
+    if (linea.length && r >= 0 && r < 8 && c >= 0 && c < 8 && b[r * 8 + c] === p) out.push(...linea);
+  }
+  return out.length ? out : null;
+}
+function jugadas(b, p) {
+  const out = [];
+  for (let i = 0; i < 64; i++) {
+    const fl = flipsDe(b, p, i);
+    if (fl) out.push({ i, fl });
+  }
+  return out;
+}
+function aplicar(b, p, i, fl) {
+  const b2 = b.slice();
+  b2[i] = p;
+  for (const j of fl) b2[j] = p;
+  return b2;
+}
+
+/* ── IA ──────────────────────────────────────────────────────────────── */
+function evalTab(b) {
+  // positivo bueno para la app (2)
+  let pos = 0, n1 = 0, n2 = 0;
+  for (let i = 0; i < 64; i++) {
+    if (b[i] === 2) { pos += W[i]; n2++; }
+    else if (b[i] === 1) { pos -= W[i]; n1++; }
+  }
+  const mov = jugadas(b, 2).length - jugadas(b, 1).length;
+  const vacias = 64 - n1 - n2;
+  const discos = vacias < 14 ? (n2 - n1) * (14 - vacias) : 0;
+  return pos + 7 * mov + discos;
+}
+function final(b) {
+  let n1 = 0, n2 = 0;
+  for (let i = 0; i < 64; i++) { if (b[i] === 1) n1++; else if (b[i] === 2) n2++; }
+  return (n2 - n1) * 1000;
+}
+function minimax(b, p, depth, alfa, beta, pasado) {
+  const js = jugadas(b, p);
+  if (!js.length) {
+    if (pasado) return final(b);
+    return minimax(b, 3 - p, depth, alfa, beta, true);
+  }
+  if (depth <= 0) return evalTab(b);
+  js.sort((a, z) => W[z.i] - W[a.i]);
+  if (p === 2) {
+    let mejor = -Infinity;
+    for (const j of js) {
+      const v = minimax(aplicar(b, 2, j.i, j.fl), 1, depth - 1, alfa, beta, false);
+      if (v > mejor) mejor = v;
+      if (mejor > alfa) alfa = mejor;
+      if (alfa >= beta) break;
+    }
+    return mejor;
+  }
+  let peor = Infinity;
+  for (const j of js) {
+    const v = minimax(aplicar(b, 1, j.i, j.fl), 2, depth - 1, alfa, beta, false);
+    if (v < peor) peor = v;
+    if (peor < beta) beta = peor;
+    if (alfa >= beta) break;
+  }
+  return peor;
+}
+function appMove() {
+  const js = jugadas(S.b, 2);
+  if (!js.length) return null;
+  if (S.diff === 'facil') {
+    // voraz con ruido: a veces la mejor por volteos, a veces cualquiera
+    if (Math.random() < .5) return js[randInt(js.length)];
+    js.sort((a, z) => z.fl.length - a.fl.length);
+    return js[0];
+  }
+  const vacias = S.b.filter((v) => !v).length;
+  let depth = CFG[S.diff];
+  if (S.diff === 'experto' && vacias <= 11) depth = vacias; // final exacto
+  let mejor = -Infinity, pick = js[0];
+  js.sort((a, z) => W[z.i] - W[a.i]);
+  for (const j of js) {
+    const v = minimax(aplicar(S.b, 2, j.i, j.fl), 1, depth - 1, mejor === -Infinity ? -Infinity : mejor, Infinity, false);
+    if (v > mejor) { mejor = v; pick = j; }
+  }
+  return pick;
+}
+
+/* ── Marca por nivel ─────────────────────────────────────────────────── */
+const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+const victorias = (n) => store.get('reversi.wins.' + n, 0);
+
+function anotaVictoria(nivel) {
+  const n = victorias(nivel) + 1;
+  store.set('reversi.wins.' + nivel, n);
+  // Al hub va la marca del nivel más alto en el que se haya ganado.
+  let alto = null;
+  for (const v of NIVELES) if (victorias(v) > 0) alto = v;
+  if (alto) {
+    const k = victorias(alto);
+    store.set('rev.hub', `${DIFF_LABEL[alto]}: ${k} victoria${k === 1 ? '' : 's'}`);
+  }
+  return n;
+}
+
+function bestsHTML() {
+  return NIVELES.map((v) =>
+    `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Reversi', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Victorias vs. app, por nivel</div>
+      <div class="bests">${bestsHTML()}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('reversi.diff', v); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  S.b = new Array(64).fill(0);
+  S.b[27] = 2; S.b[28] = 1; S.b[35] = 1; S.b[36] = 2;
+  S.turn = 1; S.over = false; S.thinking = false; S.pases = 0;
+  renderPlay();
+}
+
+function renderPlay() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Reversi', `<span class="chip">${DIFF_LABEL[S.diff]}</span>`)}
+    <div class="turnrow" id="turnrow"></div>
+    <div class="rwrap">
+      <div class="rboard" id="rboard">
+        ${Array.from({ length: 64 }, (_, i) => `<button class="rc" data-i="${i}"></button>`).join('')}
+      </div>
+    </div>
+    <div class="scorebar">
+      <div class="b"><div class="bn" id="s1">2</div><div class="bl">Tú · negras</div></div>
+      <div class="b"><div class="bn" id="s2">2</div><div class="bl">App · blancas</div></div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#rboard').onclick = (e) => {
+    const el = e.target.closest('.rc');
+    if (el) tap(Number(el.dataset.i));
+  };
+  $('#t-salir').onclick = renderSetup;
+  paint();
+}
+
+function paint(nuevoI) {
+  if (!$('#s1')) return;  // la app pensaba y el jugador ya se fue de la pantalla
+  const validas = S.turn === 1 && !S.over ? new Set(jugadas(S.b, 1).map((j) => j.i)) : new Set();
+  $$('.rc').forEach((el) => {
+    const i = Number(el.dataset.i);
+    const v = S.b[i];
+    el.innerHTML = v ? `<div class="disc p${v} ${i === nuevoI ? 'nuevo' : ''}"></div>` : (validas.has(i) ? '<div class="dot"></div>' : '');
+  });
+  let n1 = 0, n2 = 0;
+  for (const v of S.b) { if (v === 1) n1++; else if (v === 2) n2++; }
+  $('#s1').textContent = n1;
+  $('#s2').textContent = n2;
+  const t = $('#turnrow');
+  if (!S.over) t.textContent = S.turn === 1 ? 'Tu turno' : 'Piensa la app…';
+}
+
+function tap(i) {
+  if (S.over || S.thinking || S.turn !== 1) return;
+  const fl = flipsDe(S.b, 1, i);
+  if (!fl) return;
+  S.b = aplicar(S.b, 1, i, fl);
+  vibrate(10);
+  siguiente(2, i);
+}
+
+function siguiente(p, nuevoI) {
+  S.turn = p;
+  paint(nuevoI);
+  const js = jugadas(S.b, p);
+  if (!js.length) {
+    const otros = jugadas(S.b, 3 - p);
+    if (!otros.length) return terminar();
+    const t = $('#turnrow');
+    if (t) t.textContent = p === 1 ? 'No tienes jugada: pasas' : 'La app pasa';
+    setTimeout(() => siguiente(3 - p), 900);
+    return;
+  }
+  if (p === 2) {
+    S.thinking = true;
+    setTimeout(() => {
+      S.thinking = false;
+      if (S.over) return;
+      const j = appMove();
+      if (!j) return siguiente(1);
+      S.b = aplicar(S.b, 2, j.i, j.fl);
+      siguiente(1, j.i);
+    }, 420 + randInt(400));
+  }
+}
+
+function terminar() {
+  if (S.over || !$('#turnrow')) return;
+  S.over = true;
+  let n1 = 0, n2 = 0;
+  for (const v of S.b) { if (v === 1) n1++; else if (v === 2) n2++; }
+  let titulo, pie = '';
+  if (n1 > n2) {
+    titulo = '¡Ganaste!';
+    pie = `<p style="text-align:center;">Llevas <b>${anotaVictoria(S.diff)}</b> victoria(s) en <b>${DIFF_LABEL[S.diff]}</b></p>`;
+    confetti(); vibrate([30, 60, 30]);
+  } else titulo = n2 > n1 ? 'Ganó la app' : 'Empate';
+  $('#turnrow').textContent = titulo;
+  setTimeout(() => {
+    openModal(`
+      <h3>${titulo}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${n1}</div><div class="l">tus fichas</div></div>
+        <div class="stat"><div class="n">${n2}</div><div class="l">de la app</div></div>
+      </div>
+      ${pie}
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 1000);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

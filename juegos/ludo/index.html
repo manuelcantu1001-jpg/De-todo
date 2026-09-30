@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Ludo contra la app: saca tus fichas con un 6, da la vuelta al tablero y llévalas a casa antes que nadie." />
+<title>Ludo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E⚄%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Los cuatro colores: el cuarteto más separado de la paleta (ΔE2000 ≥ 26).
+     Tú siempre llevas la terracota. */
+  :root { --j0: var(--tinta-1); --j1: var(--tinta-2); --j2: var(--tinta-3); --j3: var(--tinta-5); }
+
+  .juego { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
+  .twrap { display: flex; justify-content: center; padding: 6px 8px 0; }
+  .tablero {
+    --c: 24px;                                  /* lado de casilla, lo fija el JS */
+    position: relative; width: calc(var(--c) * 15); height: calc(var(--c) * 15);
+    display: grid; grid-template-columns: repeat(15, var(--c)); grid-template-rows: repeat(15, var(--c));
+    background: var(--card); border-radius: 14px; overflow: hidden;
+    border: 1px solid var(--linea-fuerte); touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  }
+  .cs { position: relative; }
+  /* Pista: casillas claras con filete; las de salida y las columnas de casa
+     van teñidas del color de su dueño. */
+  .cs.pista { background: var(--card); box-shadow: inset 0 0 0 .5px var(--linea); }
+  .cs.pista.j0 { background: color-mix(in srgb, var(--j0) 34%, var(--card)); }
+  .cs.pista.j1 { background: color-mix(in srgb, var(--j1) 34%, var(--card)); }
+  .cs.pista.j2 { background: color-mix(in srgb, var(--j2) 34%, var(--card)); }
+  .cs.pista.j3 { background: color-mix(in srgb, var(--j3) 34%, var(--card)); }
+  .cs.pista.segura::after {
+    content: '✦'; position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: calc(var(--c) * .5); color: var(--sub); opacity: .7;
+  }
+  /* Casas: bloque del color con un patio claro dentro */
+  .casa { position: absolute; width: calc(var(--c) * 6); height: calc(var(--c) * 6); border-radius: 12px; }
+  .casa.j0 { left: 0; top: 0; background: color-mix(in srgb, var(--j0) 34%, var(--card)); }
+  .casa.j1 { right: 0; top: 0; background: color-mix(in srgb, var(--j1) 34%, var(--card)); }
+  .casa.j2 { right: 0; bottom: 0; background: color-mix(in srgb, var(--j2) 34%, var(--card)); }
+  .casa.j3 { left: 0; bottom: 0; background: color-mix(in srgb, var(--j3) 34%, var(--card)); }
+  .casa .patio {
+    position: absolute; inset: calc(var(--c) * 1); border-radius: 10px;
+    background: var(--card); border: 1px solid var(--linea);
+  }
+  .casa.fuera { opacity: .38; }                 /* color que no juega esta partida */
+  /* Centro: cuatro cuñas que apuntan a cada columna de casa.
+     (No se llama .meta: ese nombre ya lo usa la barra superior compartida.) */
+  .centro {
+    position: absolute; left: calc(var(--c) * 6); top: calc(var(--c) * 6);
+    width: calc(var(--c) * 3); height: calc(var(--c) * 3);
+    background: conic-gradient(from 45deg,
+      color-mix(in srgb, var(--j2) 60%, var(--card)) 0 90deg,
+      color-mix(in srgb, var(--j3) 60%, var(--card)) 90deg 180deg,
+      color-mix(in srgb, var(--j0) 60%, var(--card)) 180deg 270deg,
+      color-mix(in srgb, var(--j1) 60%, var(--card)) 270deg 360deg);
+  }
+  /* Fichas: se mueven con transform para que la transición sea barata */
+  .ficha {
+    position: absolute; left: 0; top: 0; width: calc(var(--c) * .8); height: calc(var(--c) * .8);
+    border-radius: 999px; border: 2px solid var(--card);
+    box-shadow: 0 0 0 1px rgba(51, 48, 43, .35);
+    transition: transform .36s var(--ease); cursor: default; z-index: 2;
+  }
+  .ficha::after {
+    content: ''; position: absolute; inset: 30%; border-radius: 999px; background: var(--card); opacity: .85;
+  }
+  .ficha.j0 { background: var(--j0); } .ficha.j1 { background: var(--j1); }
+  .ficha.j2 { background: var(--j2); } .ficha.j3 { background: var(--j3); }
+  .ficha.puede { cursor: pointer; z-index: 3; animation: late .9s var(--ease) infinite; }
+  @keyframes late { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 55%, transparent); } }
+  .ficha.encasa { opacity: .9; transform-origin: center; }
+  /* Varias fichas en la misma casilla: se abren en abanico pequeño */
+  .ficha.apilada { width: calc(var(--c) * .62); height: calc(var(--c) * .62); }
+
+  /* Mesa de abajo: dado, estado y mandos */
+  .mesa { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 4px 16px 0; }
+  .dado {
+    width: 64px; height: 64px; border-radius: 16px; background: var(--card); border: 1px solid var(--linea-fuerte);
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 11px; gap: 0;
+    cursor: pointer; transition: opacity var(--dur) var(--ease), transform .12s var(--ease);
+  }
+  .dado i { border-radius: 999px; background: var(--ink); opacity: 0; transform: scale(.9); }
+  .dado i.on { opacity: 1; }
+  .dado.rodando { transform: rotate(-8deg); }
+  .dado.quieto { opacity: .55; cursor: default; }
+  .dado.turno { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .estado { min-width: 150px; }
+  .estado .quien { font-family: var(--display); font-style: italic; font-size: 16px; color: var(--ink); min-height: 20px; }
+  .estado .quien b { font-style: normal; font-weight: 500; }
+  .estado .pista { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); margin-top: 4px; min-height: 14px; }
+  .quien .punto { display: inline-block; width: 10px; height: 10px; border-radius: 999px; vertical-align: -1px; margin-right: 6px; }
+  .marcador { display: flex; justify-content: center; gap: 14px; padding-top: 6px; flex-wrap: wrap; }
+  .marcador .m { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--sub); }
+  .marcador .m i { width: 9px; height: 9px; border-radius: 999px; }
+  .marcador .m b { font-family: var(--font); font-weight: 500; font-size: 14px; color: var(--ink); letter-spacing: 0; }
+  .tools { margin: 0 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 8px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
+  .tool:active { opacity: .6; }
+  .rivales-hint { font-size: 12.5px; color: var(--sub); padding: 8px 2px 4px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ── Motor puro ────────────────────────────────────────────────────────
+   Todo lo de aquí trabaja sobre un objeto G sin tocar la pantalla, así que
+   sirve igual para jugar y para simular miles de partidas y medir las IAs.
+   Posición de una ficha: -1 en casa; 0..50 en la pista (relativa a su
+   salida); 51..55 en su columna de casa; 56 en la meta. */
+const NOMBRE = ['Terracota', 'Azul', 'Verde', 'Rosa'];
+const SALIDA = [0, 13, 26, 39];                 // casilla absoluta de salida de cada color
+const SEGURAS = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
+const META = 56, ULT_PISTA = 50;
+
+const abs = (j, p) => (SALIDA[j] + p) % 52;     // casilla absoluta de una posición de pista
+
+function nuevaPartida(jugadores) {
+  return {
+    jugadores,                                  // ids de color que juegan, en orden de turno
+    fichas: Object.fromEntries(jugadores.map((j) => [j, [-1, -1, -1, -1]])),
+    turno: 0, seises: 0, dado: 0, ganador: -1,
+  };
+}
+const actual = (G) => G.jugadores[G.turno];
+
+/* Quién ocupa una casilla absoluta de la pista (solo fichas en 0..50). */
+function ocupantes(G, casilla, salvo) {
+  const out = [];
+  for (const j of G.jugadores) {
+    if (j === salvo) continue;
+    G.fichas[j].forEach((p, k) => { if (p >= 0 && p <= ULT_PISTA && abs(j, p) === casilla) out.push({ j, k, p }); });
+  }
+  return out;
+}
+
+function legales(G, j, d) {
+  const out = [];
+  G.fichas[j].forEach((p, k) => {
+    if (p === META) return;
+    if (p < 0) { if (d === 6) out.push({ k, de: p, a: 0 }); return; }
+    const a = p + d;
+    if (a > META) return;
+    out.push({ k, de: p, a });
+  });
+  return out;
+}
+
+/* Aplica un movimiento. Devuelve qué pasó, para el turno extra y el aviso. */
+function aplicar(G, j, mov) {
+  const res = { captura: null, casa: false, gana: false };
+  G.fichas[j][mov.k] = mov.a;
+  if (mov.a <= ULT_PISTA) {
+    const c = abs(j, mov.a);
+    if (!SEGURAS.has(c)) {
+      const otros = ocupantes(G, c, j);
+      // Una ficha sola se come; dos del mismo color forman barrera y no.
+      const porColor = {};
+      for (const o of otros) (porColor[o.j] = porColor[o.j] || []).push(o);
+      for (const [oj, lista] of Object.entries(porColor)) {
+        if (lista.length === 1) { G.fichas[oj][lista[0].k] = -1; res.captura = { j: Number(oj), progreso: lista[0].p }; }
+      }
+    }
+  }
+  if (mov.a === META) {
+    res.casa = true;
+    if (G.fichas[j].every((p) => p === META)) { res.gana = true; G.ganador = j; }
+  }
+  return res;
+}
+
+/* ¿Cuántas fichas rivales pueden caer en esta casilla absoluta el próximo
+   tiro (están 1–6 detrás por la pista)? Da la probabilidad aproximada. */
+function amenaza(G, j, c) {
+  let n = 0;
+  for (const o of G.jugadores) {
+    if (o === j) continue;
+    for (const p of G.fichas[o]) {
+      if (p < 0 || p > ULT_PISTA) continue;
+      const dist = (c - abs(o, p) + 52) % 52;
+      // A 1–6 por la pista y sin haber doblado ya hacia su columna
+      if (dist >= 1 && dist <= 6 && p + dist <= ULT_PISTA) n++;
+    }
+  }
+  return 1 - Math.pow(5 / 6, n);
+}
+
+/* ── Las IAs ──
+   facil: al azar. normal: gana lo que tiene delante (meta, captura, salir,
+   avanzar) con pesos fijos. dificil: mueve pensando en las cuatro fichas a la
+   vez: valora la mesa entera después de mover (progreso, refugio, barreras y
+   cuánto arriesga cada ficha). experto: además mira dos tiros más allá: para
+   cada jugada promedia las seis caras del dado de quien tira después (el rival
+   eligiendo lo peor para nosotros, o él mismo si repite turno) y otra vez la
+   del siguiente. Medido con simulación (asientos alternados): normal gana 80 %
+   a fácil, difícil 62 % a normal y experto 61 % a difícil. */
+const PESOS = {
+  normal: { meta: 60, captura: 45, salir: 25, avance: 1, segura: 3, columna: 6 },
+};
+
+function puntuar(G, j, mov, W) {
+  let s = 0;
+  const p = mov.de, a = mov.a;
+  if (a === META) s += W.meta;
+  if (p < 0) {
+    // Salir vale más cuando hay pocas fichas fuera
+    const fuera = G.fichas[j].filter((x) => x >= 0 && x < META).length;
+    s += W.salir + (fuera === 0 ? 12 : 0);
+  }
+  s += W.avance * a;
+  if (a > ULT_PISTA) s += W.columna;                       // ya nadie te come ahí
+  if (a >= 0 && a <= ULT_PISTA) {
+    const c = abs(j, a);
+    const otros = ocupantes(G, c, j);
+    const comibles = otros.filter((o) => !SEGURAS.has(c) && otros.filter((x) => x.j === o.j).length === 1);
+    if (comibles.length) s += W.captura + Math.max(...comibles.map((o) => o.p)) * 0.4;
+    if (SEGURAS.has(c)) s += W.segura;
+  }
+  return s;
+}
+
+/* Valor de una posición para j: cuánto vale cada ficha propia (progreso,
+   seguridad, riesgo de que la coman) menos lo mismo de las rivales. Es lo
+   que miran Difícil y Experto: la mesa entera después de mover. */
+function valorFicha(G, j, p, mueveRival) {
+  if (p === META) return 120;
+  if (p < 0) return 0;
+  let v = 8 + p * 1.15;
+  if (p > ULT_PISTA) return v + 14;                    // ya en la columna: intocable
+  const c = abs(j, p);
+  if (SEGURAS.has(c)) return v + 6;
+  const propias = G.fichas[j].filter((x) => x >= 0 && x <= ULT_PISTA && abs(j, x) === c).length;
+  if (propias >= 2) return v + 5;                       // barrera
+  // Lo que pierde si la comen. Si el que tira ahora es un rival, el peligro es
+  // inmediato; si le toca a j, aún puede apartarla, así que pesa menos.
+  return v - (18 + p * 0.9) * amenaza(G, j, c) * (mueveRival ? 1 : AJUSTE.propio);
+}
+/* `q` es quien tira a continuación en esa mesa. */
+function evaluar(G, j, q) {
+  let s = 0;
+  for (const o of G.jugadores) {
+    const signo = o === j ? 1 : -1 / (G.jugadores.length - 1);
+    for (const p of G.fichas[o]) s += signo * valorFicha(G, o, p, q !== o);
+  }
+  return s;
+}
+/* Ajustes de Experto: cuánto pesa el riesgo de una ficha cuando le toca
+   mover a su dueño (aún puede apartarla) y cuánto vale un tiro extra. */
+const AJUSTE = { propio: 0.55, extra: 4 };
+const copia = (G) => ({ ...G, fichas: Object.fromEntries(G.jugadores.map((o) => [o, G.fichas[o].slice()])) });
+const repite = (d, res) => d === 6 || !!res.captura || res.casa;
+
+/* Lo que vale la mesa G para j mirando `prof` tiros más allá: quien tira
+   ahora (`q`) elige su mejor jugada para cada cara del dado y se promedian
+   las seis; en la hoja se valora la mesa. */
+/* Dos tiros: a tres, una mesa densa de cuatro tarda ~190 ms por decisión en
+   Node (medio segundo en un teléfono) y solo sube unos 5 puntos contra Difícil. */
+const PROFUNDIDAD = 2;
+function unTiroDespues(G, j, q, prof) {
+  const tras = G.jugadores[(G.jugadores.indexOf(q) + 1) % G.jugadores.length];
+  const hoja = (H, qq) => (prof > 1 ? unTiroDespues(H, j, qq, prof - 1) : evaluar(H, j, qq));
+  let tot = 0;
+  for (let d = 1; d <= 6; d++) {
+    const moves = legales(G, q, d);
+    if (!moves.length) { tot += hoja(G, d === 6 ? q : tras); continue; }
+    let mejor = q === j ? -Infinity : Infinity;
+    for (const m of moves) {
+      const G2 = copia(G); const r = aplicar(G2, q, m);
+      const otraVez = repite(d, r);
+      let v = r.gana ? (q === j ? 1e6 : -1e6) : hoja(G2, otraVez ? q : tras);
+      if (otraVez) v += q === j ? AJUSTE.extra : -AJUSTE.extra;   // el tiro extra vale algo
+      if (q === j ? v > mejor : v < mejor) mejor = v;
+    }
+    tot += mejor;
+  }
+  return tot / 6;
+}
+
+function elegirApp(G, j, moves, nivel, azar) {
+  const rnd = azar || Math.random;
+  if (nivel === 'facil') return moves[Math.floor(rnd() * moves.length)];
+  let mejor = moves[0], mejorS = -Infinity;
+  if (nivel === 'normal') {
+    for (const m of moves) {
+      const s = puntuar(G, j, m, PESOS.normal) + rnd() * 0.01;   // desempate al azar
+      if (s > mejorS) { mejorS = s; mejor = m; }
+    }
+    return mejor;
+  }
+  const d = G.dado;
+  const sig = G.jugadores[(G.turno + 1) % G.jugadores.length];
+  for (const m of moves) {
+    const G2 = copia(G);
+    const res = aplicar(G2, j, m);
+    let s;
+    if (res.gana) s = 1e6;
+    else if (nivel === 'experto') s = unTiroDespues(G2, j, repite(d, res) ? j : sig, PROFUNDIDAD);
+    else s = evaluar(G2, j, repite(d, res) ? j : sig) + (repite(d, res) ? 6 : 0);
+    s += rnd() * 0.01;
+    if (s > mejorS) { mejorS = s; mejor = m; }
+  }
+  return mejor;
+}
+
+/* Un turno entero sin pantalla: tira, mueve y decide si repite. Devuelve
+   true si el jugador conserva el turno. Lo usa la simulación. */
+function turnoSimulado(G, nivel, rnd) {
+  const j = actual(G);
+  const d = 1 + Math.floor(rnd() * 6);
+  G.dado = d;
+  if (d === 6) G.seises++; else G.seises = 0;
+  if (G.seises === 3) { G.seises = 0; return false; }
+  const moves = legales(G, j, d);
+  if (!moves.length) return d === 6 && G.seises < 3;
+  const res = aplicar(G, j, elegirApp(G, j, moves, nivel, rnd));
+  if (res.gana) return false;
+  return d === 6 || !!res.captura || res.casa;
+}
+function siguienteTurno(G) { G.turno = (G.turno + 1) % G.jugadores.length; G.seises = 0; }
+/* ── Fin del motor ─────────────────────────────────────────────────── */
+
+/* ── Geometría del tablero (15×15, columna/fila) ───────────────────── */
+const PISTA = [
+  [1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0],
+  [8,1],[8,2],[8,3],[8,4],[8,5],[9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8],
+  [13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14],[6,14],
+  [6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6],
+];
+const COLUMNA = [
+  [[1,7],[2,7],[3,7],[4,7],[5,7]],
+  [[7,1],[7,2],[7,3],[7,4],[7,5]],
+  [[13,7],[12,7],[11,7],[10,7],[9,7]],
+  [[7,13],[7,12],[7,11],[7,10],[7,9]],
+];
+const PATIO = [[1.5,1.5],[3.5,1.5],[1.5,3.5],[3.5,3.5]];
+const ORIGEN_CASA = [[0,0],[9,0],[9,9],[0,9]];
+const META_XY = [[6.5,7.5],[7.5,6.5],[8.5,7.5],[7.5,8.5]];   // cuña de cada color en la meta
+
+/* Centro (en casillas) donde se dibuja una ficha, según su posición. */
+function sitio(j, k, p, nEnMismo, idx) {
+  let x, y;
+  if (p < 0) { const o = ORIGEN_CASA[j]; x = o[0] + PATIO[k][0]; y = o[1] + PATIO[k][1]; }
+  else if (p === META) { const m = META_XY[j]; x = m[0]; y = m[1]; }
+  else if (p > ULT_PISTA) { const c = COLUMNA[j][p - 51]; x = c[0] + .5; y = c[1] + .5; }
+  else { const c = PISTA[abs(j, p)]; x = c[0] + .5; y = c[1] + .5; }
+  if (nEnMismo > 1 && p >= 0 && p < META) {   // abanico pequeño cuando comparten casilla
+    const ang = (idx / nEnMismo) * Math.PI * 2;
+    x += Math.cos(ang) * .2; y += Math.sin(ang) * .2;
+  }
+  return [x, y];
+}
+
+/* ── Estado de pantalla ────────────────────────────────────────────── */
+const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+const S = {
+  nivel: store.get('ludo.nivel', 'normal'),
+  rivales: store.get('ludo.rivales', 1),
+  G: null, gen: 0, timers: [], esperando: null, jugando: false,
+};
+const YO = 0;
+const esApp = (j) => j !== YO;
+
+const REGLAS = `<p>Cuatro fichas por color, un dado. <b>Para sacar una ficha de casa necesitas un 6</b>; después cada tiro avanza una ficha las casillas que marque. Da la vuelta entera al tablero, entra por tu columna y llega a la meta <b>con el número exacto</b>.</p>
+<p>Si caes sobre una ficha rival <b>sola</b>, la mandas a su casa. Dos fichas del mismo color juntas forman barrera y no se comen; las casillas con ✦ (salidas y estrellas) son seguras. <b>Sacar 6, comer o llegar a la meta te da otro tiro</b>; tres 6 seguidos y pierdes el turno.</p>
+<p>Gana quien mete las cuatro primero. Juegas contra 1, 2 o 3 rivales: la app <b>Fácil</b> mueve al azar; <b>Normal</b> va a lo que tiene delante: come, mete y avanza; <b>Difícil</b> juega con las cuatro fichas a la vez y mide lo que arriesga cada una; <b>Experto</b> además piensa dos tiros más allá. Tus victorias se guardan por nivel.</p>`;
+
+const victorias = (n) => store.get('ludo.wins.' + n, 0);
+function anotaVictoria(nivel) {
+  const n = victorias(nivel) + 1;
+  store.set('ludo.wins.' + nivel, n);
+  let alto = null;
+  for (const v of NIVELES) if (victorias(v) > 0) alto = v;
+  if (alto) {
+    const k = victorias(alto);
+    store.set('ludo.hub', `${DIFF_LABEL[alto]}: ${k} victoria${k === 1 ? '' : 's'}`);
+  }
+  return n;
+}
+function bestsHTML() {
+  return NIVELES.map((v) =>
+    `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
+}
+
+function limpiar() {
+  S.gen++;
+  for (const t of S.timers) clearTimeout(t);
+  S.timers = []; S.esperando = null; S.jugando = false;
+}
+const espera = (ms) => new Promise((r) => { const t = setTimeout(r, ms); S.timers.push(t); });
+
+function renderSetup() {
+  limpiar();
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Ludo', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Rivales</div></div>
+        <div class="seg" id="seg-r">
+          ${[1, 2, 3].map((n) => `<button data-v="${n}" class="${S.rivales === n ? 'sel' : ''}">${n}</button>`).join('')}
+        </div>
+        <div class="rivales-hint" id="r-hint"></div>
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
+        ${diffSegHTML('seg-d', S.nivel)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Victorias, por nivel</div>
+      <div class="bests">${bestsHTML()}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => { $('#r-hint').textContent = S.rivales === 1 ? 'Tú (terracota) contra el verde, enfrente.' : S.rivales === 2 ? 'Tú, el azul y el verde.' : 'Mesa llena: los cuatro colores.'; };
+  bindSeg('seg-r', (v) => { S.rivales = Number(v); store.set('ludo.rivales', S.rivales); hint(); });
+  bindSeg('seg-d', (v) => { S.nivel = v; store.set('ludo.nivel', v); });
+  hint();
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  limpiar();
+  const jugadores = S.rivales === 1 ? [0, 2] : S.rivales === 2 ? [0, 1, 2] : [0, 1, 2, 3];
+  S.G = nuevaPartida(jugadores);
+  S.jugando = true;
+  renderPlay();
+  turno();
+}
+
+/* ── Pantalla de juego ─────────────────────────────────────────────── */
+function renderPlay() {
+  const G = S.G;
+  const lado = Math.min(420, Math.floor(innerWidth * .96), innerHeight - 330);
+  const c = Math.floor(lado / 15);
+  const pista = new Set(PISTA.map(([x, y]) => x + ',' + y));
+  const columnaDe = {}; COLUMNA.forEach((col, j) => col.forEach(([x, y]) => { columnaDe[x + ',' + y] = j; }));
+  const salidaDe = {}; SALIDA.forEach((s, j) => { const [x, y] = PISTA[s]; salidaDe[x + ',' + y] = j; });
+  const seguras = new Set([...SEGURAS].map((s) => PISTA[s].join(',')));
+  let celdas = '';
+  for (let y = 0; y < 15; y++) for (let x = 0; x < 15; x++) {
+    const k = x + ',' + y;
+    let cl = 'cs';
+    if (pista.has(k)) cl += ' pista' + (salidaDe[k] !== undefined ? ' j' + salidaDe[k] : '') + (seguras.has(k) ? ' segura' : '');
+    else if (columnaDe[k] !== undefined) cl += ' pista j' + columnaDe[k];
+    celdas += `<div class="${cl}"></div>`;
+  }
+  const casas = [0, 1, 2, 3].map((j) => `<div class="casa j${j} ${G.jugadores.includes(j) ? '' : 'fuera'}"><div class="patio"></div></div>`).join('');
+  const fichas = G.jugadores.map((j) => [0, 1, 2, 3].map((k) => `<div class="ficha j${j}" data-j="${j}" data-k="${k}"></div>`).join('')).join('');
+  const marcador = G.jugadores.map((j) => `<span class="m"><i style="background:var(--j${j})"></i>${j === YO ? 'Tú' : NOMBRE[j]} <b id="mc-${j}">0</b></span>`).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Ludo', `<span class="chip">${DIFF_LABEL[S.nivel]}</span>`)}
+    <div class="juego">
+      <div class="twrap"><div class="tablero" id="tablero" style="--c:${c}px">${celdas}${casas}<div class="centro"></div>${fichas}</div></div>
+      <div class="mesa">
+        <div class="dado quieto" id="dado" aria-label="Dado">${'<i></i>'.repeat(9)}</div>
+        <div class="estado"><div class="quien" id="quien"></div><div class="pista" id="aviso"></div></div>
+      </div>
+      <div class="marcador">${marcador}</div>
+      <div class="tools"><button class="tool" id="t-salir">Salir</button></div>
+    </div>
+  </div>`;
+  $('#dado').onclick = () => { if (S.esperando === 'tiro') tirar(); };
+  $('#tablero').onclick = (e) => {
+    const f = e.target.closest('.ficha.puede');
+    if (f && S.esperando === 'ficha') elegirFicha(Number(f.dataset.k));
+  };
+  $('#t-salir').onclick = renderSetup;
+  pintarDado(0);
+  paint();
+}
+
+/* Las 9 posiciones de los puntos del dado, por cara */
+const CARAS = { 1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+function pintarDado(n) {
+  const d = $('#dado'); if (!d) return;
+  const on = new Set(CARAS[n] || []);
+  $$('i', d).forEach((el, i) => el.classList.toggle('on', on.has(i)));
+}
+
+function paint(movibles) {
+  if (!$('#tablero')) return;                   // el jugador ya se fue de la pantalla
+  const G = S.G;
+  // agrupar por casilla para el abanico
+  const enSitio = {};
+  for (const j of G.jugadores) G.fichas[j].forEach((p, k) => {
+    if (p < 0 || p === META) return;
+    const key = p > ULT_PISTA ? `c${j}-${p}` : 't' + abs(j, p);
+    (enSitio[key] = enSitio[key] || []).push(j * 4 + k);
+  });
+  const puede = new Set((movibles || []).map((m) => m.k));
+  $$('.ficha').forEach((el) => {
+    const j = Number(el.dataset.j), k = Number(el.dataset.k), p = G.fichas[j][k];
+    const key = p > ULT_PISTA ? `c${j}-${p}` : 't' + (p >= 0 ? abs(j, p) : '');
+    const grupo = (p >= 0 && p < META) ? enSitio[key] : null;
+    const n = grupo ? grupo.length : 1, idx = grupo ? grupo.indexOf(j * 4 + k) : 0;
+    const [x, y] = sitio(j, k, p, n, idx);
+    const tam = n > 1 ? .62 : .8;
+    el.style.transform = `translate(calc(var(--c) * ${(x - tam / 2).toFixed(3)}), calc(var(--c) * ${(y - tam / 2).toFixed(3)}))`;
+    el.classList.toggle('apilada', n > 1);
+    el.classList.toggle('encasa', p === META);
+    el.classList.toggle('puede', j === YO && puede.has(k));
+    el.classList.toggle('j' + j, true);
+  });
+  for (const j of G.jugadores) { const m = $('#mc-' + j); if (m) m.textContent = G.fichas[j].filter((p) => p === META).length; }
+}
+
+function avisa(txt) { const el = $('#aviso'); if (el) el.textContent = txt || ''; }
+function quien(txt, j) {
+  const el = $('#quien'); if (!el) return;
+  el.innerHTML = `<span class="punto" style="background:var(--j${j})"></span>${txt}`;
+}
+
+/* ── Flujo de turnos (asíncrono, con guarda de generación) ─────────── */
+const vivo = (g) => g === S.gen && S.jugando && !!$('#tablero');
+
+async function turno() {
+  const g = S.gen; if (!vivo(g)) return;
+  const G = S.G, j = actual(G);
+  const dado = $('#dado');
+  if (esApp(j)) {
+    quien(`Tira <b>${NOMBRE[j]}</b>…`, j); avisa('');
+    dado.classList.add('quieto'); dado.classList.remove('turno');
+    S.esperando = null;
+    await espera(360); if (!vivo(g)) return;
+    tirar();
+  } else {
+    quien(`<b>Tu turno</b>`, j); avisa('toca el dado');
+    dado.classList.remove('quieto'); dado.classList.add('turno');
+    S.esperando = 'tiro';
+  }
+}
+
+async function tirar() {
+  const g = S.gen; if (!vivo(g)) return;
+  const G = S.G, j = actual(G);
+  S.esperando = null;
+  const d = 1 + randInt(6);
+  const dado = $('#dado');
+  dado.classList.add('rodando'); dado.classList.remove('turno');
+  for (let i = 0; i < 5; i++) { pintarDado(1 + randInt(6)); await espera(48); if (!vivo(g)) return; }
+  dado.classList.remove('rodando');
+  pintarDado(d);
+  vibrate(6);
+  G.dado = d;
+  if (d === 6) G.seises++; else G.seises = 0;
+  if (G.seises === 3) {
+    avisa('tres seises: pierde el turno');
+    G.seises = 0;
+    await espera(900); if (!vivo(g)) return;
+    return pasar();
+  }
+  const moves = legales(G, j, d);
+  if (!moves.length) {
+    avisa(d === 6 ? 'sin jugada' : 'no puede mover');
+    await espera(800); if (!vivo(g)) return;
+    return d === 6 ? turno() : pasar();
+  }
+  if (esApp(j)) {
+    await espera(300); if (!vivo(g)) return;
+    return mover(elegirApp(G, j, moves, S.nivel));
+  }
+  if (moves.length === 1) {
+    avisa(`sacaste ${d}`);
+    await espera(380); if (!vivo(g)) return;
+    return mover(moves[0]);
+  }
+  avisa(`sacaste ${d} · elige ficha`);
+  S.esperando = 'ficha';
+  S.movibles = moves;
+  paint(moves);
+}
+
+function elegirFicha(k) {
+  const m = (S.movibles || []).find((x) => x.k === k);
+  if (!m) return;
+  S.esperando = null;
+  paint();
+  mover(m);
+}
+
+async function mover(mov) {
+  const g = S.gen; if (!vivo(g)) return;
+  const G = S.G, j = actual(G);
+  const res = aplicar(G, j, mov);
+  paint();
+  if (res.captura) { vibrate([12, 40, 12]); avisa(`${j === YO ? 'comiste' : NOMBRE[j] + ' come'} una ${NOMBRE[res.captura.j].toLowerCase()}`); }
+  else if (res.casa) { vibrate(10); avisa(`${j === YO ? 'ficha en la meta' : NOMBRE[j] + ' mete una'}`); }
+  await espera(res.captura || res.casa ? 640 : 330); if (!vivo(g)) return;
+  if (res.gana) return terminar(j);
+  if (G.dado === 6 || res.captura || res.casa) return turno();   // turno extra
+  pasar();
+}
+
+function pasar() {
+  if (!vivo(S.gen)) return;
+  siguienteTurno(S.G);
+  turno();
+}
+
+function terminar(j) {
+  if (!$('#tablero')) return;
+  S.jugando = false;
+  const G = S.G;
+  const gana = j === YO;
+  let titulo, sub = '';
+  if (gana) {
+    titulo = '¡Ganaste!';
+    sub = `<p style="text-align:center;">Llevas <b>${anotaVictoria(S.nivel)}</b> victoria(s) en <b>${DIFF_LABEL[S.nivel]}</b></p>`;
+    confetti(); vibrate([30, 60, 30]);
+  } else {
+    titulo = `Ganó ${NOMBRE[j]}`;
+    const mias = G.fichas[YO].filter((p) => p === META).length;
+    sub = `<p style="text-align:center;">Tú metiste <b>${mias}</b> de 4.</p>`;
+  }
+  quien(`<b>${titulo}</b>`, j); avisa('');
+  const t = setTimeout(() => {
+    if (!$('#tablero')) return;
+    openModal(`<h3>${titulo}</h3>${sub}
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>`);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 900);
+  S.timers.push(t);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

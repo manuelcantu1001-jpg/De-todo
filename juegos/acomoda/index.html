@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Acomoda la lista de palabras en el diagrama hasta que todas crucen bien." />
+<title>Acomoda-palabras</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='26' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EAc%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .boardwrap { display: flex; justify-content: center; padding: 8px 12px 4px; }
+  /* El tamaño de casilla (--cell) lo fija fitBoard() según el ancho real y el
+     alto del área de juego; el valor de aquí es solo el de arranque. */
+  .board { --cell: 36px; display: grid; gap: 2px; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  .cw, .cx { width: var(--cell); height: var(--cell); }
+  /* Esquinas cortas: es una cuadrícula, y con 12px las casillas eran bolitas. */
+  .cw {
+    background: var(--card); border: 1px solid var(--tile-border); border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: calc(var(--cell) * .52); color: var(--ink); cursor: pointer; text-transform: uppercase;
+  }
+  .cw.actslot { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, var(--tile-border)); }
+  /* La palabra de regalo se distingue por el fondo; la letra sigue en tinta
+     (en --sub sobre --soft se quedaba en 4,2:1). */
+  .cw.lockcell { background: var(--soft); }
+  .cw.bad { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
+  .cx { visibility: hidden; }
+  .bank { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; padding: 12px 14px 4px; }
+  .wchip {
+    font-size: 13px; font-weight: 500; color: var(--ink); background: var(--card);
+    border: 1px solid var(--linea); border-radius: 999px; padding: 8px 13px; box-shadow: var(--shadow); cursor: pointer;
+    text-transform: lowercase;
+  }
+  /* El largo es un dato útil (hay que casarlo con el hueco): en mono y en --sub */
+  .wchip .ln { font-family: var(--mono); font-size: 10px; color: var(--sub); margin-left: 5px; }
+  .wchip.dim { opacity: .35; box-shadow: none; }
+  .wchip.used { display: none; }
+  .hintbar { text-align: center; font-family: var(--display); font-style: italic; font-size: 14px; color: var(--sub); padding: 8px 16px 0; min-height: 18px; }
+  .tools { margin: 8px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 8px; justify-content: center; }
+  .tool {
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600; font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); box-shadow: var(--shadow-sutil);
+  }
+  .tool:active { opacity: .6; }
+  .tool:disabled { opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script src="../../banco-es.js"></script>
+<script>
+'use strict';
+
+const CFG = {
+  facil:   { n: 8,  maxSide: 12, minLen: 4, maxLen: 8, maxRank: 2000, prefill: true },
+  normal:  { n: 12, maxSide: 14, minLen: 4, maxLen: 9, maxRank: 3500, prefill: true },
+  dificil: { n: 16, maxSide: 15, minLen: 4, maxLen: 9, maxRank: 5500, prefill: false },
+  experto: { n: 20, maxSide: 16, minLen: 4, maxLen: 9, maxRank: 9999, prefill: false },
+};
+
+const S = {
+  diff: store.get('aco.diff', 'normal'),
+  W: 0, H: 0,
+  slots: [],            // {id, dir, r, c, len, word, display}
+  puesto: [],           // por slot: palabra colocada (norm) o null
+  locked: [],           // por slot: true si viene de regalo
+  bank: [],             // {display, n, usadoEn: slotId|null}
+  act: -1,              // slot seleccionado
+  done: false, pistas: 3,
+};
+const clock = makeClock(() => $('#clock'));
+const key = (r, c) => r + ',' + c;
+
+const REGLAS = `<p>Tienes un diagrama vacío y una <b>lista de palabras</b>: todas caben, cruzándose como en un crucigrama.</p>
+<p><b>Toca un hueco</b> del tablero para elegirlo (se ilumina) y luego toca una palabra de la lista <b>del mismo largo</b> para colocarla. Toca una letra de una palabra ya puesta para devolverla a la lista (si esa letra es un cruce con un hueco vacío, el toque elige ese hueco).</p>
+<p>Si dos palabras chocan en un cruce, la letra se marca en rojo: algo va mal acomodado. Gana cuando todo el diagrama quede lleno y sin choques. <b>Pista</b> coloca una palabra en su sitio correcto (3 por partida).</p>`;
+
+/* ── Generador (mismas cruces que el crucigrama) ─────────────────────── */
+function tryBuild(words, maxSide, wordsNeeded) {
+  const cells = new Map();
+  const placed = [];
+  const at = (r, c) => cells.get(key(r, c)) || '';
+  let bR0 = 0, bR1 = 0, bC0 = 0, bC1 = 0;
+
+  function dimAfter(n, r0, c0, dr, dc) {
+    const r1 = r0 + dr * (n.length - 1), c1 = c0 + dc * (n.length - 1);
+    const h = Math.max(bR1, r0, r1) - Math.min(bR0, r0, r1) + 1;
+    const w = Math.max(bC1, c0, c1) - Math.min(bC0, c0, c1) + 1;
+    return Math.max(h, w);
+  }
+  function fits(n, r0, c0, dr, dc) {
+    if (at(r0 - dr, c0 - dc) || at(r0 + dr * n.length, c0 + dc * n.length)) return -1;
+    let crosses = 0;
+    for (let k = 0; k < n.length; k++) {
+      const r = r0 + dr * k, c = c0 + dc * k;
+      const ex = at(r, c);
+      if (ex) {
+        if (ex !== n[k]) return -1;
+        crosses++;
+      } else if (at(r + dc, c + dr) || at(r - dc, c - dr)) return -1;
+    }
+    return crosses;
+  }
+  function put(e, r0, c0, dr, dc) {
+    for (let k = 0; k < e.n.length; k++) cells.set(key(r0 + dr * k, c0 + dc * k), e.n[k]);
+    placed.push({ ...e, r: r0, c: c0, dr, dc });
+    const r1 = r0 + dr * (e.n.length - 1), c1 = c0 + dc * (e.n.length - 1);
+    bR0 = Math.min(bR0, r0, r1); bR1 = Math.max(bR1, r0, r1);
+    bC0 = Math.min(bC0, c0, c1); bC1 = Math.max(bC1, c0, c1);
+  }
+
+  put(words[0], 0, 0, 0, 1);
+  const need = Math.min(wordsNeeded, words.length);
+  for (let i = 1; i < words.length && placed.length < need; i++) {
+    const e = words[i];
+    const options = [];
+    for (const p of placed) {
+      for (let pk = 0; pk < p.n.length; pk++) {
+        for (let ek = 0; ek < e.n.length; ek++) {
+          if (e.n[ek] !== p.n[pk]) continue;
+          const dr = p.dr === 0 ? 1 : 0, dc = p.dr === 0 ? 0 : 1;
+          const r0 = (p.r + p.dr * pk) - dr * ek;
+          const c0 = (p.c + p.dc * pk) - dc * ek;
+          const cr = fits(e.n, r0, c0, dr, dc);
+          if (cr > 0) {
+            const dim = dimAfter(e.n, r0, c0, dr, dc);
+            if (dim <= maxSide) options.push({ r0, c0, dr, dc, score: cr * 100 - dim });
+          }
+        }
+      }
+    }
+    if (!options.length) continue;
+    options.sort((a, b) => b.score - a.score);
+    const o = options[randInt(Math.min(3, options.length))];
+    put(e, o.r0, o.c0, o.dr, o.dc);
+  }
+  if (placed.length < need) return null;
+  let rMin = 1e9, rMax = -1e9, cMin = 1e9, cMax = -1e9;
+  for (const k2 of cells.keys()) {
+    const [r, c] = k2.split(',').map(Number);
+    rMin = Math.min(rMin, r); rMax = Math.max(rMax, r);
+    cMin = Math.min(cMin, c); cMax = Math.max(cMax, c);
+  }
+  return { placed, rMin, cMin, W: cMax - cMin + 1, H: rMax - rMin + 1 };
+}
+
+function generate() {
+  const cfg = CFG[S.diff];
+  // Palabras del banco curado: sustantivos, adjetivos e infinitivos de verdad.
+  // Solo las que no llevan tilde, para que la lista se escriba igual que el
+  // diagrama (en el tablero no caben acentos).
+  const pool = Banco.where((e) =>
+    e.n.length >= cfg.minLen && e.n.length <= cfg.maxLen && e.w === e.n, cfg.maxRank);
+  for (let attempt = 0; attempt < 120; attempt++) {
+    const seen = new Set();
+    const words = [];
+    for (const e of shuffle(pool).slice(0, cfg.n + 12)) {
+      if (seen.has(e.n)) continue;
+      seen.add(e.n);
+      words.push({ w: e.w, n: e.n });
+    }
+    words.sort((a, b) => b.n.length - a.n.length);
+    const built = tryBuild(words, cfg.maxSide, cfg.n);
+    if (built) {
+      S.W = built.W; S.H = built.H;
+      S.slots = built.placed.map((p, id) => ({
+        id, dir: p.dr === 0 ? 'H' : 'V', r: p.r - built.rMin, c: p.c - built.cMin,
+        len: p.n.length, word: p.n, display: p.w,
+      }));
+      return true;
+    }
+  }
+  return false;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  clock.stop();
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('aco.best.' + d, null);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Acomoda-palabras', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => {
+    const c = CFG[S.diff];
+    $('#d-hint').textContent = `${c.n} palabras por acomodar` + (c.prefill ? ' · una de regalo' : '');
+  };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('aco.diff', v); hint(); });
+  hint();
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  if (!generate()) {
+    openModal('<h3>Vaya</h3><p>No pude armar el diagrama, intenta otra vez.</p><div class="m-actions"><button class="btn btn-primary" id="m-x">Cerrar</button></div>');
+    $('#m-x').onclick = closeModal;
+    return;
+  }
+  S.puesto = new Array(S.slots.length).fill(null);
+  S.locked = new Array(S.slots.length).fill(false);
+  S.bank = S.slots.map((sl) => ({ display: sl.display, n: sl.word, usadoEn: null }));
+  if (CFG[S.diff].prefill) {
+    const big = S.slots.reduce((a, b) => (b.len > a.len ? b : a));
+    colocar(big.id, S.bank.findIndex((b) => b.n === big.word && b.usadoEn === null), true);
+    S.locked[big.id] = true;
+  }
+  S.act = -1; S.done = false; S.pistas = 3;
+  renderPlay();
+  clock.start();
+}
+
+const slotCells = (sl) => Array.from({ length: sl.len }, (_, k) =>
+  key(sl.r + (sl.dir === 'V' ? k : 0), sl.c + (sl.dir === 'H' ? k : 0)));
+
+function renderPlay() {
+  const inSlot = new Map();       // "r,c" -> [slotIds]
+  for (const sl of S.slots) for (const kk of slotCells(sl)) {
+    if (!inSlot.has(kk)) inSlot.set(kk, []);
+    inSlot.get(kk).push(sl.id);
+  }
+  S.inSlot = inSlot;
+  const rows = [];
+  for (let r = 0; r < S.H; r++) for (let c = 0; c < S.W; c++) {
+    const kk = key(r, c);
+    rows.push(inSlot.has(kk) ? `<div class="cw" data-k="${kk}"></div>` : `<div class="cx"></div>`);
+  }
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Acomoda-palabras', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="scroll">
+      <div class="boardwrap"><div class="board" id="board" style="grid-template-columns: repeat(${S.W}, var(--cell));">${rows.join('')}</div></div>
+      <div class="hintbar" id="hintbar">Toca un hueco y luego una palabra</div>
+      <div class="bank" id="bank"></div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-pista">Pista · <span id="pistas-n">3</span></button>
+      <button class="tool" id="t-nueva">Nueva</button>
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $$('.cw').forEach((el) => el.onclick = () => tapCell(el.dataset.k));
+  $('#t-pista').onclick = usePista;
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+  fitBoard();
+  paint();
+}
+
+/* Tamaño de casilla: lo que quepa a lo ancho, y a lo alto no más del 60 % del
+   área de juego para que la lista de palabras asome debajo sin desplazar.
+   Antes se calculaba con constantes (378/330) que no miraban la pantalla y
+   los diagramas anchos se salían por los lados. */
+function fitBoard() {
+  const board = $('#board'), sc = $('.scroll');
+  if (!board || !sc) return;
+  const gap = 2;
+  const byW = Math.floor((sc.clientWidth - 24 - gap * (S.W - 1)) / S.W);
+  const byH = Math.floor((sc.clientHeight * .6 - gap * (S.H - 1)) / S.H);
+  // A lo alto no se baja de 20px (la letra dejaría de leerse): entonces se desplaza.
+  board.style.setProperty('--cell', Math.min(byW, Math.max(20, Math.min(40, byH))) + 'px');
+}
+addEventListener('resize', fitBoard);
+
+function letraEn(kk) {
+  // letras que aportan las palabras colocadas en esa celda
+  const out = [];
+  for (const id of (S.inSlot.get(kk) || [])) {
+    if (!S.puesto[id]) continue;
+    const sl = S.slots[id];
+    const idx = slotCells(sl).indexOf(kk);
+    out.push(S.puesto[id][idx]);
+  }
+  return out;
+}
+
+function paint() {
+  const actCells = S.act >= 0 ? new Set(slotCells(S.slots[S.act])) : new Set();
+  $$('.cw').forEach((el) => {
+    const kk = el.dataset.k;
+    const letras = letraEn(kk);
+    const unicas = [...new Set(letras)];
+    el.textContent = unicas[0] || '';
+    el.classList.toggle('bad', unicas.length > 1);
+    el.classList.toggle('actslot', actCells.has(kk));
+    const lockedHere = (S.inSlot.get(kk) || []).some((id) => S.locked[id]);
+    el.classList.toggle('lockcell', lockedHere && unicas.length <= 1);
+  });
+  const actLen = S.act >= 0 ? S.slots[S.act].len : 0;
+  $('#bank').innerHTML = S.bank.map((b, i) =>
+    `<button class="wchip ${b.usadoEn !== null ? 'used' : ''} ${actLen && b.n.length !== actLen ? 'dim' : ''}" data-i="${i}">
+      ${esc(b.display)}<span class="ln">${b.n.length}</span>
+    </button>`).join('');
+  $$('#bank .wchip').forEach((el) => el.onclick = () => tapChip(Number(el.dataset.i)));
+  const libres = S.bank.filter((b) => b.usadoEn === null).length;
+  $('#hintbar').textContent = S.act >= 0
+    ? `Hueco de ${actLen} letras — elige palabra`
+    : (libres ? `${libres} palabras por acomodar` : 'Revisa los cruces en rojo');
+}
+
+function tapCell(kk) {
+  const ids = (S.inSlot.get(kk) || []).filter((id) => !S.locked[id]);
+  if (!ids.length) return;
+  // ¿hay palabra colocada aquí? tocarla la devuelve a la lista
+  const conPalabra = ids.filter((id) => S.puesto[id]);
+  const vacios = ids.filter((id) => !S.puesto[id]);
+  if (vacios.length) {
+    // alterna entre los huecos vacíos de la celda
+    let next = vacios[0];
+    if (vacios.includes(S.act)) next = vacios[(vacios.indexOf(S.act) + 1) % vacios.length];
+    S.act = next;
+  } else if (conPalabra.length) {
+    quitar(conPalabra[0]);
+    S.act = conPalabra[0];
+  }
+  paint();
+}
+
+function tapChip(i) {
+  const b = S.bank[i];
+  if (b.usadoEn !== null || S.done) return;
+  if (S.act < 0 || S.slots[S.act].len !== b.n.length || S.puesto[S.act]) {
+    vibrate(40);
+    return;
+  }
+  colocar(S.act, i, false);
+  S.act = -1;
+  paint();
+  checkWin();
+}
+
+function colocar(slotId, bankIdx, silent) {
+  S.puesto[slotId] = S.bank[bankIdx].n;
+  S.bank[bankIdx].usadoEn = slotId;
+  if (!silent) vibrate(15);
+}
+
+function quitar(slotId) {
+  if (S.locked[slotId] || !S.puesto[slotId]) return;
+  const b = S.bank.find((x) => x.usadoEn === slotId);
+  if (b) b.usadoEn = null;
+  S.puesto[slotId] = null;
+  vibrate(15);
+}
+
+function usePista() {
+  if (S.done || S.pistas <= 0) return;
+  // coloca (o corrige) un hueco con su palabra original
+  const malos = S.slots.filter((sl) => !S.locked[sl.id] && S.puesto[sl.id] !== sl.word);
+  if (!malos.length) return;
+  const sl = malos[randInt(malos.length)];
+  if (S.puesto[sl.id]) quitar(sl.id);
+  // si su palabra original está usada en otro hueco, libérala
+  const dueña = S.bank.find((b) => b.n === sl.word && b.usadoEn === null)
+    || S.bank.find((b) => b.n === sl.word);
+  if (dueña.usadoEn !== null) quitar(dueña.usadoEn);
+  colocar(sl.id, S.bank.indexOf(dueña), false);
+  S.locked[sl.id] = true;
+  S.pistas--;
+  $('#pistas-n').textContent = S.pistas;
+  if (S.pistas <= 0) $('#t-pista').disabled = true;
+  S.act = -1;
+  paint();
+  checkWin();
+}
+
+function checkWin() {
+  if (S.puesto.some((p) => !p)) return;
+  // lleno: gana si ningún cruce choca
+  for (const kk of S.inSlot.keys()) {
+    if (new Set(letraEn(kk)).size > 1) { vibrate([40, 60, 40]); return; }
+  }
+  S.done = true;
+  clock.stop();
+  const secs = clock.seconds;
+  const k = 'aco.best.' + S.diff;
+  const best = store.get(k, null);
+  const isRecord = !best || secs < best;
+  if (isRecord) {
+    store.set(k, secs);
+    store.set('aco.hub', `Mejor ${fmtTime(secs)} · ${DIFF_LABEL[S.diff]}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡Diagrama completo!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${S.slots.length}</div><div class="l">palabras</div></div>
+    </div>
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Nuevo mejor tiempo!</span></p>'
+      : (best ? `<p style="text-align:center;">Tu mejor tiempo: <b>${fmtTime(best)}</b></p>` : '')}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otro diagrama</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+renderSetup();
+</script>
+</body>
+</html>

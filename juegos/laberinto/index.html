@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Laberinto a oscuras: sólo ves lo que tienes cerca. Guíate con la brújula." />
+<title>Laberinto</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* La zona de juego reparte el alto sobrante entre tablero, brújula y
+     herramientas: antes quedaban ~260 px muertos entre el aviso y «Salir». */
+  .juego { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
+  .lienzo { display: flex; justify-content: center; padding: 10px 10px 0; }
+  canvas { border-radius: 12px; touch-action: none; background: var(--card); border: var(--trazo) solid var(--linea-fuerte); }
+  .brujula { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 16px 0; }
+  .aguja {
+    width: 54px; height: 54px; border-radius: 999px;
+    border: var(--trazo) solid var(--linea-fuerte); background: var(--card);
+    display: flex; align-items: center; justify-content: center; flex: none;
+  }
+  .aguja svg { display: block; }
+  .brujula .texto { font-size: 13px; color: var(--bg-sub); line-height: 1.35; }
+  .brujula .texto b { color: var(--bg-ink); font-family: var(--font); font-weight: 500; font-size: 15px; }
+  .aviso { text-align: center; font-family: var(--display); font-style: italic; font-size: 13.5px; color: var(--bg-sub); padding-top: 10px; }
+  .tools { margin: 0 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 12px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
+  .tool:active { opacity: .6; }
+  .pasos { font-family: var(--mono); font-weight: 400; font-size: 15px; color: var(--bg-ink); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* n = tamaño del laberinto, vista = casillas que alumbra tu farol (por pasillo). */
+const CFG = {
+  facil:   { n: 7,  vista: 4 },
+  normal:  { n: 10, vista: 4 },
+  dificil: { n: 12, vista: 3 },
+  experto: { n: 14, vista: 3 },
+};
+const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+// paredes por celda: bit 0=N, 1=E, 2=S, 3=O
+const DIRS = [[0, -1, 0, 2], [1, 0, 1, 3], [0, 1, 2, 0], [-1, 0, 3, 1]];
+const PASO = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
+const S = {
+  diff: store.get('lab.diff', 'normal'),
+  n: 0, muros: [], px: 0, py: 0, gx: 0, gy: 0,
+  rastro: [], desc: [], luz: new Set(), pasos: 0, done: false,
+};
+const clock = makeClock(() => $('#clock'));
+
+const REGLAS = `<p>Estás a oscuras: sólo ves las casillas que alumbra tu farol y las que <b>ya recorriste</b>. El resto es niebla.</p>
+<p><b>Desliza</b> (o usa las flechas): avanzas en esa dirección hasta topar con pared o llegar a un cruce donde haya que decidir. Cada avance es <b>un paso</b>.</p>
+<p>La salida <b>no está siempre en la esquina</b>: es el rincón más lejano del laberinto. La <b>brújula</b> te dice hacia dónde queda y a cuántas casillas en línea recta — el camino real es otra historia.</p>
+<p>Tu recorrido queda dibujado y los <b>callejones sin salida</b> que ya visitaste se marcan con una ✗, para que no vuelvas a caer.</p>
+<p>Tu marca es el <b>número de pasos</b>: gana quien menos se pierde. El reloj sólo mira.</p>`;
+
+/* ── Generación (backtracker recursivo) ──────────────────────────────── */
+function generar() {
+  const { n } = CFG[S.diff];
+  const muros = Array.from({ length: n * n }, () => 0b1111);
+  const visto = new Array(n * n).fill(false);
+  const pila = [0];
+  visto[0] = true;
+  while (pila.length) {
+    const cur = pila[pila.length - 1];
+    const cx = cur % n, cy = Math.floor(cur / n);
+    const opciones = [];
+    for (const [dx, dy, bit, obit] of DIRS) {
+      const nx = cx + dx, ny = cy + dy;
+      if (nx >= 0 && nx < n && ny >= 0 && ny < n && !visto[ny * n + nx]) {
+        opciones.push([nx, ny, bit, obit]);
+      }
+    }
+    if (!opciones.length) { pila.pop(); continue; }
+    const [nx, ny, bit, obit] = opciones[randInt(opciones.length)];
+    muros[cur] &= ~(1 << bit);
+    muros[ny * n + nx] &= ~(1 << obit);
+    visto[ny * n + nx] = true;
+    pila.push(ny * n + nx);
+  }
+  S.n = n;
+  S.muros = muros;
+  S.px = 0; S.py = 0;
+  // la salida es la casilla más lejana de la entrada: nunca sabes de antemano el camino
+  const lejos = masLejano(muros, n, 0);
+  S.gx = lejos % n; S.gy = Math.floor(lejos / n);
+  S.rastro = [[0, 0]];
+  S.desc = new Array(n * n).fill(false);
+  S.luz = new Set();
+  S.pasos = 0;
+  S.done = false;
+  revelaDesde(0, 0, true);
+}
+
+/* BFS por pasillos: devuelve la celda a mayor distancia real del origen. */
+function masLejano(muros, n, desde) {
+  const dist = new Array(n * n).fill(-1);
+  dist[desde] = 0;
+  const q = [desde];
+  let mejor = desde;
+  for (let h = 0; h < q.length; h++) {
+    const cur = q[h], cx = cur % n, cy = Math.floor(cur / n);
+    if (dist[cur] > dist[mejor]) mejor = cur;
+    for (let d = 0; d < 4; d++) {
+      if (muros[cur] & (1 << d)) continue;
+      const nx = cx + PASO[d][0], ny = cy + PASO[d][1];
+      const i = ny * n + nx;
+      if (nx < 0 || nx >= n || ny < 0 || ny >= n || dist[i] >= 0) continue;
+      dist[i] = dist[cur] + 1;
+      q.push(i);
+    }
+  }
+  return mejor;
+}
+
+const abierto = (x, y, dir) => !(S.muros[y * S.n + x] & (1 << dir));
+function salidas(x, y) {
+  let c = 0;
+  for (let d = 0; d < 4; d++) if (abierto(x, y, d)) c++;
+  return c;
+}
+
+/* El farol: alumbra por los pasillos, nunca a través de una pared. */
+function revelaDesde(x0, y0, guardaLuz) {
+  const R = CFG[S.diff].vista;
+  const q = [[x0, y0, 0]];
+  const vistos = new Set([x0 + ',' + y0]);
+  const luz = new Set();
+  for (let h = 0; h < q.length; h++) {
+    const [x, y, d] = q[h];
+    const i = y * S.n + x;
+    S.desc[i] = true;
+    luz.add(i);
+    if (d === R) continue;
+    for (let dir = 0; dir < 4; dir++) {
+      if (!abierto(x, y, dir)) continue;
+      const nx = x + PASO[dir][0], ny = y + PASO[dir][1];
+      const k = nx + ',' + ny;
+      if (vistos.has(k)) continue;
+      vistos.add(k);
+      q.push([nx, ny, d + 1]);
+    }
+  }
+  if (guardaLuz) S.luz = luz;
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+function renderSetup() {
+  clock.stop();
+  const bests = NIVELES.map((d) => {
+    const b = store.get('lab.pasos.' + d, null);
+    return `<div class="b"><div class="bn">${b ? b : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Laberinto', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Tamaño</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+        <div class="row-hint" style="padding: 10px 2px 6px;" id="d-hint"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Menos pasos, mejor</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => {
+    const c = CFG[S.diff];
+    $('#d-hint').textContent = `Laberinto de ${c.n}×${c.n} · alumbras ${c.vista} casillas · el resto, niebla`;
+  };
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('lab.diff', v); hint(); });
+  hint();
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  generar();
+  renderPlay();
+  clock.start();
+}
+
+function renderPlay() {
+  const size = Math.min(384, Math.floor(innerWidth * .96));
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Laberinto', `<span class="pasos" id="pasos">0</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="juego">
+      <div class="lienzo"><canvas id="cv" width="${size}" height="${size}"></canvas></div>
+      <div class="brujula">
+        <div class="aguja" id="aguja"></div>
+        <div class="texto" id="brujula-txt"></div>
+      </div>
+      <div class="aviso">Desliza para avanzar · sólo ves lo que alumbras</div>
+      <div class="tools">
+        <button class="tool" id="t-nueva">Otro laberinto</button>
+        <button class="tool" id="t-salir">Salir</button>
+      </div>
+    </div>
+  </div>`;
+  const cv = $('#cv');
+  let start = null;
+  cv.addEventListener('pointerdown', (e) => { start = { x: e.clientX, y: e.clientY }; });
+  cv.addEventListener('pointerup', (e) => {
+    if (!start) return;
+    const dx = e.clientX - start.x, dy = e.clientY - start.y;
+    start = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
+    mover(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy > 0 ? 2 : 0));
+  });
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+  dibujar();
+}
+
+function mover(dir) {
+  if (S.done) return;
+  if (!abierto(S.px, S.py, dir)) { vibrate(30); return; }
+  const paso = PASO[dir];
+  let x = S.px, y = S.py;
+  // se desliza hasta pared, cruce o meta
+  while (abierto(x, y, dir)) {
+    x += paso[0]; y += paso[1];
+    S.rastro.push([x, y]);
+    revelaDesde(x, y, false);
+    if (x === S.gx && y === S.gy) break;
+    if (salidas(x, y) > 2) break;
+  }
+  S.px = x; S.py = y;
+  S.pasos++;
+  revelaDesde(x, y, true);
+  vibrate(8);
+  dibujar();
+  if ($('#pasos')) $('#pasos').textContent = S.pasos;
+  if (x === S.gx && y === S.gy) win();
+}
+
+/* ── Dibujo ──────────────────────────────────────────────────────────── */
+function dibujar() {
+  const cv = $('#cv');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const tinta = color('--ink');
+  const papel = color('--card');
+  const niebla = color('--soft');
+  const trama = color('--sub');          // la niebla se lee por la trama: con --faint apenas se veía
+  const azul = color('--tinta-2');       // rastro y salida: --second no llegaba a 3:1 ni a ΔE 22 con el rastro
+  const n = S.n, m = 9;
+  const cell = (cv.width - m * 2) / n;
+  const px = (x) => m + x * cell, py = (y) => m + y * cell;
+
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.fillStyle = papel;
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
+  // 1. niebla: relleno + trama diagonal sólo sobre lo no descubierto
+  ctx.save();
+  ctx.beginPath();
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    if (!S.desc[y * n + x]) ctx.rect(px(x) - .5, py(y) - .5, cell + 1, cell + 1);
+  }
+  ctx.fillStyle = niebla;
+  ctx.fill();
+  ctx.clip();
+  ctx.strokeStyle = trama;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = .45;
+  for (let d = -cv.height; d < cv.width; d += 7) {
+    ctx.beginPath();
+    ctx.moveTo(d, 0);
+    ctx.lineTo(d + cv.height, cv.height);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 2. lo que alumbra el farol ahora mismo
+  ctx.fillStyle = color('--accent-soft');
+  S.luz.forEach((i) => ctx.fillRect(px(i % n), py(Math.floor(i / n)), cell, cell));
+
+  // 3. rastro recorrido (ΔE ≈ 24 con la casilla alumbrada; al 50 % de --second era 14)
+  ctx.strokeStyle = azul;
+  ctx.globalAlpha = .55;
+  ctx.lineWidth = Math.max(3, cell * .26);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  S.rastro.forEach(([x, y], i) => {
+    const cx = px(x) + cell / 2, cy = py(y) + cell / 2;
+    if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+  });
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // 4. callejones sin salida ya visitados
+  ctx.strokeStyle = color('--bad');
+  ctx.lineWidth = Math.max(1.6, cell * .09);
+  const yaVisto = new Set(S.rastro.map(([x, y]) => y * n + x));
+  yaVisto.forEach((i) => {
+    const x = i % n, y = Math.floor(i / n);
+    if (salidas(x, y) !== 1) return;
+    if (x === S.gx && y === S.gy) return;
+    if (x === S.px && y === S.py) return;
+    const cx = px(x) + cell / 2, cy = py(y) + cell / 2, r = cell * .2;
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy - r); ctx.lineTo(cx + r, cy + r);
+    ctx.moveTo(cx + r, cy - r); ctx.lineTo(cx - r, cy + r);
+    ctx.stroke();
+  });
+
+  // 5. muros: sólo los de las casillas descubiertas
+  ctx.strokeStyle = tinta;
+  ctx.lineWidth = Math.max(2, cell * .1);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    if (!S.desc[y * n + x]) continue;
+    const w = S.muros[y * n + x], x0 = px(x), y0 = py(y);
+    if (w & 1) { ctx.moveTo(x0, y0); ctx.lineTo(x0 + cell, y0); }
+    if (w & 2) { ctx.moveTo(x0 + cell, y0); ctx.lineTo(x0 + cell, y0 + cell); }
+    if (w & 4) { ctx.moveTo(x0, y0 + cell); ctx.lineTo(x0 + cell, y0 + cell); }
+    if (w & 8) { ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + cell); }
+  }
+  ctx.stroke();
+
+  // 6. la salida: nítida si ya la viste, fantasma si sólo la señala la brújula
+  const gx = px(S.gx) + cell / 2, gy = py(S.gy) + cell / 2;
+  const vista = S.desc[S.gy * n + S.gx];
+  ctx.globalAlpha = vista ? 1 : .4;
+  ctx.fillStyle = azul;
+  ctx.strokeStyle = azul;
+  ctx.lineWidth = Math.max(2, cell * .08);
+  ctx.beginPath();
+  ctx.moveTo(gx - cell * .18, gy + cell * .3);
+  ctx.lineTo(gx - cell * .18, gy - cell * .3);
+  ctx.lineTo(gx + cell * .26, gy - cell * .12);
+  ctx.lineTo(gx - cell * .18, gy + .06 * cell);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(gx - cell * .18, gy + cell * .3);
+  ctx.lineTo(gx - cell * .18, gy - cell * .32);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // 7. tú
+  ctx.fillStyle = color('--accent');
+  ctx.strokeStyle = tinta;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(px(S.px) + cell / 2, py(S.py) + cell / 2, Math.max(4, cell * .27), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  pintaBrujula();
+}
+
+/* Brújula: dirección y distancia en línea recta a la salida. */
+function pintaBrujula() {
+  const ag = $('#aguja');
+  if (!ag) return;
+  const dx = S.gx - S.px, dy = S.gy - S.py;
+  const dist = Math.round(Math.hypot(dx, dy));
+  const ang = Math.round(Math.atan2(dy, dx) * 180 / Math.PI / 15) * 15;   // a saltos, como el resto
+  ag.innerHTML = `<svg width="30" height="30" viewBox="0 0 30 30" style="transform: rotate(${ang}deg)">
+    <path d="M4 15 L22 15" style="stroke: var(--ink); fill: none" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M17 9 L25 15 L17 21 Z" style="fill: var(--accent); stroke: var(--ink)" stroke-width="1.6" stroke-linejoin="round"/>
+  </svg>`;
+  $('#brujula-txt').innerHTML = S.done
+    ? '<b>¡Ahí estaba!</b>'
+    : `La salida queda a <b>${dist} casilla${dist === 1 ? '' : 's'}</b><br>en línea recta`;
+}
+
+function win() {
+  S.done = true;
+  clock.stop();
+  const secs = clock.seconds;
+  const k = 'lab.pasos.' + S.diff;
+  const best = store.get(k, null);
+  const isRecord = !best || S.pasos < best;
+  if (isRecord) {
+    store.set(k, S.pasos);
+    store.set('lab.hub', `Mejor: ${S.pasos} pasos · ${DIFF_LABEL[S.diff]}`);
+  }
+  const vistas = S.desc.filter(Boolean).length;
+  confetti(); vibrate([30, 60, 30]);
+  dibujar();
+  openModal(`
+    <h3>¡Encontraste la salida!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${S.pasos}</div><div class="l">pasos</div></div>
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${Math.round(vistas / (S.n * S.n) * 100)}%</div><div class="l">del mapa visto</div></div>
+    </div>
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Nueva marca de pasos!</span></p>'
+      : (best ? `<p style="text-align:center;">Tu mejor marca: <b>${best} pasos</b></p>` : '')}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otro laberinto</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar tamaño</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+addEventListener('keydown', (e) => {
+  const d = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 }[e.key];
+  if (d !== undefined && $('#cv')) { mover(d); e.preventDefault(); }
+});
+
+renderSetup();
+</script>
+</body>
+</html>

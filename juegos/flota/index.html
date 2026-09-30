@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Hundir la flota contra la app: coloca tus cinco barcos y dispara por turnos hasta hundir los del rival." />
+<title>Hundir la flota</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EH%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Todo lleva prefijo fl- : la barra y los átomos compartidos ya usan
+     .seg, .meta, .chip, .row, .card y .tool, y pisarlos rompe otros juegos. */
+
+  /* Pantalla de juego: dos tableros, uno encima del otro, y el alto que sobra
+     se reparte entre ellos y los mandos. Sólo aquí, nunca en la de inicio. */
+  .fl-juego { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
+  .fl-wrap { display: flex; justify-content: center; }
+
+  .fl-tab {
+    display: grid; touch-action: manipulation;
+    user-select: none; -webkit-user-select: none;
+  }
+  .fl-tab.rival { --c: var(--cr); grid-template-columns: repeat(10, var(--cr)); gap: 2px; }
+  .fl-tab.mio   { --c: var(--cm); grid-template-columns: repeat(10, var(--cm)); gap: 1px; }
+  .fl-tab.pon   { --c: var(--cp); grid-template-columns: repeat(10, var(--cp)); gap: 2px; }
+
+  .fl-cel {
+    width: 100%; height: var(--c); padding: 0; margin: 0;
+    background: var(--card); border: 1px solid var(--linea); border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font); font-weight: 500; line-height: 1;
+    font-size: calc(var(--c) * .58); color: var(--card);
+    transition: background .14s var(--ease);
+  }
+  button.fl-cel { cursor: pointer; }
+  button.fl-cel:disabled { cursor: default; }
+
+  /* Agua: casilla azulada con un punto. El punto es la pieza que hay que ver
+     (3,8:1 sobre su casilla); el relleno solo acompaña. */
+  .fl-cel.agua { background: var(--second-soft); border-color: color-mix(in srgb, var(--second) 40%, var(--card)); }
+  .fl-cel.agua::before {
+    content: ''; width: calc(var(--c) * .22); height: calc(var(--c) * .22); border-radius: 50%;
+    background: color-mix(in srgb, var(--second) 75%, var(--ink));
+  }
+  /* Agua deducida (la que rodea a un hundido): mismo azul, punto hueco, para
+     que se vea que ahí no se gastó un disparo. */
+  .fl-cel.deduc::before { background: transparent; border: 1.5px solid color-mix(in srgb, var(--second) 75%, var(--ink)); }
+  /* Tocado: terracota lleno con aspa crema. Hundido: tinta parda. */
+  .fl-cel.tocado { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
+  .fl-cel.hundido { background: var(--ink); border-color: transparent; color: var(--bg); }
+
+  /* Barcos propios: azul polvo lleno (3,3:1 sobre la casilla clara) con las
+     puntas redondeadas para que se lea el casco de un vistazo. */
+  .fl-cel.barco { background: var(--second); border-color: color-mix(in srgb, var(--second) 70%, var(--ink)); }
+  .fl-cel.h-ini { border-top-left-radius: 50%; border-bottom-left-radius: 50%; }
+  .fl-cel.h-fin { border-top-right-radius: 50%; border-bottom-right-radius: 50%; }
+  .fl-cel.v-ini { border-top-left-radius: 50%; border-top-right-radius: 50%; }
+  .fl-cel.v-fin { border-bottom-left-radius: 50%; border-bottom-right-radius: 50%; }
+  .fl-cel.h-mid, .fl-cel.v-mid { border-radius: 2px; }
+  /* Al terminar la partida se enseña dónde estaba lo que no encontraste:
+     mismo casco, con el filete cortado, para no confundirlo con el agua. */
+  .fl-cel.fantasma { background: color-mix(in srgb, var(--second) 62%, var(--card)); border: 1.5px dashed var(--ink); }
+
+  /* Tira de flota: una pastilla por barco, larga según su tamaño. Llena y
+     roja = hundido. No dice cuál está tocado: eso no se sabe hasta hundirlo. */
+  .fl-tira { display: flex; align-items: center; gap: 9px; padding: 0 4px 4px; }
+  .fl-tira .fl-lado { flex-shrink: 0; }
+  .fl-minis { display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0; }
+  .fl-mini {
+    display: block; height: 9px; width: calc(var(--n) * 7px); flex-shrink: 0;
+    border-radius: 999px; border: 1.5px solid var(--sub); background: transparent;
+  }
+  .fl-mini.roto { background: var(--bad); border-color: var(--bad); }
+  .fl-num { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+  /* Colocación */
+  .fl-poner { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
+  .fl-actual { text-align: center; padding: 0 16px; }
+  .fl-actual .fl-nom { font-family: var(--display); font-size: 20px; color: var(--ink); }
+  .fl-actual .fl-cola { display: flex; gap: 6px; justify-content: center; align-items: center; margin-top: 9px; min-height: 12px; }
+  .fl-actual .fl-mini.turno { border-color: var(--accent-texto); background: var(--accent-soft); border-width: 2px; }
+  .fl-actual .fl-mini.puesto { border-color: var(--second); background: var(--second); }
+
+  .fl-mandos { display: flex; gap: 8px; justify-content: center; padding: 0 16px; }
+  .fl-tool {
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 11px 16px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    transition: opacity var(--dur) var(--ease);
+  }
+  .fl-tool:active { opacity: .6; }
+  .fl-tool:disabled { color: var(--faint); border-color: var(--linea); cursor: default; }
+  .fl-tool.sel { background: var(--accent-soft); border-color: var(--accent-texto); }
+  .fl-tools { margin: 0 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 6px; }
+
+  .fl-hint { font-size: 12.5px; color: var(--sub); padding: 6px 2px 0; }
+  .fl-est { text-align: center; font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--sub); min-height: 13px; padding-top: 6px; }
+
+  /* Lista de la flota en la pantalla de inicio */
+  .fl-lista { display: flex; flex-direction: column; gap: 5px; padding-top: 4px; }
+  .fl-lista > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13.5px; color: var(--ink); }
+  .fl-lista .fl-mini { background: var(--second); border-color: color-mix(in srgb, var(--second) 70%, var(--ink)); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ── Motor puro ────────────────────────────────────────────────────────
+   Nada de aquí toca la pantalla y todo el azar entra por un parámetro rnd,
+   así que las mismas funciones sirven para jugar y para simular miles de
+   partidas y medir la escalera de niveles (mulberry32, nunca un LCG). */
+
+const NIVELES = ['facil', 'normal', 'dificil', 'experto'];
+const N = 10, CASILLAS = 100;
+const FLOTA = [
+  { nom: 'portaaviones', len: 5 },
+  { nom: 'acorazado', len: 4 },
+  { nom: 'crucero', len: 3 },
+  { nom: 'submarino', len: 3 },
+  { nom: 'patrullera', len: 2 },
+];
+
+/* Estados de una casilla en «tiros»:
+   0 sin disparar · 1 agua · 2 tocado · 3 hundido · 4 agua deducida
+   (la que rodea a un barco hundido: como los barcos no se tocan, ahí no
+   puede haber nada; se marca sola y no gasta disparo). */
+
+const V4 = [], V8 = [];
+for (let i = 0; i < CASILLAS; i++) {
+  const r = Math.floor(i / N), c = i % N, a4 = [], a8 = [];
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    if (!dr && !dc) continue;
+    const r2 = r + dr, c2 = c + dc;
+    if (r2 < 0 || r2 >= N || c2 < 0 || c2 >= N) continue;
+    const j = r2 * N + c2;
+    a8.push(j);
+    if (!dr || !dc) a4.push(j);
+  }
+  V4.push(a4); V8.push(a8);
+}
+
+/* Todas las posiciones legales de un barco de cada tamaño, con su halo
+   (las casillas que lo rodean). Lo usa el mapa de probabilidad del Experto. */
+const POS = {};
+for (const len of [2, 3, 4, 5]) {
+  const lista = [];
+  for (let vert = 0; vert < 2; vert++) {
+    const filas = vert ? N - len + 1 : N, cols = vert ? N : N - len + 1;
+    for (let r = 0; r < filas; r++) for (let c = 0; c < cols; c++) {
+      const cells = [];
+      for (let k = 0; k < len; k++) cells.push(vert ? (r + k) * N + c : r * N + c + k);
+      const dentro = new Set(cells), halo = [];
+      for (const i of cells) for (const v of V8[i]) if (!dentro.has(v) && halo.indexOf(v) < 0) halo.push(v);
+      lista.push({ cells, halo });
+    }
+  }
+  POS[len] = lista;
+}
+
+const ent = (rnd, n) => Math.floor(rnd() * n);
+const coord = (i) => 'ABCDEFGHIJ'[Math.floor(i / N)] + (i % N + 1);   /* para los lectores de pantalla */
+const alAzar = (arr, rnd) => arr[ent(rnd, arr.length)];
+
+function celdasDe(r, c, len, vert) {
+  const out = [];
+  for (let k = 0; k < len; k++) out.push(vert ? (r + k) * N + c : r * N + c + k);
+  return out;
+}
+
+/* Los barcos no se tocan NI EN DIAGONAL: cada casilla vecina de las ocho
+   tiene que estar libre (o ser del propio barco). */
+function cabeEn(ocupa, cells) {
+  const dentro = new Set(cells);
+  for (const i of cells) {
+    if (i < 0 || i >= CASILLAS || ocupa[i] >= 0) return false;
+    for (const v of V8[i]) if (!dentro.has(v) && ocupa[v] >= 0) return false;
+  }
+  return true;
+}
+
+function flotaAzar(rnd) {
+  for (let intento = 0; intento < 200; intento++) {
+    const ocupa = new Int8Array(CASILLAS).fill(-1);
+    const barcos = [];
+    let ok = true;
+    for (let k = 0; k < FLOTA.length; k++) {
+      const len = FLOTA[k].len;
+      let puesto = false;
+      for (let t = 0; t < 300 && !puesto; t++) {
+        const vert = rnd() < .5;
+        const r = ent(rnd, vert ? N - len + 1 : N);
+        const c = ent(rnd, vert ? N : N - len + 1);
+        const cells = celdasDe(r, c, len, vert);
+        if (!cabeEn(ocupa, cells)) continue;
+        for (const i of cells) ocupa[i] = k;
+        barcos.push({ k, len, nom: FLOTA[k].nom, cells, vert, tocados: 0 });
+        puesto = true;
+      }
+      if (!puesto) { ok = false; break; }
+    }
+    if (ok) return { ocupa, barcos };
+  }
+  return null;
+}
+
+function tableroDesde(ocupa, barcos) {
+  return { ocupa, barcos, tiros: new Uint8Array(CASILLAS), hundidos: 0, tocadas: 0 };
+}
+
+function disparar(tab, i) {
+  const k = tab.ocupa[i];
+  if (k < 0) { tab.tiros[i] = 1; return { tipo: 'agua' }; }
+  const b = tab.barcos[k];
+  b.tocados++;
+  tab.tocadas++;
+  tab.tiros[i] = 2;
+  if (b.tocados < b.len) return { tipo: 'tocado', barco: b };
+  for (const j of b.cells) tab.tiros[j] = 3;
+  tab.hundidos++;
+  for (const j of b.cells) for (const v of V8[j]) if (tab.tiros[v] === 0) tab.tiros[v] = 4;
+  return { tipo: 'hundido', barco: b };
+}
+
+/* ── Los cuatro niveles ────────────────────────────────────────────────
+   Sólo miran «tiros» (lo que ya saben), nunca el tablero de verdad. */
+
+function nuevaIA(nivel) { return { nivel, pend: [], restantes: FLOTA.map((f) => f.len) }; }
+const deduce = (nivel) => nivel === 'dificil' || nivel === 'experto';
+
+function disponibles(tiros, nivel) {
+  const dd = deduce(nivel), out = [];
+  for (let i = 0; i < CASILLAS; i++) if (tiros[i] === 0 || (!dd && tiros[i] === 4)) out.push(i);
+  return out;
+}
+
+/* Difícil: con dos tocados seguidos ya sabe hacia dónde va el barco y
+   dispara a las puntas de esa línea. */
+function extremosLinea(pend, libre) {
+  const set = new Set(pend);
+  for (const h of pend) {
+    const c = h % N;
+    if ((c + 1 < N && set.has(h + 1)) || (c > 0 && set.has(h - 1))) {
+      let a = h; while (a % N > 0 && set.has(a - 1)) a--;
+      let b = h; while (b % N < N - 1 && set.has(b + 1)) b++;
+      const out = [];
+      if (a % N > 0 && libre(a - 1)) out.push(a - 1);
+      if (b % N < N - 1 && libre(b + 1)) out.push(b + 1);
+      if (out.length) return out;
+    }
+    if ((h + N < CASILLAS && set.has(h + N)) || (h - N >= 0 && set.has(h - N))) {
+      let a = h; while (a - N >= 0 && set.has(a - N)) a -= N;
+      let b = h; while (b + N < CASILLAS && set.has(b + N)) b += N;
+      const out = [];
+      if (a - N >= 0 && libre(a - N)) out.push(a - N);
+      if (b + N < CASILLAS && libre(b + N)) out.push(b + N);
+      if (out.length) return out;
+    }
+  }
+  return [];
+}
+
+/* Experto: mapa de probabilidad. Para cada barco que le queda cuenta en
+   cuántas posiciones legales cabe cada casilla; las posiciones que tapan un
+   tocado pesan muchísimo más, y así la caza y el remate salen del mismo
+   número. Dispara a la casilla con más peso. */
+function mapaProb(restantes, tiros) {
+  const w = new Float64Array(CASILLAS);
+  for (const len of restantes) {
+    const lista = POS[len];
+    for (let p = 0; p < lista.length; p++) {
+      const cells = lista[p].cells;
+      let ok = true, tocs = 0;
+      for (let q = 0; q < cells.length; q++) {
+        const t = tiros[cells[q]];
+        if (t === 1 || t === 3 || t === 4) { ok = false; break; }
+        if (t === 2) tocs++;
+      }
+      if (!ok) continue;
+      const halo = lista[p].halo;
+      for (let q = 0; q < halo.length; q++) {
+        const t = tiros[halo[q]];
+        if (t === 2 || t === 3) { ok = false; break; }   // los barcos no se tocan
+      }
+      if (!ok) continue;
+      const peso = tocs ? Math.pow(80, tocs) : 1;
+      for (let q = 0; q < cells.length; q++) if (tiros[cells[q]] === 0) w[cells[q]] += peso;
+    }
+  }
+  return w;
+}
+
+function tiroExperto(ia, tiros, rnd) {
+  const w = mapaProb(ia.restantes, tiros);
+  let mejor = 0, cand = [];
+  for (let i = 0; i < CASILLAS; i++) {
+    if (tiros[i] !== 0 || w[i] <= 0) continue;
+    if (w[i] > mejor) { mejor = w[i]; cand = [i]; }
+    else if (w[i] === mejor) cand.push(i);
+  }
+  if (cand.length) return alAzar(cand, rnd);
+  const libres = disponibles(tiros, ia.nivel);          // red de seguridad
+  return alAzar(libres.length ? libres : disponibles(tiros, 'facil'), rnd);
+}
+
+function elegirDisparo(ia, tiros, rnd) {
+  if (ia.nivel === 'experto') return tiroExperto(ia, tiros, rnd);
+  const dd = deduce(ia.nivel);
+  const libre = (i) => tiros[i] === 0 || (!dd && tiros[i] === 4);
+  if (ia.nivel !== 'facil' && ia.pend.length) {
+    let cand = [];
+    if (ia.nivel === 'dificil' && ia.pend.length >= 2) cand = extremosLinea(ia.pend, libre);
+    if (!cand.length) {
+      const s = new Set();
+      for (const h of ia.pend) for (const v of V4[h]) if (libre(v)) s.add(v);
+      cand = Array.from(s);
+    }
+    if (cand.length) return alAzar(cand, rnd);
+  }
+  const libres = disponibles(tiros, ia.nivel);
+  if (ia.nivel === 'dificil') {
+    /* Paridad: el barco más chico que queda mide m casillas, así que basta
+       barrer una de cada m diagonales para no poder saltárselo. */
+    const m = Math.min.apply(null, ia.restantes);
+    const par = libres.filter((i) => ((Math.floor(i / N) + (i % N)) % m) === 0);
+    if (par.length) return alAzar(par, rnd);
+  }
+  return alAzar(libres, rnd);
+}
+
+function informarIA(ia, i, res) {
+  if (res.tipo === 'agua') return;
+  if (res.tipo === 'tocado') { ia.pend.push(i); return; }
+  const set = new Set(res.barco.cells);
+  ia.pend = ia.pend.filter((x) => !set.has(x));
+  const k = ia.restantes.indexOf(res.barco.len);
+  if (k >= 0) ia.restantes.splice(k, 1);
+}
+
+/* ── Simulación (para medir la escalera; no la usa la pantalla) ───────── */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function simulaFlota(nivel, rnd) {
+  const f = flotaAzar(rnd);
+  const tab = tableroDesde(f.ocupa, f.barcos);
+  const ia = nuevaIA(nivel);
+  let n = 0;
+  while (tab.hundidos < FLOTA.length && n < 400) {
+    const i = elegirDisparo(ia, tab.tiros, rnd);
+    const res = disparar(tab, i);
+    informarIA(ia, i, res);
+    n++;
+  }
+  return n;
+}
+
+function midePorNivel(nivel, partidas, semilla) {
+  const rnd = mulberry32(semilla >>> 0);
+  const todos = [];
+  let suma = 0;
+  for (let k = 0; k < partidas; k++) { const t = simulaFlota(nivel, rnd); todos.push(t); suma += t; }
+  const ord = todos.slice().sort((a, b) => a - b);
+  const q = (p) => ord[Math.min(ord.length - 1, Math.floor(ord.length * p))];
+  return {
+    nivel, partidas, media: suma / partidas, mediana: q(.5),
+    p10: q(.1), p90: q(.9), min: ord[0], max: ord[ord.length - 1],
+  };
+}
+
+/* Duelo: los dos disparan por turnos a flotas distintas, como en la partida
+   de verdad, y se alternan quién empieza. Devuelve el % que gana «a». */
+function duelo(a, b, partidas, semilla) {
+  const rnd = mulberry32(semilla >>> 0);
+  let ga = 0;
+  for (let k = 0; k < partidas; k++) {
+    const fa = flotaAzar(rnd), fb = flotaAzar(rnd);
+    const tabA = tableroDesde(fb.ocupa, fb.barcos), tabB = tableroDesde(fa.ocupa, fa.barcos);
+    const iaA = nuevaIA(a), iaB = nuevaIA(b);
+    let turno = k % 2, ganador = '', pasos = 0;
+    while (!ganador && pasos < 900) {
+      if (turno === 0) {
+        const i = elegirDisparo(iaA, tabA.tiros, rnd);
+        informarIA(iaA, i, disparar(tabA, i));
+        if (tabA.hundidos === FLOTA.length) ganador = 'a';
+      } else {
+        const i = elegirDisparo(iaB, tabB.tiros, rnd);
+        informarIA(iaB, i, disparar(tabB, i));
+        if (tabB.hundidos === FLOTA.length) ganador = 'b';
+      }
+      turno ^= 1; pasos++;
+    }
+    if (ganador === 'a') ga++;
+  }
+  return ga / partidas;
+}
+
+/* ── Pantalla ──────────────────────────────────────────────────────────── */
+
+const S = {
+  nivel: store.get('flo.nivel', 'normal'),
+  gen: 0, timers: [], jugando: false, turno: 'yo', revelar: false,
+  mio: null, rival: null, ia: null, disparos: 0, aciertos: 0,
+  pon: null,
+};
+
+const REGLAS = `<p>Dos tableros de <b>10×10</b> y una flota de cinco barcos cada uno: portaaviones (5), acorazado (4), crucero (3), submarino (3) y patrullera (2). Van rectos y <b>no se tocan entre sí, ni siquiera en diagonal</b>.</p>
+<p>Primero <b>colocas tu flota</b>: toca una casilla y ahí empieza el barco que te toca. <b>Girar</b> lo pone de pie o acostado, <b>Al azar</b> reparte la flota entera y tocando un barco ya puesto lo quitas.</p>
+<p>Luego se dispara <b>por turnos, un tiro cada uno</b>, y empiezas tú. Toca una casilla del tablero de arriba: sale <b>agua</b> (punto azul) o <b>tocado</b> (aspa terracota). Cuando caen todas las casillas de un barco queda <b>hundido</b> y se pinta oscuro; se dice cuál era y se tacha en la tira de flota.</p>
+<p>Al hundir un barco, el juego <b>marca sola el agua de alrededor</b> en los dos tableros: como los barcos no se tocan, ahí no puede haber nada. Esas casillas ya no se pueden disparar.</p>
+<p>Gana quien hunda los cinco barcos del otro primero. La app juega así: <b>Fácil</b> dispara al azar sin repetir; <b>Normal</b> igual, pero al tocar remata alrededor; <b>Difícil</b> además caza sólo en casillas donde quepa el barco más chico que le queda y sigue la línea de lo que tocó; <b>Experto</b> cuenta en cuántas posiciones posibles cabe cada barco que le falta y dispara a la casilla más probable. Fácil y Normal no aprovechan el agua marcada; Difícil y Experto sí.</p>
+<p>Tu marca es <b>en cuántos disparos hundiste la flota</b> (menos es mejor) y sólo cuenta si ganas.</p>`;
+
+const mejor = (n) => store.get('flo.best.' + n, null);
+
+function anotaVictoria(nivel, disparos) {
+  const previo = mejor(nivel);
+  const record = previo == null || disparos < previo;
+  if (record) store.set('flo.best.' + nivel, disparos);
+  let alto = null;
+  for (const v of NIVELES) if (mejor(v) != null) alto = v;
+  if (alto) store.set('flo.hub', `${DIFF_LABEL[alto]}: ${mejor(alto)} disparos`);
+  return record;
+}
+
+function limpiar() {
+  S.gen++;
+  for (const t of S.timers) clearTimeout(t);
+  S.timers = []; S.jugando = false; S.revelar = false;
+}
+const vivo = (g) => g === S.gen && S.jugando && !!$('#fl-rival');
+
+function miniHTML(len, clases) { return `<i class="fl-mini ${clases || ''}" style="--n:${len}"></i>`; }
+
+/* ── Inicio ──────────────────────────────────────────────────────────── */
+function renderSetup() {
+  limpiar();
+  const bests = NIVELES.map((d) => {
+    const b = mejor(d);
+    return `<div class="b"><div class="bn">${b == null ? '—' : b}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Hundir la flota', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
+        ${diffSegHTML('seg-d', S.nivel)}
+        <div class="fl-hint" id="d-hint"></div>
+      </div>
+      <div class="card" style="padding: 10px 18px 12px;">
+        <div class="row" style="border:none; padding: 4px 0 2px;"><div class="row-title">La flota</div><div class="row-hint">5 barcos · 17 casillas</div></div>
+        <div class="fl-lista">
+          ${FLOTA.map((f) => `<div><span>${cap(f.nom)}</span>${miniHTML(f.len)}</div>`).join('')}
+        </div>
+        <div class="fl-hint">Van rectos y no se tocan, ni siquiera en diagonal.</div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Disparos con los que hundiste la flota</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const textos = {
+    facil: 'Dispara al azar, sin repetir casilla.',
+    normal: 'Al azar, pero al tocarte un barco remata alrededor.',
+    dificil: 'Caza por diagonales y sigue la línea del barco tocado.',
+    experto: 'Cuenta dónde cabe cada barco que le falta y va a lo más probable.',
+  };
+  const hint = () => { if ($('#d-hint')) $('#d-hint').textContent = textos[S.nivel]; };
+  hint();
+  bindSeg('seg-d', (v) => { S.nivel = v; store.set('flo.nivel', v); hint(); });
+  $('#new').onclick = irAColocar;
+  bindHowto(REGLAS);
+}
+
+/* ── Colocación ──────────────────────────────────────────────────────── */
+function irAColocar() {
+  limpiar();
+  S.pon = { ocupa: new Int8Array(CASILLAS).fill(-1), puestos: [null, null, null, null, null], vert: false };
+  renderColocar();
+}
+
+function ladoColocar() {
+  const ancho = Math.min(370, Math.floor(innerWidth * .94));
+  const alto = innerHeight - 300;
+  return Math.max(18, Math.min(34, Math.floor((Math.min(ancho, alto) - 18) / 10)));
+}
+
+function renderColocar() {
+  const cp = ladoColocar();
+  let celdas = '';
+  for (let i = 0; i < CASILLAS; i++) celdas += `<button class="fl-cel" data-i="${i}" aria-label="casilla ${coord(i)}"></button>`;
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Hundir la flota', `<span class="chip">${DIFF_LABEL[S.nivel]}</span>`)}
+    <div class="fl-poner">
+      <div class="fl-actual">
+        <div class="fl-nom" id="fl-nom"></div>
+        <div class="fl-cola" id="fl-cola"></div>
+      </div>
+      <div class="fl-wrap">
+        <div class="fl-tab pon" id="fl-pon" style="--cp:${cp}px">${celdas}</div>
+      </div>
+      <div class="msg" id="fl-msg">Toca donde empieza el barco</div>
+      <div class="fl-mandos">
+        <button class="fl-tool" id="t-girar">Girar</button>
+        <button class="fl-tool" id="t-azar">Al azar</button>
+        <button class="fl-tool" id="t-limpiar">Quitar todos</button>
+      </div>
+      <div style="padding: 0 20px;"><button class="btn btn-primary" id="t-listo" disabled>Empezar</button></div>
+      <div class="fl-tools"><button class="fl-tool" id="t-salir">Salir</button></div>
+    </div>
+  </div>`;
+  $('#fl-pon').onclick = (e) => {
+    const b = e.target.closest('.fl-cel');
+    if (b) ponerEn(Number(b.dataset.i));
+  };
+  $('#t-girar').onclick = () => {
+    S.pon.vert = !S.pon.vert;
+    avisa(S.pon.vert ? 'De pie' : 'Acostado');
+    pintaColocar();
+  };
+  $('#t-azar').onclick = () => {
+    const f = flotaAzar(Math.random);
+    if (!f) return;
+    S.pon.ocupa = f.ocupa;
+    S.pon.puestos = f.barcos.map((b) => b.cells);
+    avisa('Flota repartida');
+    pintaColocar();
+  };
+  $('#t-limpiar').onclick = () => {
+    S.pon.ocupa = new Int8Array(CASILLAS).fill(-1);
+    S.pon.puestos = [null, null, null, null, null];
+    avisa('Toca donde empieza el barco');
+    pintaColocar();
+  };
+  $('#t-listo').onclick = empezarPartida;
+  $('#t-salir').onclick = renderSetup;
+  pintaColocar();
+}
+
+const porPoner = () => S.pon.puestos.indexOf(null);
+
+function ponerEn(i) {
+  if (!S.pon) return;
+  const k = S.pon.ocupa[i];
+  if (k >= 0) {                                   // tocar un barco puesto lo quita
+    for (const j of S.pon.puestos[k]) S.pon.ocupa[j] = -1;
+    S.pon.puestos[k] = null;
+    avisa(`Quitaste el ${FLOTA[k].nom}`);
+    pintaColocar();
+    return;
+  }
+  const idx = porPoner();
+  if (idx < 0) { avisa('Ya está toda la flota'); return; }
+  const len = FLOTA[idx].len, vert = S.pon.vert;
+  let r = Math.floor(i / N), c = i % N;
+  if (vert) r = Math.min(r, N - len); else c = Math.min(c, N - len);
+  const cells = celdasDe(r, c, len, vert);
+  if (!cabeEn(S.pon.ocupa, cells)) {
+    avisa('Ahí no cabe: los barcos no se tocan', 'err');
+    const el = $('#fl-pon');
+    if (el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+    vibrate(12);
+    return;
+  }
+  for (const j of cells) S.pon.ocupa[j] = idx;
+  S.pon.puestos[idx] = cells;
+  vibrate(8);
+  const falta = porPoner();
+  avisa(falta < 0 ? 'Flota lista' : `Va el ${FLOTA[falta].nom}`);
+  pintaColocar();
+}
+
+/* Clases de forma del casco: puntas redondeadas en los extremos. */
+function formaBarco(cells, i) {
+  if (cells.length < 2) return '';
+  const vert = cells[1] - cells[0] === N;
+  const p = cells.indexOf(i);
+  return ` ${vert ? 'v' : 'h'}-${p === 0 ? 'ini' : p === cells.length - 1 ? 'fin' : 'mid'}`;
+}
+
+function pintaColocar() {
+  const tab = $('#fl-pon');
+  if (!tab || !S.pon) return;
+  const hijos = tab.children;
+  for (let i = 0; i < CASILLAS; i++) {
+    const k = S.pon.ocupa[i];
+    hijos[i].className = 'fl-cel' + (k >= 0 ? ' barco' + formaBarco(S.pon.puestos[k], i) : '');
+  }
+  const idx = porPoner();
+  $('#fl-nom').textContent = idx < 0 ? 'Flota completa'
+    : `${cap(FLOTA[idx].nom)} · ${FLOTA[idx].len} casillas`;
+  $('#fl-cola').innerHTML = FLOTA.map((f, k) =>
+    miniHTML(f.len, S.pon.puestos[k] ? 'puesto' : (k === idx ? 'turno' : 'pendiente'))).join('');
+  $('#t-girar').textContent = S.pon.vert ? 'Girar · de pie' : 'Girar · acostado';
+  $('#t-listo').disabled = idx >= 0;
+}
+
+/* ── Partida ─────────────────────────────────────────────────────────── */
+function empezarPartida() {
+  const barcos = S.pon.puestos.map((cells, k) => ({
+    k, len: FLOTA[k].len, nom: FLOTA[k].nom, cells,
+    vert: cells.length > 1 && cells[1] - cells[0] === N, tocados: 0,
+  }));
+  const ocupa = new Int8Array(CASILLAS).fill(-1);
+  barcos.forEach((b) => b.cells.forEach((i) => { ocupa[i] = b.k; }));
+  let rival = null;                       // 200 intentos por llamada; nunca falló en 5.000, pero no se cuelga si pasa
+  for (let t = 0; t < 20 && !rival; t++) rival = flotaAzar(Math.random);
+  if (!rival) { avisa('No se pudo repartir la flota del rival', 'err'); return; }
+  limpiar();
+  S.mio = tableroDesde(ocupa, barcos);
+  S.rival = tableroDesde(rival.ocupa, rival.barcos);
+  S.ia = nuevaIA(S.nivel);
+  S.disparos = 0; S.aciertos = 0; S.turno = 'yo'; S.jugando = true;
+  renderJuego();
+}
+
+function medidas() {
+  const ancho = Math.min(360, Math.floor(innerWidth * .94));
+  /* alto libre = pantalla menos barra, tiras, aviso, estado y mandos */
+  const libre = Math.max(230, innerHeight - 56 - 2 * 22 - 22 - 16 - 62 - 18);
+  const cr = Math.max(19, Math.min(34, Math.floor(Math.min(ancho - 18, libre * .60) / 10)));
+  const cm = Math.max(12, Math.min(24, Math.floor(Math.min((ancho - 9) * .66, libre * .38) / 10)));
+  return { cr, cm };
+}
+
+function renderJuego() {
+  const { cr, cm } = medidas();
+  let rc = '', mc = '';
+  for (let i = 0; i < CASILLAS; i++) {
+    rc += `<button class="fl-cel" data-i="${i}" aria-label="disparar a ${coord(i)}"></button>`;
+    mc += `<div class="fl-cel"></div>`;
+  }
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Hundir la flota', `<span class="chip">${DIFF_LABEL[S.nivel]}</span>`)}
+    <div class="fl-juego">
+      <div>
+        <div class="fl-tira">
+          <span class="fl-lado dato">Rival</span>
+          <span class="fl-minis" id="fl-minis-r"></span>
+          <span class="fl-num dato" id="fl-disp">0 tiros</span>
+        </div>
+        <div class="fl-wrap"><div class="fl-tab rival" id="fl-rival" style="--cr:${cr}px">${rc}</div></div>
+      </div>
+      <div class="msg" id="fl-msg">Cinco barcos escondidos ahí arriba</div>
+      <div>
+        <div class="fl-tira">
+          <span class="fl-lado dato">Tu flota</span>
+          <span class="fl-minis" id="fl-minis-m"></span>
+        </div>
+        <div class="fl-wrap"><div class="fl-tab mio" id="fl-mio" style="--cm:${cm}px">${mc}</div></div>
+        <div class="fl-est" id="fl-est"></div>
+      </div>
+    </div>
+    <div class="fl-tools">
+      <button class="fl-tool" id="t-nueva">Otra partida</button>
+      <button class="fl-tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#fl-rival').onclick = (e) => {
+    const b = e.target.closest('.fl-cel');
+    if (b) tiroJugador(Number(b.dataset.i));
+  };
+  $('#t-nueva').onclick = irAColocar;
+  $('#t-salir').onclick = renderSetup;
+  pintaTodo();
+  estado('Tu turno');
+}
+
+function pintaTodo() { pintaRival(); pintaMio(); pintaTiras(); }
+
+function pintaRival() {
+  const tab = $('#fl-rival');
+  if (!tab || !S.rival) return;
+  const hijos = tab.children, t = S.rival.tiros;
+  for (let i = 0; i < CASILLAS; i++) {
+    const el = hijos[i];
+    let cl = 'fl-cel', txt = '';
+    if (t[i] === 1) cl += ' agua';
+    else if (t[i] === 4) cl += ' agua deduc';
+    else if (t[i] === 2) { cl += ' tocado'; txt = '✕'; }
+    else if (t[i] === 3) { cl += ' hundido'; txt = '✕'; }
+    else if (S.revelar && S.rival.ocupa[i] >= 0) cl += ' fantasma' + formaBarco(S.rival.barcos[S.rival.ocupa[i]].cells, i);
+    el.className = cl;
+    if (el.textContent !== txt) el.textContent = txt;
+    el.disabled = t[i] !== 0 || !S.jugando || S.turno !== 'yo';
+  }
+}
+
+function pintaMio() {
+  const tab = $('#fl-mio');
+  if (!tab || !S.mio) return;
+  const hijos = tab.children, t = S.mio.tiros;
+  for (let i = 0; i < CASILLAS; i++) {
+    let cl = 'fl-cel', txt = '';
+    if (t[i] === 2) { cl += ' tocado'; txt = '✕'; }
+    else if (t[i] === 3) { cl += ' hundido'; txt = '✕'; }
+    else if (t[i] === 1) cl += ' agua';
+    else if (t[i] === 4) cl += ' agua deduc';
+    else if (S.mio.ocupa[i] >= 0) cl += ' barco' + formaBarco(S.mio.barcos[S.mio.ocupa[i]].cells, i);
+    hijos[i].className = cl;
+    if (hijos[i].textContent !== txt) hijos[i].textContent = txt;
+  }
+}
+
+function pintaTiras() {
+  if (!$('#fl-minis-r')) return;
+  const linea = (tab) => tab.barcos.slice().sort((a, b) => b.len - a.len)
+    .map((b) => miniHTML(b.len, b.tocados >= b.len ? 'roto' : '')).join('');
+  $('#fl-minis-r').innerHTML = linea(S.rival);
+  $('#fl-minis-m').innerHTML = linea(S.mio);
+  $('#fl-disp').textContent = `${S.disparos} tiro${S.disparos === 1 ? '' : 's'}`;
+}
+
+function avisa(txt, clase) {
+  const el = $('#fl-msg');
+  if (!el) return;
+  el.className = 'msg' + (clase ? ' ' + clase : '');
+  el.textContent = txt;
+}
+function estado(txt) { if ($('#fl-est')) $('#fl-est').textContent = txt; }
+
+function frase(res, mia) {
+  if (res.tipo === 'agua') return mia ? 'Agua' : 'El rival dio en el agua';
+  if (res.tipo === 'tocado') return mia ? '¡Tocado!' : 'Te tocaron un barco';
+  return mia ? `¡Hundido el ${res.barco.nom}!` : `Te hundieron el ${res.barco.nom}`;
+}
+
+function tiroJugador(i) {
+  if (!S.jugando || S.turno !== 'yo' || !S.rival) return;
+  if (S.rival.tiros[i] !== 0) return;
+  const res = disparar(S.rival, i);
+  S.disparos++;
+  if (res.tipo !== 'agua') S.aciertos++;
+  vibrate(res.tipo === 'agua' ? 6 : [14, 40, 14]);
+  S.turno = 'app';
+  pintaTodo();
+  avisa(frase(res, true), res.tipo === 'agua' ? '' : 'ok');
+  if (S.rival.hundidos === FLOTA.length) return fin(true);
+  estado('Le toca al rival');
+  const g = S.gen;
+  S.timers.push(setTimeout(() => { if (vivo(g)) tiroApp(); }, 620));
+}
+
+function tiroApp() {
+  if (!S.jugando || !S.mio || !$('#fl-mio')) return;
+  const i = elegirDisparo(S.ia, S.mio.tiros, Math.random);
+  const res = disparar(S.mio, i);
+  informarIA(S.ia, i, res);
+  S.turno = 'yo';
+  pintaTodo();
+  avisa(frase(res, false), res.tipo === 'agua' ? '' : 'err');
+  if (S.mio.hundidos === FLOTA.length) return fin(false);
+  estado('Tu turno');
+}
+
+function fin(gane) {
+  S.jugando = false;
+  S.revelar = true;
+  S.turno = '';
+  pintaTodo();
+  estado(gane ? 'Ganaste' : 'Perdiste');
+  let record = false;
+  if (gane) { record = anotaVictoria(S.nivel, S.disparos); confetti(); vibrate([30, 60, 30]); }
+  const b = mejor(S.nivel);
+  const pct = S.disparos ? Math.round(S.aciertos * 100 / S.disparos) : 0;
+  const g = S.gen;
+  S.timers.push(setTimeout(() => {
+    if (g !== S.gen || !$('#fl-rival')) return;
+    openModal(`
+      <h3>${gane ? (record ? '¡Récord!' : '¡Flota hundida!') : 'Te hundieron'}</h3>
+      <div class="stats" style="margin:14px 0;">
+        <div class="stat"><div class="n">${S.disparos}</div><div class="l">disparos</div></div>
+        <div class="stat"><div class="n">${S.rival.hundidos}/5</div><div class="l">hundidos</div></div>
+        <div class="stat"><div class="n">${pct}%</div><div class="l">aciertos</div></div>
+      </div>
+      <p style="text-align:center;">${gane
+        ? (record ? `Tu mejor marca en ${DIFF_LABEL[S.nivel]}: <b>${S.disparos}</b> disparos.`
+          : `Tu mejor marca en ${DIFF_LABEL[S.nivel]} sigue en <b>${b}</b> disparos.`)
+        : `El rival hundió tus cinco barcos primero. Abajo está su flota, ${b == null ? 'y la marca sólo cuenta si ganas' : `y tu marca en ${DIFF_LABEL[S.nivel]} sigue en <b>${b}</b>`}.`}</p>
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>`, closeModal);
+    $('#m-again').onclick = () => { closeModal(); irAColocar(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 700));
+}
+
+renderSetup();
+</script>
+</body>
+</html>

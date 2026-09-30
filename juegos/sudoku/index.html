@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Sudoku clásico con cuatro dificultades y solución única garantizada." />
+<title>Sudoku</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E9%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  .board {
+    margin: 6px auto 0; width: min(96vw, 396px); border: 1px solid var(--linea-fuerte);
+    border-radius: 12px; overflow: hidden; background: var(--card);
+    display: grid; grid-template-columns: repeat(9, 1fr); box-shadow: var(--shadow);
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  }
+  .cell {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    font-size: clamp(16px, 5vw, 21px); position: relative; cursor: pointer;
+    border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  }
+  .cell.br { border-right: 2px solid var(--linea-fuerte); }
+  .cell.bb { border-bottom: 2px solid var(--linea-fuerte); }
+  .cell:nth-child(9n) { border-right: none; }
+  .cell.given { font-weight: 700; color: var(--ink); }
+  .cell.user { font-weight: 700; color: var(--accent); }
+  .cell.peer { background: color-mix(in srgb, var(--soft) 55%, transparent); }
+  .cell.same { background: var(--accent-soft); }
+  .cell.sel { background: var(--accent-soft); outline: 2.5px solid var(--accent); outline-offset: -2.5px; border-radius: 6px; z-index: 1; }   /* radio corto: es una casilla de cuadrícula, no una ficha */
+  .cell.bad { color: var(--bad); }
+  .cell.bad.sel { outline-color: var(--bad); }
+  .notes { position: absolute; inset: 2px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+  .notes i { font-style: normal; font-size: 8.5px; font-weight: 600; color: var(--sub); display: flex; align-items: center; justify-content: center; }
+  .pad {
+    margin: 0 16px; display: grid; grid-template-columns: repeat(5, 1fr);
+    grid-auto-rows: 1fr; gap: 10px; flex: 1 1 auto; max-height: 215px;
+  }
+  .key {
+    height: 100%; min-height: 54px; background: var(--card); border: none; border-radius: 14px;
+    font-family: var(--title-font); font-size: 22px; font-weight: 600; color: var(--ink); cursor: pointer;
+  }
+  .key:active { transform: scale(.94); }
+  .key.done { opacity: .3; box-shadow: none; }
+  .key svg { display: block; margin: 0 auto; }
+  .tools { margin: 12px 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
+  .tool {
+    border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600; font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); box-shadow: var(--shadow-sutil); display: flex; align-items: center; gap: 7px;
+  }
+  .tool:active { opacity: .6; }
+  .tool.on { background: var(--accent); color: var(--accent-ink); }
+  .tool:disabled { opacity: .4; cursor: default; }
+  /* El área de juego reparte el alto sobrante: los mandos bajan al fondo,
+     donde está el pulgar, en vez de dejar pantalla muerta debajo. */
+  .scroll:not(.g-setup) { display: flex; flex-direction: column; justify-content: space-evenly; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ── Motor ───────────────────────────────────────────────────────────── */
+const ROW = (i) => Math.floor(i / 9), COL = (i) => i % 9, BOX = (i) => Math.floor(ROW(i) / 3) * 3 + Math.floor(COL(i) / 3);
+const PEERS = (() => {
+  const p = [];
+  for (let i = 0; i < 81; i++) {
+    const s = new Set();
+    for (let j = 0; j < 81; j++) {
+      if (j !== i && (ROW(j) === ROW(i) || COL(j) === COL(i) || BOX(j) === BOX(i))) s.add(j);
+    }
+    p.push([...s]);
+  }
+  return p;
+})();
+
+function okAt(g, i, v) {
+  for (const j of PEERS[i]) if (g[j] === v) return false;
+  return true;
+}
+
+function genFull() {
+  const g = new Array(81).fill(0);
+  const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  function fill(i) {
+    if (i === 81) return true;
+    for (const v of shuffle(nums)) {
+      if (okAt(g, i, v)) { g[i] = v; if (fill(i + 1)) return true; }
+    }
+    g[i] = 0;
+    return false;
+  }
+  fill(0);
+  return g;
+}
+
+// Cuenta soluciones (con tope) eligiendo la celda más restringida.
+function countSolutions(grid, limit) {
+  const g = grid.slice();
+  let count = 0;
+  function candidatesOf(i) {
+    let mask = 0;
+    for (const j of PEERS[i]) if (g[j]) mask |= 1 << g[j];
+    const out = [];
+    for (let v = 1; v <= 9; v++) if (!(mask & (1 << v))) out.push(v);
+    return out;
+  }
+  function walk() {
+    if (count >= limit) return;
+    let best = -1, bestC = null;
+    for (let i = 0; i < 81; i++) {
+      if (g[i]) continue;
+      const c = candidatesOf(i);
+      if (c.length === 0) return;
+      if (!bestC || c.length < bestC.length) { best = i; bestC = c; if (c.length === 1) break; }
+    }
+    if (best === -1) { count++; return; }
+    for (const v of bestC) {
+      g[best] = v;
+      walk();
+      if (count >= limit) { g[best] = 0; return; }
+    }
+    g[best] = 0;
+  }
+  walk();
+  return count;
+}
+
+const DIFF_CLUES = { facil: 41, normal: 34, dificil: 29, experto: 25 };
+
+function genPuzzle(diff) {
+  const sol = genFull();
+  const puz = sol.slice();
+  let remaining = 81;
+  const target = DIFF_CLUES[diff] || 34;
+  const half = shuffle(Array.from({ length: 41 }, (_, k) => k));
+  for (const k of half) {
+    if (remaining <= target) break;
+    const a = k, b = 80 - k;
+    const va = puz[a], vb = puz[b];
+    if (!va && !vb) continue;
+    puz[a] = 0; puz[b] = 0;
+    if (countSolutions(puz, 2) !== 1) { puz[a] = va; puz[b] = vb; }
+    else remaining -= (a === b ? 1 : 2);
+  }
+  return { puz, sol };
+}
+
+/* ── Estado ──────────────────────────────────────────────────────────── */
+const S = {
+  diff: store.get('sud.diff', 'normal'),
+  puz: null, sol: null, val: null, notes: null,
+  sel: -1, notasOn: false, pistas: 3, done: false,
+};
+const clock = makeClock(() => $('#clock'));
+
+function save() {
+  if (S.done || !S.puz) { store.set('sud.game', null); return; }
+  store.set('sud.game', {
+    diff: S.diff, puz: S.puz, sol: S.sol, val: S.val,
+    notes: S.notes.map((s) => [...s]), pistas: S.pistas, secs: clock.seconds,
+  });
+}
+
+/* ── Pantallas ───────────────────────────────────────────────────────── */
+const REGLAS = `<p>Rellena la cuadrícula: cada <b>fila</b>, cada <b>columna</b> y cada <b>caja de 3×3</b> debe tener los números del 1 al 9 sin repetir.</p>
+<p>Toca una casilla y luego un número del teclado. Si un número choca con otro igual en su fila, columna o caja, se marca en rojo.</p>
+<p>Activa <b>Notas</b> para apuntar candidatos en chiquito. Tienes 3 <b>pistas</b> que rellenan una casilla. Si sales a media partida, queda guardada para continuar. Todos los tableros tienen solución única.</p>`;
+
+function renderSetup() {
+  clock.stop();
+  const app = $('#app');
+  const saved = store.get('sud.game', null);
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('sud.best.' + d, null);
+    return `<div class="b"><div class="bn">${b ? fmtTime(b) : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  app.innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Sudoku', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div></div>
+        ${diffSegHTML('seg-d', S.diff)}
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejores tiempos</div>
+      <div class="bests">${bests}</div>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+        ${saved ? '<button class="btn btn-primary" id="continue">Continuar partida</button>' : ''}
+        <button class="btn ${saved ? 'btn-soft' : 'btn-primary'}" id="new">Nueva partida</button>
+      </div>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-d', (v) => { S.diff = v; store.set('sud.diff', v); });
+  $('#new').onclick = () => startGame(null);
+  bindHowto(REGLAS);
+  const c = $('#continue');
+  if (c) c.onclick = () => startGame(saved);
+}
+
+function startGame(saved) {
+  if (saved) {
+    S.diff = saved.diff; S.puz = saved.puz; S.sol = saved.sol; S.val = saved.val;
+    S.notes = saved.notes.map((a) => new Set(a)); S.pistas = saved.pistas;
+  } else {
+    const { puz, sol } = genPuzzle(S.diff);
+    S.puz = puz; S.sol = sol; S.val = puz.slice();
+    S.notes = Array.from({ length: 81 }, () => new Set());
+    S.pistas = 3;
+  }
+  S.sel = -1; S.notasOn = false; S.done = false;
+  renderPlay();
+  clock.start();
+  if (saved) clock.seconds = saved.secs;
+  save();
+}
+
+function renderPlay() {
+  const app = $('#app');
+  app.innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Sudoku', `<span class="chip">${DIFF_LABEL[S.diff]}</span><span class="clock" id="clock">0:00</span>`)}
+    <div class="scroll">
+      <div class="board" id="board">${Array.from({ length: 81 }, (_, i) => cellHTML(i)).join('')}</div>
+      <div class="pad" id="pad">
+        ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button class="key" data-n="${n}">${n}</button>`).join('')}
+        <button class="key" data-n="0" aria-label="Borrar"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H9l-6 6 6 6h11a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"></path><path d="M17 10l-4 4M13 10l4 4"></path></svg></button>
+      </div>
+      <div class="tools">
+        <button class="tool" id="t-notas"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg> Notas</button>
+        <button class="tool" id="t-pista"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.5 10.9c.7.6 1.2 1.3 1.4 2.1h4.2c.2-.8.7-1.5 1.4-2.1A6 6 0 0 0 12 3z"></path></svg> Pista <span id="pistas-n">3</span></button>
+        <button class="tool" id="t-salir">Salir</button>
+      </div>
+    </div>
+  </div>`;
+  $('#board').onclick = (e) => {
+    const c = e.target.closest('.cell');
+    if (c) { S.sel = Number(c.dataset.i); paintBoard(); }
+  };
+  $('#pad').onclick = (e) => {
+    const k = e.target.closest('.key');
+    if (k) pressKey(Number(k.dataset.n));
+  };
+  $('#t-notas').onclick = () => { S.notasOn = !S.notasOn; $('#t-notas').classList.toggle('on', S.notasOn); };
+  $('#t-pista').onclick = usePista;
+  $('#t-salir').onclick = () => { save(); renderSetup(); };
+  paintBoard();
+  updatePistas();
+}
+
+function cellHTML(i) {
+  return `<div class="cell" data-i="${i}"></div>`;
+}
+
+function conflicts() {
+  const bad = new Set();
+  for (let i = 0; i < 81; i++) {
+    if (!S.val[i]) continue;
+    for (const j of PEERS[i]) {
+      if (S.val[j] === S.val[i]) { bad.add(i); bad.add(j); }
+    }
+  }
+  return bad;
+}
+
+function paintBoard() {
+  const bad = conflicts();
+  const selVal = S.sel >= 0 ? S.val[S.sel] : 0;
+  const counts = new Array(10).fill(0);
+  for (const v of S.val) counts[v]++;
+  $$('.cell').forEach((el) => {
+    const i = Number(el.dataset.i);
+    const v = S.val[i];
+    const isGiven = S.puz[i] !== 0;
+    el.className = 'cell' + (COL(i) === 2 || COL(i) === 5 ? ' br' : '') + (ROW(i) === 2 || ROW(i) === 5 ? ' bb' : '');
+    if (isGiven) el.classList.add('given');
+    else if (v) el.classList.add('user');
+    if (bad.has(i) && !isGiven) el.classList.add('bad');
+    if (S.sel === i) el.classList.add('sel');
+    else if (S.sel >= 0) {
+      if (selVal && v === selVal) el.classList.add('same');
+      else if (ROW(i) === ROW(S.sel) || COL(i) === COL(S.sel) || BOX(i) === BOX(S.sel)) el.classList.add('peer');
+    }
+    if (v) el.innerHTML = String(v);
+    else if (S.notes[i].size) {
+      el.innerHTML = '<span class="notes">' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) =>
+        `<i>${S.notes[i].has(n) ? n : ''}</i>`).join('') + '</span>';
+    } else el.innerHTML = '';
+  });
+  $$('#pad .key[data-n]').forEach((k) => {
+    const n = Number(k.dataset.n);
+    if (n >= 1) k.classList.toggle('done', counts[n] >= 9);
+  });
+}
+
+function pressKey(n) {
+  if (S.done || S.sel < 0) return;
+  const i = S.sel;
+  if (S.puz[i]) return;             // las pistas del tablero no se tocan
+  if (n === 0) { S.val[i] = 0; S.notes[i].clear(); }
+  else if (S.notasOn) {
+    if (S.val[i]) return;
+    if (S.notes[i].has(n)) S.notes[i].delete(n); else S.notes[i].add(n);
+  } else {
+    S.val[i] = (S.val[i] === n) ? 0 : n;
+    if (S.val[i]) {
+      S.notes[i].clear();
+      // limpia notas de ese número en la misma fila/columna/caja
+      for (const j of PEERS[i]) S.notes[j].delete(n);
+    }
+  }
+  paintBoard();
+  save();
+  checkWin();
+}
+
+function usePista() {
+  if (S.done || S.pistas <= 0) return;
+  let i = S.sel;
+  if (i < 0 || S.puz[i] || S.val[i] === S.sol[i]) {
+    // busca una celda vacía o equivocada
+    const opts = [];
+    for (let k = 0; k < 81; k++) if (!S.puz[k] && S.val[k] !== S.sol[k]) opts.push(k);
+    if (!opts.length) return;
+    i = opts[randInt(opts.length)];
+  }
+  S.pistas--; updatePistas();
+  S.sel = i;
+  S.val[i] = S.sol[i];
+  S.notes[i].clear();
+  vibrate(20);
+  paintBoard();
+  save();
+  checkWin();
+}
+
+function updatePistas() {
+  const el = $('#pistas-n');
+  if (el) el.textContent = S.pistas;
+  const b = $('#t-pista');
+  if (b) b.disabled = S.pistas <= 0;
+}
+
+function checkWin() {
+  for (let i = 0; i < 81; i++) if (S.val[i] !== S.sol[i]) return;
+  S.done = true;
+  clock.stop();
+  save();
+  const secs = clock.seconds;
+  const key = 'sud.best.' + S.diff;
+  const best = store.get(key, null);
+  const isRecord = !best || secs < best;
+  if (isRecord) {
+    store.set(key, secs);
+    store.set('sud.hub', `Mejor ${fmtTime(secs)} · ${DIFF_LABEL[S.diff]}`);
+  }
+  confetti(); vibrate([30, 60, 30]);
+  openModal(`
+    <h3>¡Resuelto!</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${fmtTime(secs)}</div><div class="l">tiempo</div></div>
+      <div class="stat"><div class="n">${3 - S.pistas}</div><div class="l">pistas usadas</div></div>
+    </div>
+    ${isRecord ? '<p style="text-align:center;"><span class="record">🏆 ¡Nuevo mejor tiempo!</span></p>'
+      : (best ? `<p style="text-align:center;">Tu mejor tiempo en ${DIFF_LABEL[S.diff].toLowerCase()}: <b>${fmtTime(best)}</b></p>` : '')}
+    <div class="m-actions">
+      <button class="btn btn-primary" id="m-again">Otra partida</button>
+      <button class="btn btn-ghost" id="m-diff">Cambiar dificultad</button>
+    </div>
+  `);
+  $('#m-again').onclick = () => { closeModal(); startGame(null); };
+  $('#m-diff').onclick = () => { closeModal(); renderSetup(); };
+}
+
+/* Teclado físico */
+addEventListener('keydown', (e) => {
+  if (!$('#board')) return;
+  if (e.key >= '1' && e.key <= '9') pressKey(Number(e.key));
+  else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') pressKey(0);
+  else if (e.key === 'n') { S.notasOn = !S.notasOn; const t = $('#t-notas'); if (t) t.classList.toggle('on', S.notasOn); }
+  else if (e.key.startsWith('Arrow') && S.sel >= 0) {
+    const d = { ArrowUp: -9, ArrowDown: 9, ArrowLeft: -1, ArrowRight: 1 }[e.key];
+    const n = S.sel + d;
+    if (n >= 0 && n < 81) { S.sel = n; paintBoard(); }
+    e.preventDefault();
+  }
+});
+
+renderSetup();
+</script>
+</body>
+</html>

@@ -1,0 +1,416 @@
+/* comun/estilo.css — tokens y átomos compartidos de la colección.
+   Identidad: papel, no pantalla. Crema cálido en vez de blanco, tinta parda en
+   vez de negro, filetes finísimos en vez de contornos gruesos, esquinas amplias
+   y limpias, y nada de sombras: las superficies se separan por relleno.
+   Titulares en serif (con cursiva para lo secundario), interfaz en sans y
+   etiquetas técnicas en monoespaciada. El movimiento es suave y corto.
+   Para re-vestir la app basta cambiar los tokens de :root. */
+
+/* ── Tipografías propias ───────────────────────────────────────────
+   Alojadas en el repo: se ven igual sin conexión, cargan antes que pedirlas
+   a un tercero y la app instalada no depende de que Google responda. */
+@font-face {
+  font-family: 'Fraunces';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fuentes/fraunces-400i-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fuentes/fraunces-400i-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fuentes/fraunces-400-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fuentes/fraunces-400-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(fuentes/fraunces-500-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(fuentes/fraunces-500-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fuentes/dmsans-400-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fuentes/dmsans-400-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(fuentes/dmsans-500-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(fuentes/dmsans-500-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(fuentes/dmsans-600-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(fuentes/dmsans-600-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ── Tokens ────────────────────────────────────────────────────────── */
+:root {
+  --display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --title-font: var(--font);       /* la interfaz y los números van en sans */
+  --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  --title-track: -0.015em;
+
+  /* Papel */
+  --bg: #FAF4E8;                   /* crema de la página */
+  --card: #FFFDFA;                 /* tarjeta clara: para piezas y superficies que deben saltar */
+  --panel: #F1E7D7;                /* beige de bloque: agrupa sin dibujar caja */
+  --soft: #EDE3D3;
+
+  /* Tinta parda: nunca negro puro, que es lo que rompe la calma del papel */
+  --ink: #33302B; --bg-ink: #33302B;
+  --sub: #726A60; --bg-sub: #726A60;
+  --faint: #B6AEA1;
+
+  /* Acentos */
+  --accent: #C0603A; --accent-ink: #FFFDFA; --accent-soft: #F4E3D8;
+  /* El terracota de marca da 3,85:1 sobre el crema: vale para piezas y
+     botones grandes, no para texto pequeño. --accent-texto es el mismo
+     matiz 7 % más oscuro (#AE5735): 4,55:1 sobre crema, 4,91 con texto crema. */
+  --accent-texto: #AE5735;
+  --second: #7C8FA3; --second-soft: #E6EBEF;
+  --good: #7C9A6E; --good-soft: #E9EFE2;
+  --bad: #A8503A; --bad-soft: #F5E3DB;
+  --warn: #A6853F; --warn-soft: #F2EAD7;
+
+  /* Tintas para las paletas de varios colores (fichas, piezas, luces).
+     Ocho tonos, cada uno en su familia, elegidos por búsqueda numérica:
+     ΔE76 ≥ 25 entre cualquier par; en ΔE2000 el mínimo es 15 (rosa/lavanda,
+     terracota/pardo rosado), que solo coinciden cuando un juego usa las ocho
+     (Inunda en Experto). Subir más la separación exigía colores chillones
+     que rompen el papel; cada juego elige y ordena las tintas que necesita.
+     Si una paleta necesita N colores, usa N tintas: no inventes hex. */
+  --tinta-1: #C0603A; --tinta-2: #45699D; --tinta-3: #7C9A6E; --tinta-4: #A6853F;
+  --tinta-5: #C7809D; --tinta-6: #A08BC1; --tinta-7: #209EAA; --tinta-8: #8A5D5B;
+
+  /* Filete: el borde es casi un susurro. --linea-fuerte solo para piezas
+     de juego, que sí necesitan recortarse del fondo. */
+  --linea: rgba(51, 48, 43, .13);
+  --linea-fuerte: rgba(51, 48, 43, .26);
+  --border: var(--linea); --line: var(--linea);
+  --trazo: 1px;
+  --shadow: none; --shadow-sutil: none;
+
+  /* Esquinas: amplias, limpias e iguales. Los tres nombres vienen de la
+     identidad anterior (esquinas dibujadas a pulso, nunca dos iguales) y se
+     conservan para no tocar los 42 juegos; hoy valen lo mismo a propósito. */
+  --radius: 16px;
+  --mano-1: 18px; --mano-2: 18px; --mano-3: 18px;
+  --pastilla: 999px;
+
+  --seg-bg: #F1E7D7;
+  --tile-bg: #FFFDFA; --tile-ink: #33302B; --tile-border: rgba(51, 48, 43, .22);
+  --toggle-off: #DED5C7;
+
+  /* Movimiento: corto y suave. Nada de saltos. */
+  --dur: .26s;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  --fps: .42s;                     /* lo usan animaciones viejas de los juegos */
+}
+
+/* ── Base ──────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--bg-ink); font-family: var(--font);
+  min-height: 100dvh; -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+}
+button { font-family: var(--font); touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+input { font-family: var(--font); }
+a { color: var(--accent-texto); }
+
+#app {
+  max-width: 480px; margin: 0 auto; height: 100dvh; position: relative;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.screen { flex: 1; display: flex; flex-direction: column; min-height: 0; animation: fadeIn var(--dur) var(--ease); }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.scroll { flex: 1; overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch; }
+
+/* Titulares en serif; la cursiva es para lo secundario, como en la portada. */
+.serif { font-family: var(--display); }
+.dato {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--sub);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* ── Botones ───────────────────────────────────────────────────────── */
+.btn {
+  border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-weight: 500; font-size: 16.5px;
+  border-radius: var(--pastilla); padding: 15px 22px; width: 100%;
+  letter-spacing: -0.01em; background: var(--card); color: var(--ink);
+  transition: background var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.btn:active { opacity: .82; }
+.btn:disabled { cursor: default; opacity: 1; background: transparent; color: var(--faint); border-color: var(--linea); }
+.btn-primary { background: var(--accent-texto); color: var(--accent-ink); border-color: transparent; }
+.btn-primary:active { background: color-mix(in srgb, var(--accent-texto) 88%, var(--ink)); opacity: 1; }
+.btn-soft { background: var(--accent-soft); color: var(--ink); border-color: transparent; }
+.btn-ghost { background: transparent; color: var(--ink); }
+.btn-danger-ghost { background: transparent; color: var(--bad); border-color: var(--bad); }
+.btn-sm { padding: 9px 16px; font-size: 14px; width: auto; }
+
+/* ── Superficies y filas ───────────────────────────────────────────── */
+.card { background: var(--card); border: var(--trazo) solid var(--linea); border-radius: var(--mano-1); }
+.panel { background: var(--panel); border-radius: var(--mano-1); }
+.row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 13px 0 14px; position: relative;
+}
+.row::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--linea); }
+.row:last-child::after { display: none; }
+.row-title { font-size: 15px; font-weight: 500; color: var(--ink); }
+.row-hint { font-size: 12.5px; color: var(--sub); margin-top: 2px; }
+
+/* ── Controles ─────────────────────────────────────────────────────── */
+.seg { display: flex; gap: 3px; background: var(--seg-bg); padding: 3px; border-radius: var(--pastilla); border: none; }
+.seg button {
+  flex: 1; border: none; cursor: pointer; padding: 9px 4px; border-radius: var(--pastilla);
+  font-weight: 500; font-size: 13px; background: transparent; color: var(--sub);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.seg button.sel { background: var(--card); color: var(--ink); font-weight: 600; }
+.seg button:disabled { opacity: .45; cursor: default; }
+.seg button .pronto { display: block; font-family: var(--mono); font-size: 9px; letter-spacing: .06em; opacity: .8; }
+
+.stepper { display: flex; align-items: center; gap: 10px; }
+.stepper button {
+  width: 38px; height: 38px; border-radius: var(--pastilla); border: var(--trazo) solid var(--linea-fuerte);
+  background: var(--card); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; font-weight: 500;
+  transition: opacity var(--dur) var(--ease);
+}
+.stepper button:active { opacity: .6; }
+.stepper button:disabled { color: var(--faint); border-color: var(--linea); cursor: default; }
+.stepper .val { min-width: 48px; text-align: center; font-weight: 600; font-size: 18px; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.toggle {
+  width: 52px; height: 30px; border-radius: var(--pastilla); border: none; cursor: pointer; padding: 3px;
+  background: var(--toggle-off); display: flex; justify-content: flex-start;
+  transition: background var(--dur) var(--ease);
+}
+.toggle.on { background: var(--accent); justify-content: flex-end; }
+.toggle .knob { width: 24px; height: 24px; border-radius: 999px; background: var(--card); border: none; }
+
+.field {
+  width: 100%; padding: 14px 16px; font-size: 16.5px; font-weight: 400;
+  border-radius: 14px; border: var(--trazo) solid var(--linea-fuerte);
+  background: var(--card); color: var(--ink); outline: none;
+  transition: border-color var(--dur) var(--ease);
+}
+.field:focus { border-color: var(--accent); }
+.field::placeholder { color: var(--faint); }
+
+.label-sm {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--sub); margin-bottom: 8px; padding-left: 2px;
+}
+.chip {
+  display: inline-block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; padding: 4px 11px;
+  border-radius: var(--pastilla); border: none; background: var(--panel); color: var(--sub); text-transform: uppercase;
+}
+.howto {
+  display: block; margin: 0 auto; background: none; border: none; color: var(--accent-texto);
+  font-weight: 500; font-size: 13.5px; cursor: pointer; padding: 6px 10px;
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 5px;
+}
+
+/* ── Barra superior de juego ───────────────────────────────────────── */
+.topbar { display: flex; align-items: center; gap: 11px; padding: max(14px, env(safe-area-inset-top)) 16px 10px; }
+.backbtn {
+  width: 36px; height: 36px; border-radius: 999px; flex-shrink: 0;
+  border: var(--trazo) solid var(--linea-fuerte); background: var(--card); color: var(--ink);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; text-decoration: none;
+  transition: opacity var(--dur) var(--ease);
+}
+.backbtn:active { opacity: .6; }
+.topbar h1 {
+  margin: 0; font-family: var(--display); font-size: 23px; font-weight: 500;
+  letter-spacing: var(--title-track); color: var(--bg-ink);
+}
+.topbar .meta { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.topbar .clock { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 15px; color: var(--bg-ink); }
+
+/* ── Marca (hub) ───────────────────────────────────────────────────── */
+.brand { text-align: center; margin: 30px 0 22px; }
+.brand h1 {
+  margin: 0; font-family: var(--display); font-size: 52px; font-weight: 400;
+  color: var(--bg-ink); letter-spacing: -0.02em; line-height: 1;
+}
+.brand .tag { font-family: var(--display); font-style: italic; font-size: 14.5px; color: var(--bg-sub); margin-top: 8px; }
+
+/* ── Tarjetas del hub ──────────────────────────────────────────────── */
+.hub { padding: max(24px, env(safe-area-inset-top)) 18px calc(28px + env(safe-area-inset-bottom)); }
+.sect {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--sub); margin: 28px 2px 12px; display: flex; align-items: center; gap: 12px;
+}
+.sect::after { content: ''; flex: 1; height: 1px; background: var(--linea); }
+.gcards { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+.gcard {
+  background: var(--panel); border: none; border-radius: 20px;
+  padding: 17px 16px 16px; display: flex; flex-direction: column; gap: 10px;
+  text-decoration: none; color: var(--ink);
+  transition: background var(--dur) var(--ease);
+}
+.gcard:active { background: var(--soft); }
+.gcard .gi {
+  width: 42px; height: 42px; border-radius: 13px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card); color: var(--accent); border: none;
+}
+.gcard .gi.alt { color: var(--second); }
+.gcard .gn { font-size: 15.5px; font-weight: 500; letter-spacing: var(--title-track); line-height: 1.15; }
+.gcard .gs { font-family: var(--display); font-style: italic; font-size: 12px; color: var(--sub); margin-top: -5px; }
+.gcard .gb { font-family: var(--mono); font-size: 9.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--accent-texto); margin-top: auto; }
+
+/* ── Fichas de letras ──────────────────────────────────────────────── */
+.tiles { display: flex; gap: 7px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.tiles .tile {
+  min-width: 44px; height: 52px; padding: 0 6px; border-radius: 12px;
+  background: var(--tile-bg); color: var(--tile-ink);
+  border: var(--trazo) solid var(--tile-border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 25px; font-weight: 500;
+}
+.tiles .dash { font-size: 25px; color: var(--faint); padding: 0 2px; }
+
+/* ── Teclado en pantalla ───────────────────────────────────────────── */
+.kbd { padding: 8px 6px calc(10px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 6px; }
+.kbd .krow { display: flex; gap: 5px; justify-content: center; }
+.kbd button {
+  flex: 1 1 0; min-width: 0; max-width: 42px; height: 46px; border: none;
+  border-radius: 9px; background: var(--panel);
+  font-weight: 500; font-size: 16px; color: var(--ink); cursor: pointer; padding: 0;
+  transition: background var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.kbd button:active { opacity: .6; }
+.kbd button.wide { max-width: 64px; font-size: 12.5px; }
+.kbd button.used { opacity: .38; }
+.kbd button.hit { background: var(--accent-texto); color: var(--accent-ink); opacity: 1; }
+.kbd button.miss { background: var(--soft); color: var(--sub); opacity: .75; }
+
+/* ── Mensajes y estados ────────────────────────────────────────────── */
+.msg { font-family: var(--display); font-style: italic; font-size: 14px; text-align: center; min-height: 18px; color: var(--sub); }
+.msg.ok { color: color-mix(in srgb, var(--good) 65%, var(--ink)); } .msg.err { color: var(--bad); } .msg.check { color: var(--sub); }
+.shake { animation: shake .34s var(--ease); }
+@keyframes shake { 0%,100% { transform: none; } 25% { transform: translateX(-6px); } 50% { transform: translateX(6px); } 75% { transform: translateX(-3px); } }
+@keyframes popIn { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes pulse { 50% { opacity: .5; } }
+
+/* ── Pantalla de fin (compartida) ──────────────────────────────────── */
+.end { padding: max(40px, env(safe-area-inset-top)) 24px 28px; text-align: center; }
+.end .kicker { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent-texto); margin-bottom: 10px; }
+.end h2 {
+  margin: 0; font-family: var(--display); font-size: 38px; font-weight: 400;
+  color: var(--bg-ink); line-height: 1.06; letter-spacing: -0.02em;
+}
+.end .why { font-family: var(--display); font-style: italic; font-size: 15.5px; color: var(--bg-sub); margin-top: 12px; }
+.stats { display: flex; gap: 10px; margin: 24px 0; }
+.stats .stat { flex: 1; background: var(--panel); border: none; border-radius: var(--mano-2); padding: 18px 8px; }
+.stats .n { font-size: 30px; font-weight: 400; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.stats .l { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); margin-top: 5px; }
+.end .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
+.end .again-hint { font-size: 12.5px; color: var(--bg-sub); margin-top: -2px; }
+.record { display: inline-block; margin-top: 14px; font-family: var(--mono); font-size: 12px; letter-spacing: .06em; color: color-mix(in srgb, var(--good) 65%, var(--ink)); }
+
+/* ── Ajustes de partida (setup genérico) ───────────────────────────── */
+.g-setup { padding: 8px 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+.g-setup .card { padding: 4px 18px; }
+.bests { display: flex; gap: 10px; }
+.bests .b { flex: 1; background: var(--panel); border: none; border-radius: var(--mano-3); padding: 13px 6px; text-align: center; }
+.bests .bn { font-size: 21px; font-weight: 400; color: var(--ink); font-variant-numeric: tabular-nums; }
+.bests .bl { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); margin-top: 4px; }
+
+/* ── Modal ─────────────────────────────────────────────────────────── */
+#modal { position: fixed; inset: 0; z-index: 50; display: none; }
+#modal.open { display: block; }
+#modal .veil { position: absolute; inset: 0; background: rgba(51, 48, 43, .38); animation: fadeIn .2s var(--ease); }
+#modal .sheet {
+  position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+  width: 100%; max-width: 480px; background: var(--card);
+  border: none; border-radius: 26px 26px 0 0;
+  padding: 24px 22px calc(24px + env(safe-area-inset-bottom));
+  animation: sheetUp .32s var(--ease);
+}
+@keyframes sheetUp { from { transform: translate(-50%, 40px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+#modal h3 { margin: 0 0 10px; font-family: var(--display); font-size: 26px; font-weight: 400; color: var(--ink); letter-spacing: -0.02em; }
+#modal p { margin: 0 0 12px; font-size: 15px; line-height: 1.6; color: var(--sub); }
+#modal p b { color: var(--ink); font-weight: 500; }
+#modal .m-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+#modal .m-word { font-family: var(--display); font-size: 26px; font-weight: 400; color: var(--ink); text-align: center; margin: 6px 0 10px; }
+#modal .m-word .hi { color: var(--accent-texto); }
+
+/* ── Confeti ───────────────────────────────────────────────────────── */
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 80; overflow: hidden; }
+.confetti i {
+  position: absolute; top: -14px; width: 8px; height: 11px; border: none;
+  border-radius: 2px; animation: fall linear forwards;
+}
+@keyframes fall { to { transform: translateY(105vh) rotate(560deg); opacity: .9; } }

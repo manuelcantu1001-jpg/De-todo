@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Molino contra la app: coloca tus nueve fichas, forma tres en línea y come las suyas hasta dejarla con dos." />
+<title>Molino</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Solo la pantalla de juego reparte el alto sobrante: la de inicio no. */
+  .mol-juego { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
+  .mol-twrap { display: flex; justify-content: center; padding: 0 8px; }
+  /* Tablero SVG cuadrado: 96 % del ancho, con tope para que quepa en alto. */
+  .mol-tab {
+    width: min(96vw, 440px, calc(100dvh - 290px)); aspect-ratio: 1; display: block;
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  }
+  .mol-lin { stroke: var(--linea-fuerte); stroke-width: 6; stroke-linecap: round; fill: none; }
+  .mol-punto { fill: var(--faint); }
+  .mol-toque { fill: transparent; cursor: pointer; }
+  /* Fichas: tú terracota, la app azul (tinta-1 y tinta-2, ΔE amplio). */
+  .mol-ficha { fill: var(--tinta-1); stroke: var(--card); stroke-width: 4; display: none; transition: opacity var(--dur) var(--ease); }
+  .mol-p[data-v="1"] .mol-ficha, .mol-p[data-v="2"] .mol-ficha { display: block; }
+  .mol-p[data-v="2"] .mol-ficha { fill: var(--tinta-2); }
+  .mol-anillo { fill: none; stroke: var(--ink); stroke-width: 5; display: none; }
+  /* Seleccionada: anillo en tinta. Destinos: anillo punteado. */
+  .mol-p.sel .mol-anillo { display: block; }
+  .mol-p.dest .mol-anillo { display: block; stroke-dasharray: 10 8; stroke-width: 4; }
+  .mol-p.dest .mol-punto { fill: var(--ink); }
+  /* Quitable: la ficha rival señalada con anillo rojo punteado y algo apagada. */
+  .mol-p.quitable .mol-ficha { opacity: .6; }
+  .mol-p.quitable .mol-anillo { display: block; stroke: var(--bad); stroke-dasharray: 10 8; stroke-width: 6; }
+  .mol-p.ultimo .mol-ficha { stroke: var(--ink); stroke-width: 3; }
+  .mol-molino { fill: none; stroke-width: 12; stroke-linecap: round; opacity: 0; transition: opacity var(--dur) var(--ease); }
+  .mol-molino.on { opacity: .75; }
+  .mol-molino.j1 { stroke: var(--tinta-1); } .mol-molino.j2 { stroke: var(--tinta-2); }
+
+  /* Marcador: etiquetas técnicas en mono, números en sans a peso medio. */
+  .mol-marc { display: flex; justify-content: center; gap: 14px; padding: 0 16px; }
+  .mol-lado {
+    flex: 1; max-width: 200px; background: var(--panel); border-radius: var(--mano-2); padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 4px; transition: background var(--dur) var(--ease);
+  }
+  .mol-lado.turno { background: var(--card); box-shadow: inset 0 0 0 1px var(--linea-fuerte); }
+  .mol-lado .mol-quien { display: flex; align-items: center; gap: 7px; }
+  .mol-lado .mol-quien i { width: 11px; height: 11px; border-radius: 999px; background: var(--tinta-1); flex-shrink: 0; }
+  .mol-lado.app .mol-quien i { background: var(--tinta-2); }
+  .mol-lado .mol-cifras { display: flex; gap: 12px; }
+  .mol-lado .mol-cifras span { display: flex; align-items: baseline; gap: 5px; }
+  .mol-lado b { font-family: var(--font); font-size: 16px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .mol-estado { text-align: center; padding: 0 16px; font-family: var(--display); font-style: italic; font-size: 16px; color: var(--bg-ink); min-height: 22px; }
+  .mol-estado b { font-style: normal; font-weight: 500; }
+  .mol-tools { margin: 0 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; }
+  .mol-tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
+  .mol-tool:active { opacity: .6; }
+  .mol-hint { font-size: 12.5px; color: var(--sub); padding: 8px 2px 4px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+/* ── Motor puro ────────────────────────────────────────────────────────
+   Todo lo que hay entre las marcas trabaja sobre un objeto G sin tocar la
+   pantalla. Va dentro de una función para poder mandarlo tal cual a un Web
+   Worker (la app piensa ahí y el teléfono no se congela) y para que la
+   simulación en Node lo cargue igual y mida la escalera de niveles.
+   Tablero: 24 puntos, 16 líneas. Jugadores 1 (tú) y 2 (la app).
+   Jugada compuesta = colocar o mover + la ficha que se quita si hubo molino,
+   codificada en un entero: ((de+1)*25 + a)*25 + (quita+1), con de = -1 al
+   colocar y quita = -1 si no hubo molino. */
+/* @motor-inicio */
+function crearMotor() {
+  const LINEAS = [
+    [0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11], [12, 13, 14], [15, 16, 17], [18, 19, 20], [21, 22, 23],
+    [0, 9, 21], [3, 10, 18], [6, 11, 15], [1, 4, 7], [16, 19, 22], [8, 12, 17], [5, 13, 20], [2, 14, 23],
+  ];
+  const ADY = [
+    [1, 9], [0, 2, 4], [1, 14], [4, 10], [1, 3, 5, 7], [4, 13], [7, 11], [4, 6, 8], [7, 12],
+    [0, 10, 21], [3, 9, 11, 18], [6, 10, 15], [8, 13, 17], [5, 12, 14, 20], [2, 13, 23],
+    [11, 16], [15, 17, 19], [12, 16], [10, 19], [16, 18, 20, 22], [13, 19], [9, 22], [19, 21, 23], [14, 22],
+  ];
+  // Para cada punto, «los otros dos» de cada una de sus dos líneas.
+  const OTROS = Array.from({ length: 24 }, () => []);
+  LINEAS.forEach((L) => L.forEach((i) => OTROS[i].push(L.filter((j) => j !== i))));
+  const WIN = 100000, LIMITE = 50;
+
+  function nueva() { return { b: new Int8Array(24), mano: [0, 9, 9], turno: 1, sinCaptura: 0, fin: 0, jugadas: 0 }; }
+  const cod = (de, a, q) => ((de + 1) * 25 + a) * 25 + (q + 1);
+  const descod = (m) => ({ de: Math.floor(m / 625) - 1, a: Math.floor(m / 25) % 25, q: (m % 25) - 1 });
+
+  // ¿Una ficha de p en i cierra línea? (no mira b[i]: sirve antes de poner)
+  function haceMolino(b, i, p) {
+    const o = OTROS[i];
+    return (b[o[0][0]] === p && b[o[0][1]] === p) || (b[o[1][0]] === p && b[o[1][1]] === p);
+  }
+  function lineaMolino(b, i, p) {
+    const o = OTROS[i];
+    if (b[o[0][0]] === p && b[o[0][1]] === p) return [i, o[0][0], o[0][1]];
+    if (b[o[1][0]] === p && b[o[1][1]] === p) return [i, o[1][0], o[1][1]];
+    return null;
+  }
+  function cuenta(b, p) { let n = 0; for (let i = 0; i < 24; i++) if (b[i] === p) n++; return n; }
+  const total = (G, p) => cuenta(G.b, p) + G.mano[p];
+  // Fichas rivales que se pueden quitar: las que no están en molino; si todas lo están, cualquiera.
+  function quitables(b, o) {
+    const out = [];
+    for (let i = 0; i < 24; i++) if (b[i] === o && !haceMolino(b, i, o)) out.push(i);
+    if (!out.length) for (let i = 0; i < 24; i++) if (b[i] === o) out.push(i);
+    return out;
+  }
+  // Destinos de la ficha en i (vecinos libres, o cualquier libre si vuela).
+  function destinos(G, i) {
+    const b = G.b, p = b[i], out = [];
+    if (cuenta(b, p) === 3) { for (let a = 0; a < 24; a++) if (b[a] === 0) out.push(a); }
+    else for (const a of ADY[i]) if (b[a] === 0) out.push(a);
+    return out;
+  }
+
+  function legales(G, p) {
+    const b = G.b, o = 3 - p, out = [];
+    let qs = null;
+    const empuja = (de, a) => {
+      if (haceMolino(b, a, p)) { if (!qs) qs = quitables(b, o); for (let k = 0; k < qs.length; k++) out.push(cod(de, a, qs[k])); }
+      else out.push(cod(de, a, -1));
+    };
+    if (G.mano[p] > 0) {
+      for (let e = 0; e < 24; e++) if (b[e] === 0) empuja(-1, e);
+    } else {
+      const vuela = cuenta(b, p) === 3;
+      for (let i = 0; i < 24; i++) if (b[i] === p) {
+        b[i] = 0;
+        if (vuela) { for (let a = 0; a < 24; a++) if (b[a] === 0) empuja(i, a); }
+        else { const v = ADY[i]; for (let k = 0; k < v.length; k++) if (b[v[k]] === 0) empuja(i, v[k]); }
+        b[i] = p;
+      }
+    }
+    return out;
+  }
+
+  function hacer(G, p, m) {
+    const de = Math.floor(m / 625) - 1, a = Math.floor(m / 25) % 25, q = (m % 25) - 1;
+    G.b[a] = p;
+    if (de < 0) G.mano[p]--; else G.b[de] = 0;
+    if (q >= 0) G.b[q] = 0;
+  }
+  function deshacer(G, p, m) {
+    const de = Math.floor(m / 625) - 1, a = Math.floor(m / 25) % 25, q = (m % 25) - 1;
+    if (q >= 0) G.b[q] = 3 - p;
+    G.b[a] = 0;
+    if (de < 0) G.mano[p]++; else G.b[de] = p;
+  }
+
+  /* Cierra el turno de G.turno tras una jugada ya aplicada al tablero:
+     cuenta de jugadas sin captura (solo cuando los dos ya mueven), fin de
+     partida y cambio de turno. fin: 0 sigue, 1/2 ganador, 3 empate. */
+  function cerrarTurno(G, huboCaptura, fueMovimiento) {
+    const p = G.turno, o = 3 - p;
+    G.jugadas++;
+    if (huboCaptura) G.sinCaptura = 0;
+    else if (fueMovimiento && G.mano[1] === 0 && G.mano[2] === 0) G.sinCaptura++;
+    if (total(G, o) < 3) G.fin = p;
+    else if (G.mano[o] === 0 && legales(G, o).length === 0) G.fin = p;
+    else if (G.sinCaptura >= LIMITE) G.fin = 3;
+    G.turno = o;
+  }
+  function avanzar(G, m) {
+    const { de, q } = descod(m);
+    hacer(G, G.turno, m);
+    cerrarTurno(G, q >= 0, de >= 0);
+  }
+
+  /* ── Evaluación (desde el punto de vista de p) ──
+     fichas (tablero + mano), molinos, líneas de dos con hueco, movilidad,
+     fichas bloqueadas y «molinos dobles» (una ficha en molino que al moverse
+     a un vecino libre cierra otro: se abre y se cierra por turnos). */
+  function evaluar(G, p) {
+    const b = G.b, o = 3 - p;
+    let n1 = 0, n2 = 0;
+    for (let i = 0; i < 24; i++) { const v = b[i]; if (v === 1) n1++; else if (v === 2) n2++; }
+    let mol1 = 0, mol2 = 0, dos1 = 0, dos2 = 0;
+    for (let k = 0; k < 16; k++) {
+      const L = LINEAS[k];
+      let c1 = 0, c2 = 0;
+      for (let j = 0; j < 3; j++) { const v = b[L[j]]; if (v === 1) c1++; else if (v === 2) c2++; }
+      if (c1 === 3) mol1++; else if (c1 === 2 && c2 === 0) dos1++;
+      if (c2 === 3) mol2++; else if (c2 === 2 && c1 === 0) dos2++;
+    }
+    let mov1 = 0, mov2 = 0, bl1 = 0, bl2 = 0, dob1 = 0, dob2 = 0;
+    const libres = 24 - n1 - n2;
+    for (let i = 0; i < 24; i++) {
+      const v = b[i]; if (!v) continue;
+      const ady = ADY[i];
+      let k = 0;
+      const enMol = haceMolino(b, i, v);
+      for (let t = 0; t < ady.length; t++) {
+        const a = ady[t];
+        if (b[a] !== 0) continue;
+        k++;
+        if (enMol) {
+          // la línea de a que no pasa por i: ¿tiene ya dos de v?
+          const oa = OTROS[a];
+          const par = (oa[0][0] === i || oa[0][1] === i) ? oa[1] : oa[0];
+          if (b[par[0]] === v && b[par[1]] === v) { if (v === 1) dob1++; else dob2++; }
+        }
+      }
+      if (v === 1) { mov1 += k; if (!k) bl1++; } else { mov2 += k; if (!k) bl2++; }
+    }
+    if (n1 === 3 && G.mano[1] === 0) { mov1 = libres; bl1 = 0; }
+    if (n2 === 3 && G.mano[2] === 0) { mov2 = libres; bl2 = 0; }
+    const t1 = n1 + G.mano[1], t2 = n2 + G.mano[2];
+    const colocando = G.mano[1] > 0 || G.mano[2] > 0;
+    const wMov = colocando ? 1 : 3, wBl = colocando ? 2 : 6, wMol = colocando ? 16 : 24, wDos = colocando ? 9 : 6;
+    let s = 40 * (t1 - t2) + wMol * (mol1 - mol2) + wDos * (dos1 - dos2) + wMov * (mov1 - mov2) + wBl * (bl2 - bl1) + 14 * (dob1 - dob2);
+    return p === 1 ? s : -s;
+  }
+
+  /* ── Búsqueda: negamax con poda alfa-beta ── */
+  let nodos = 0, plazo = 0, abortado = false;
+  function ordena(ms) {
+    // capturas primero (ya vienen agrupadas): partición estable
+    const out = [];
+    for (let k = 0; k < ms.length; k++) if (ms[k] % 25 !== 0) out.push(ms[k]);
+    for (let k = 0; k < ms.length; k++) if (ms[k] % 25 === 0) out.push(ms[k]);
+    return out;
+  }
+  function negamax(G, p, prof, alfa, beta, ply) {
+    if (total(G, p) < 3) return -WIN + ply;
+    if (prof <= 0) return evaluar(G, p);
+    if ((++nodos & 1023) === 0 && plazo && Date.now() > plazo) { abortado = true; return 0; }
+    const ms = ordena(legales(G, p));
+    if (!ms.length) return -WIN + ply;
+    let mejor = -Infinity;
+    for (let k = 0; k < ms.length; k++) {
+      const m = ms[k];
+      hacer(G, p, m);
+      const v = -negamax(G, 3 - p, prof - 1, -beta, -alfa, ply + 1);
+      deshacer(G, p, m);
+      if (abortado) return 0;
+      if (v > mejor) mejor = v;
+      if (v > alfa) alfa = v;
+      if (alfa >= beta) break;
+    }
+    return mejor;
+  }
+  /* Una pasada a profundidad prof desde la raíz. Devuelve [jugada, valor]
+     o null si se agotó el plazo. `orden` es la lista de la raíz ya ordenada. */
+  function raiz(G, p, orden, prof, ruido) {
+    let alfa = -Infinity, mejor = -1, mejorV = -Infinity;
+    const vals = new Map();
+    for (let k = 0; k < orden.length; k++) {
+      const m = orden[k];
+      hacer(G, p, m);
+      let v = -negamax(G, 3 - p, prof - 1, -Infinity, -alfa, 1);
+      deshacer(G, p, m);
+      if (abortado) return null;
+      v += ruido[k];
+      vals.set(m, v);
+      if (v > mejorV) { mejorV = v; mejor = m; }
+      if (v > alfa) alfa = v;
+    }
+    return { m: mejor, v: mejorV, vals };
+  }
+  /* Difícil: profundidad fija. Experto: profundización iterativa hasta
+     profMax con plazo en ms (siempre completa al menos la primera pasada). */
+  function buscar(G, p, rnd, opc) {
+    const ms = legales(G, p);
+    if (ms.length === 1) return ms[0];
+    let orden = ordena(ms);
+    const ruido = orden.map(() => rnd() * 0.5);
+    nodos = 0; abortado = false;
+    plazo = opc.plazo ? Date.now() + opc.plazo : 0;
+    const t0 = Date.now();
+    let res = null, profHecha = 0;
+    for (let d = 1; d <= opc.profMax; d++) {
+      const r = raiz(G, p, orden, d, ruido);
+      if (!r) break;
+      res = r; profHecha = d;
+      if (Math.abs(r.v) >= WIN - 100) break;                 // ya ve el final
+      // reordenar la raíz por el valor de esta pasada
+      const idx = new Map(orden.map((m, k) => [m, k]));
+      orden = orden.slice().sort((x, y) => r.vals.get(y) - r.vals.get(x));
+      const ruidoNuevo = orden.map((m) => ruido[idx.get(m)]);
+      for (let k = 0; k < orden.length; k++) ruido[k] = ruidoNuevo[k];
+      if (d >= opc.prof && opc.plazo && Date.now() - t0 > opc.plazo * 0.3) break;
+      if (d >= opc.prof && !opc.plazo) break;
+    }
+    ultimaInfo = { prof: profHecha, nodos, ms: Date.now() - t0 };
+    return res ? res.m : orden[0];
+  }
+  let ultimaInfo = null;
+
+  /* ── Niveles ── */
+  function facil(G, p, ms, rnd) {
+    const capt = ms.filter((m) => m % 25 !== 0);
+    const lista = capt.length ? capt : ms;
+    return lista[Math.floor(rnd() * lista.length)];
+  }
+  // Codicioso a un paso: cierra molino, bloquea el del rival, no le deja uno a tiro.
+  function normal(G, p, ms, rnd) {
+    const o = 3 - p, b = G.b;
+    let mejor = ms[0], mejorS = -Infinity;
+    for (let k = 0; k < ms.length; k++) {
+      const m = ms[k];
+      const a = Math.floor(m / 25) % 25, q = (m % 25) - 1;
+      let s = q >= 0 ? 100 : 0;
+      if (haceMolino(b, a, o)) s += 45;                       // tapa un molino rival
+      hacer(G, p, m);
+      const rs = legales(G, o);
+      const amen = new Set();
+      for (let j = 0; j < rs.length; j++) if (rs[j] % 25 !== 0) amen.add(Math.floor(rs[j] / 25));
+      s -= 70 * Math.min(amen.size, 2);
+      let dos = 0;
+      for (let t = 0; t < 16; t++) {
+        const L = LINEAS[t];
+        let c = 0, e = 0;
+        for (let j = 0; j < 3; j++) { const v = b[L[j]]; if (v === p) c++; else if (!v) e++; }
+        if (c === 2 && e === 1) dos++;
+      }
+      s += 6 * dos;
+      deshacer(G, p, m);
+      s += rnd() * 0.5;
+      if (s > mejorS) { mejorS = s; mejor = m; }
+    }
+    return mejor;
+  }
+  function elegir(G, p, nivel, rnd, opc) {
+    const ms = legales(G, p);
+    if (!ms.length) return -1;
+    if (nivel === 'facil') return facil(G, p, ms, rnd);
+    if (nivel === 'normal') return normal(G, p, ms, rnd);
+    if (nivel === 'dificil') return buscar(G, p, rnd, { prof: 3, profMax: 3 });
+    const o = opc || {};
+    return buscar(G, p, rnd, { prof: 6, profMax: o.profMax || 6, plazo: o.plazo || 0 });
+  }
+
+  return { LINEAS, ADY, WIN, LIMITE, nueva, cod, descod, haceMolino, lineaMolino, cuenta, total, quitables, destinos,
+    legales, hacer, deshacer, cerrarTurno, avanzar, evaluar, elegir, info: () => ultimaInfo };
+}
+/* @motor-fin */
+
+const M = crearMotor();
+/* Tres niveles, no cuatro: se midió una búsqueda más honda (4, 5 y 6 jugadas,
+   con y sin búsqueda de quietud, y con varios juegos de pesos) y NINGUNA gana a
+   la de tres jugadas: 37,5 %, 40,8 % y 30,4 % de victorias contra ella. La poda
+   es correcta (coincide con un minimax sin podar) y la evaluación es
+   antisimétrica, así que el problema es la evaluación, no la búsqueda. Un
+   «Experto» que pierde contra «Difícil» es decorado: se queda fuera hasta que
+   haya una evaluación que de verdad aproveche la profundidad. */
+const NIVELES = ['facil', 'normal', 'dificil'];
+const YO = 1, APP = 2;
+const S = {
+  // Si quedó guardado un nivel que ya no existe, se cae a Difícil.
+  nivel: NIVELES.includes(store.get('mol.nivel', 'normal')) ? store.get('mol.nivel', 'normal') : 'dificil',
+  G: null, gen: 0, timers: [], jugando: false, pensando: false,
+  sel: -1, captura: false, molino: null, ultimo: -1, deSel: -1,
+  empiezaApp: false, worker: null, pid: 0, pendientes: new Map(),
+};
+
+const REGLAS = `<p>Cada quien tiene <b>nueve fichas</b>. Primero se <b>colocan</b> por turnos en los puntos libres; cuando ya están todas en el tablero, se <b>mueven</b> a un punto vecino libre siguiendo las líneas. A quien le queden <b>solo tres</b> puede «volar» a cualquier punto libre.</p>
+<p>Tres fichas tuyas en línea forman un <b>molino</b>: quitas una ficha de la app que no esté en molino (si todas lo están, cualquiera). <b>Pierde</b> quien se queda con dos fichas o no puede mover. Si pasan 50 jugadas sin captura en la fase de movimiento, es empate.</p>
+<p><b>Fácil</b> juega al azar (pero cierra molino si puede); <b>Normal</b> mira un paso: cierra, tapa y no te deja molino a tiro; <b>Difícil</b> piensa tres jugadas por delante y es un rival serio. Se alterna quién empieza. Tus victorias se guardan por nivel.</p>`;
+
+const victorias = (n) => store.get('mol.wins.' + n, 0);
+function anotaVictoria(nivel) {
+  const n = victorias(nivel) + 1;
+  store.set('mol.wins.' + nivel, n);
+  let alto = null;
+  for (const v of NIVELES) if (victorias(v) > 0) alto = v;
+  if (alto) {
+    const k = victorias(alto);
+    store.set('mol.hub', `${DIFF_LABEL[alto]}: ${k} victoria${k === 1 ? '' : 's'}`);
+  }
+  return n;
+}
+function bestsHTML() {
+  return NIVELES.map((v) =>
+    `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
+}
+
+function limpiar() {
+  S.gen++;
+  for (const t of S.timers) clearTimeout(t);
+  S.timers = []; S.jugando = false; S.pensando = false;
+  S.sel = -1; S.captura = false; S.molino = null; S.ultimo = -1; S.deSel = -1;
+}
+const espera = (ms) => new Promise((r) => { const t = setTimeout(r, ms); S.timers.push(t); });
+const vivo = (g) => g === S.gen && S.jugando && !!$('#mol-tab');
+
+/* ── La app piensa en un Web Worker (hecho con el propio código del motor) ──
+   Si el navegador no lo permite, se calcula aquí mismo con un plazo corto. */
+function crearWorker() {
+  try {
+    const src = crearMotor.toString() + `
+      const M = crearMotor();
+      self.onmessage = (e) => {
+        const d = e.data;
+        const G = { b: Int8Array.from(d.b), mano: d.mano.slice(), turno: d.turno, sinCaptura: d.sinCaptura, fin: 0, jugadas: d.jugadas };
+        const m = M.elegir(G, d.turno, d.nivel, Math.random, { profMax: 9, plazo: 600 });
+        self.postMessage({ id: d.id, m });
+      };`;
+    const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+    const w = new Worker(url);
+    w.onmessage = (e) => {
+      const r = S.pendientes.get(e.data.id);
+      if (r) { S.pendientes.delete(e.data.id); r(e.data.m); }
+    };
+    w.onerror = () => {
+      // el worker no sirve: se resuelve lo pendiente aquí y no se vuelve a usar
+      try { w.terminate(); } catch (e) { /* nada */ }
+      S.worker = null;
+      for (const [id, r] of S.pendientes) { S.pendientes.delete(id); r(null); }
+    };
+    return w;
+  } catch (e) { return null; }
+}
+function pedirJugada(G, nivel) {
+  const sinc = () => M.elegir(G, G.turno, nivel, Math.random, { profMax: 6, plazo: 250 });
+  if (!S.worker) return Promise.resolve(sinc());
+  return new Promise((res) => {
+    const id = ++S.pid;
+    S.pendientes.set(id, (m) => res(m == null ? sinc() : m));
+    S.worker.postMessage({ id, b: Array.from(G.b), mano: G.mano, turno: G.turno, sinCaptura: G.sinCaptura, jugadas: G.jugadas, nivel });
+  });
+}
+
+/* ── Pantalla de inicio ────────────────────────────────────────────── */
+function renderSetup() {
+  limpiar();
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Molino', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
+        ${diffSegHTML('seg-d', S.nivel, NIVELES)}
+        <div class="mol-hint" id="d-hint"></div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Victorias, por nivel</div>
+      <div class="bests">${bestsHTML()}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const PISTA = {
+    facil: 'Coloca y mueve al azar, pero cierra molino si puede.',
+    normal: 'Mira un paso: cierra, tapa y no te deja molino a tiro.',
+    dificil: 'Piensa tres jugadas por delante; cuesta ganarle.',
+  };
+  const hint = () => { $('#d-hint').textContent = PISTA[S.nivel]; };
+  hint();
+  bindSeg('seg-d', (v) => { S.nivel = v; store.set('mol.nivel', v); hint(); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+function startGame() {
+  limpiar();
+  if (!S.worker) S.worker = crearWorker();
+  S.G = M.nueva();
+  S.G.turno = S.empiezaApp ? APP : YO;
+  S.empiezaApp = !S.empiezaApp;
+  S.jugando = true;
+  renderPlay();
+  if (S.G.turno === APP) turnoApp(); else estadoTurno();
+}
+
+/* ── Pantalla de juego ─────────────────────────────────────────────── */
+const XY = [[0, 0], [3, 0], [6, 0], [1, 1], [3, 1], [5, 1], [2, 2], [3, 2], [4, 2], [0, 3], [1, 3], [2, 3], [4, 3], [5, 3], [6, 3],
+  [2, 4], [3, 4], [4, 4], [1, 5], [3, 5], [5, 5], [0, 6], [3, 6], [6, 6]];
+const cx = (i) => 50 + XY[i][0] * 100, cy = (i) => 50 + XY[i][1] * 100;
+
+function renderPlay() {
+  const lineas = M.LINEAS.map((L) => `<line class="mol-lin" x1="${cx(L[0])}" y1="${cy(L[0])}" x2="${cx(L[2])}" y2="${cy(L[2])}"></line>`).join('');
+  const puntos = XY.map((_, i) => `<g class="mol-p" data-i="${i}" data-v="0">
+      <circle class="mol-punto" cx="${cx(i)}" cy="${cy(i)}" r="9"></circle>
+      <circle class="mol-ficha" cx="${cx(i)}" cy="${cy(i)}" r="31"></circle>
+      <circle class="mol-anillo" cx="${cx(i)}" cy="${cy(i)}" r="40"></circle>
+      <circle class="mol-toque" cx="${cx(i)}" cy="${cy(i)}" r="46"></circle>
+    </g>`).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Molino', `<span class="chip">${DIFF_LABEL[S.nivel]}</span>`)}
+    <div class="mol-juego">
+      <div class="mol-marc">
+        <div class="mol-lado yo" id="lado-1">
+          <div class="mol-quien"><i></i><span class="dato">Tú</span></div>
+          <div class="mol-cifras"><span><b id="t-1">0</b><span class="dato">tablero</span></span><span><b id="m-1">9</b><span class="dato">mano</span></span></div>
+        </div>
+        <div class="mol-lado app" id="lado-2">
+          <div class="mol-quien"><i></i><span class="dato">App</span></div>
+          <div class="mol-cifras"><span><b id="t-2">0</b><span class="dato">tablero</span></span><span><b id="m-2">9</b><span class="dato">mano</span></span></div>
+        </div>
+      </div>
+      <div class="mol-twrap">
+        <svg class="mol-tab" id="mol-tab" viewBox="0 0 700 700" aria-label="Tablero del molino">
+          ${lineas}
+          <polyline class="mol-molino" id="mol-molino" points="0,0 0,0 0,0"></polyline>
+          ${puntos}
+        </svg>
+      </div>
+      <div class="mol-estado" id="mol-estado"></div>
+      <div class="mol-tools">
+        <button class="mol-tool" id="t-nueva">Nueva</button>
+        <button class="mol-tool" id="t-salir">Salir</button>
+      </div>
+    </div>
+  </div>`;
+  $('#mol-tab').onclick = (e) => {
+    const g = e.target.closest('.mol-p');
+    if (g) toque(Number(g.dataset.i));
+  };
+  $('#t-nueva').onclick = startGame;
+  $('#t-salir').onclick = renderSetup;
+  paint();
+}
+
+function estado(html) { const el = $('#mol-estado'); if (el) el.innerHTML = html; }
+function estadoTurno() {
+  const G = S.G;
+  if (S.captura) return estado('<b>¡Molino!</b> Quita una ficha de la app');
+  if (G.mano[YO] > 0) return estado(`<b>Tu turno</b> · coloca una ficha`);
+  if (M.cuenta(G.b, YO) === 3) return estado(`<b>Tu turno</b> · con tres fichas puedes volar`);
+  return estado(S.sel >= 0 ? 'Elige el destino' : `<b>Tu turno</b> · mueve una ficha`);
+}
+
+function paint() {
+  if (!$('#mol-tab')) return;                   // el jugador ya se fue de la pantalla
+  const G = S.G;
+  const dests = new Set(S.sel >= 0 ? M.destinos(G, S.sel) : []);
+  const quit = new Set(S.captura ? M.quitables(G.b, APP) : []);
+  $$('.mol-p').forEach((el) => {
+    const i = Number(el.dataset.i);
+    el.dataset.v = G.b[i];
+    el.classList.toggle('sel', i === S.sel);
+    el.classList.toggle('dest', dests.has(i));
+    el.classList.toggle('quitable', quit.has(i));
+    el.classList.toggle('ultimo', i === S.ultimo && G.b[i] !== 0);
+  });
+  const pl = $('#mol-molino');
+  if (S.molino) {
+    const L = S.molino.linea;
+    pl.setAttribute('points', L.map((i) => `${cx(i)},${cy(i)}`).join(' '));
+    pl.setAttribute('class', `mol-molino on j${S.molino.j}`);
+  } else pl.setAttribute('class', 'mol-molino');
+  for (const p of [1, 2]) {
+    $('#t-' + p).textContent = M.cuenta(G.b, p);
+    $('#m-' + p).textContent = G.mano[p];
+    $('#lado-' + p).classList.toggle('turno', G.turno === p && !G.fin);
+  }
+}
+
+/* ── Tu turno ── */
+function toque(i) {
+  const G = S.G;
+  if (!S.jugando || G.fin || G.turno !== YO || S.pensando) return;
+  const b = G.b;
+  if (S.captura) {
+    if (b[i] !== APP || !M.quitables(b, APP).includes(i)) return;
+    b[i] = 0;
+    vibrate([12, 40, 12]);
+    S.captura = false;
+    return cerrarMio(true, S.deSel >= 0);
+  }
+  if (G.mano[YO] > 0) {
+    if (b[i] !== 0) return;
+    b[i] = YO; G.mano[YO]--;
+    S.ultimo = i; S.deSel = -1;
+    return trasMover(i);
+  }
+  if (b[i] === YO) {
+    S.sel = S.sel === i ? -1 : i;
+    vibrate(6); paint(); estadoTurno();
+    return;
+  }
+  if (S.sel >= 0 && M.destinos(G, S.sel).includes(i)) {
+    b[S.sel] = 0; b[i] = YO;
+    S.deSel = S.sel; S.sel = -1; S.ultimo = i;
+    return trasMover(i);
+  }
+}
+function trasMover(a) {
+  const G = S.G;
+  const L = M.lineaMolino(G.b, a, YO);
+  S.molino = L ? { linea: L, j: YO } : null;
+  vibrate(L ? [10, 30, 10] : 8);
+  if (L) {
+    S.captura = true;
+    paint(); estadoTurno();
+    return;
+  }
+  cerrarMio(false, S.deSel >= 0);
+}
+function cerrarMio(captura, movimiento) {
+  const G = S.G;
+  M.cerrarTurno(G, captura, movimiento);
+  S.sel = -1;
+  paint();
+  if (G.fin) return terminar();
+  turnoApp();
+}
+
+/* ── El turno de la app ── */
+async function turnoApp() {
+  const g = S.gen; if (!vivo(g)) return;
+  const G = S.G;
+  S.pensando = true;
+  estado('La app piensa…');
+  paint();
+  const t0 = Date.now();
+  const m = await pedirJugada(G, S.nivel);
+  if (!vivo(g)) return;
+  const falta = 520 - (Date.now() - t0);
+  if (falta > 0) { await espera(falta); if (!vivo(g)) return; }
+  if (m < 0) { M.cerrarTurno(G, false, true); return terminar(); }
+  const { de, a, q } = M.descod(m);
+  G.b[a] = APP;
+  if (de < 0) G.mano[APP]--; else G.b[de] = 0;
+  S.ultimo = a;
+  const L = q >= 0 ? M.lineaMolino(G.b, a, APP) : null;
+  S.molino = L ? { linea: L, j: APP } : null;
+  paint();
+  vibrate(6);
+  if (q >= 0) {
+    estado('<b>Molino de la app</b> · te quita una ficha');
+    await espera(700); if (!vivo(g)) return;
+    G.b[q] = 0;
+    paint();
+    vibrate([12, 40, 12]);
+    await espera(320); if (!vivo(g)) return;
+  }
+  S.pensando = false;
+  M.cerrarTurno(G, q >= 0, de >= 0);
+  paint();
+  if (G.fin) return terminar();
+  estadoTurno();
+}
+
+function terminar() {
+  if (!$('#mol-tab')) return;
+  const G = S.G;
+  S.jugando = false; S.pensando = false;
+  paint();
+  const mias = M.total(G, YO), suyas = M.total(G, APP);
+  let titulo, porque, pie = '';
+  if (G.fin === YO) {
+    titulo = '¡Ganaste!';
+    porque = suyas < 3 ? 'Dejaste a la app con dos fichas.' : 'La app se quedó sin jugadas.';
+    pie = `<p style="text-align:center;">Llevas <b>${anotaVictoria(S.nivel)}</b> victoria(s) en <b>${DIFF_LABEL[S.nivel]}</b></p>`;
+    confetti(); vibrate([30, 60, 30]);
+  } else if (G.fin === APP) {
+    titulo = 'Ganó la app';
+    porque = mias < 3 ? 'Te dejó con dos fichas.' : 'Te quedaste sin jugadas.';
+  } else {
+    titulo = 'Empate';
+    porque = `${M.LIMITE} jugadas sin captura.`;
+  }
+  estado(`<b>${titulo}</b>`);
+  const t = setTimeout(() => {
+    if (!$('#mol-tab')) return;
+    openModal(`<h3>${titulo}</h3>
+      <p style="text-align:center;">${porque}</p>
+      <div class="stats" style="margin:12px 0;">
+        <div class="stat"><div class="n">${mias}</div><div class="l">tus fichas</div></div>
+        <div class="stat"><div class="n">${suyas}</div><div class="l">de la app</div></div>
+        <div class="stat"><div class="n">${G.jugadas}</div><div class="l">jugadas</div></div>
+      </div>
+      ${pie}
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Otra partida</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>`);
+    $('#m-again').onclick = () => { closeModal(); startGame(); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 900);
+  S.timers.push(t);
+}
+
+renderSetup();
+</script>
+</body>
+</html>

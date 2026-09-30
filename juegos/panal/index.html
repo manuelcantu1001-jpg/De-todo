@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Panal: forma palabras con siete letras; la del centro va en todas. Un panal diario para todos o libre por dificultad." />
+<title>Panal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* Solo la pantalla de juego reparte el alto sobrante; la de inicio no. */
+  .pn-zona { display: flex; flex-direction: column; justify-content: space-evenly; padding: 0 16px; }
+
+  /* Rango y barra de puntos */
+  .pn-cab { padding-top: 4px; }
+  .pn-rango { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .pn-rn { font-family: var(--display); font-style: italic; font-size: 19px; color: var(--ink); }
+  .pn-barra { position: relative; height: 6px; margin-top: 9px; border-radius: var(--pastilla); background: var(--panel); }
+  .pn-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: var(--pastilla); background: var(--accent); transition: width var(--dur) var(--ease); }
+  .pn-dot { position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 999px; background: var(--card); border: var(--trazo) solid var(--linea-fuerte); }
+  .pn-dot.ok { background: var(--accent); border-color: transparent; }
+
+  /* Encontradas: una línea plegada con las últimas, o la lista entera */
+  .pn-hall { background: var(--panel); border-radius: var(--mano-1); }
+  .pn-hall-h {
+    width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: none; background: none;
+    color: var(--ink); cursor: pointer; text-align: left; font-size: 14px; font-weight: 500; min-height: 44px;
+  }
+  .pn-hall-h .pn-ult { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-family: var(--display); font-style: italic; font-weight: 400; color: var(--sub); font-size: 14px; }
+  .pn-hall-h svg { flex-shrink: 0; color: var(--sub); transition: transform var(--dur) var(--ease); }
+  .pn-hall.abierto .pn-hall-h svg { transform: rotate(180deg); }
+  .pn-hall-b { display: none; flex-wrap: wrap; gap: 6px; padding: 0 12px 12px; max-height: 34dvh; overflow-y: auto; }
+  .pn-hall.abierto .pn-hall-b { display: flex; }
+  .pn-hall.abierto .pn-ult { display: none; }
+  .pn-h { font-size: 13px; font-weight: 500; padding: 4px 11px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); }
+  .pn-h.pang { background: var(--accent-soft); }
+
+  /* Línea de entrada: la letra del centro va en terracota */
+  .pn-entrada {
+    display: flex; justify-content: center; align-items: center; min-height: 44px; padding: 0 8px;
+    font-family: var(--font); font-size: 30px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--ink);
+    -webkit-user-select: none; user-select: none; overflow: hidden; white-space: nowrap;
+  }
+  .pn-entrada .pn-c { color: var(--accent-texto); }
+  .pn-entrada .pn-caret { display: inline-block; width: 2px; height: 32px; margin-left: 3px; background: var(--accent); animation: pnCaret 1.1s var(--ease) infinite; }
+  @keyframes pnCaret { 50% { opacity: 0; } }
+  .pn-entrada.shake { animation: shake .34s var(--ease); }
+
+  /* El panal: siete botones hexagonales colocados a mano sobre un cuadrado */
+  .pn-panal {
+    position: relative; margin: 0 auto; width: min(82vw, 300px, calc(100dvh - 430px)); min-width: 200px; aspect-ratio: 1;
+    -webkit-user-select: none; user-select: none; touch-action: manipulation;
+  }
+  .pn-hex {
+    position: absolute; width: 32.04%; height: 37%; margin: 0; padding: 0; border: none; cursor: pointer;
+    clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+    background: var(--panel); color: var(--ink);
+    font-family: var(--font); font-size: clamp(24px, 8.5vw, 32px); font-weight: 500; text-transform: uppercase;
+    transition: background var(--dur) var(--ease), transform .12s var(--ease), opacity .12s var(--ease);
+  }
+  .pn-hex:active { transform: scale(.93); background: var(--soft); }
+  .pn-hex.centro { background: var(--accent); color: var(--accent-ink); }
+  .pn-hex.centro:active { background: var(--accent-texto); }
+  .pn-panal.mezclando .pn-hex:not(.centro) { opacity: 0; }
+
+  .pn-acciones { display: flex; gap: 10px; justify-content: center; }
+  .pn-acciones .btn { flex: 1; padding: 12px 10px; font-size: 14.5px; }
+  .pn-acciones .btn-primary { flex: 1.4; }
+
+  .pn-tools { margin: 0 16px calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 10px; }
+  .pn-tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 500;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink); min-height: 40px; }
+  .pn-tool:active { opacity: .6; }
+
+  /* Inicio */
+  .pn-hoy { font-size: 13.5px; color: var(--sub); line-height: 1.5; }
+  .pn-hoy b { color: var(--ink); font-weight: 500; }
+
+  /* Modal de fin */
+  .pn-m-lista { font-size: 13.5px; color: var(--sub); text-align: center; line-height: 1.7; }
+  .pn-m-lista b { color: var(--ink); font-weight: 500; }
+  .pn-m-lista .pang { color: var(--accent-texto); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script src="../../banco-es.js"></script>
+<script>
+'use strict';
+
+/* Tamaño del reto por nivel: cuántas palabras esconde el panal. */
+const CFG = {
+  facil:   { lo: 20, hi: 30 },
+  normal:  { lo: 30, hi: 45 },
+  dificil: { lo: 45, hi: 60 },
+  experto: { lo: 60, hi: 100 },
+};
+/* El diario es el mismo para todos y tiene un tamaño fijo, entre Normal y Difícil. */
+const DIARIO = { lo: 35, hi: 60 };
+const PANGRAMA_EXTRA = 7;
+/* Rangos por porcentaje de puntos. Genio (70 %) es el que cuenta para la racha. */
+const RANGOS = [
+  [0, 'Principiante'], [5, 'Aprendiz'], [15, 'Bueno'], [25, 'Sólido'],
+  [40, 'Notable'], [55, 'Brillante'], [70, 'Genio'], [100, 'Panal entero'],
+];
+const GENIO = 70;
+
+const S = {
+  modo: store.get('panal.modo', 'diaria'),
+  nivel: store.get('panal.nivel', 'normal'),
+  tab: null,          // { centro, ext, M, sols, mapa, max }
+  found: [], pts: 0, entrada: '',
+  terminado: false, abierto: false,
+  tmMsg: null, tmMezcla: null, tmFin: null,
+};
+
+const REGLAS = `<p>Forma palabras de <b>4 letras o más</b> con las siete letras del panal. Las letras se pueden repetir, pero la <b>del centro</b> tiene que ir en todas.</p>
+<p>Solo cuentan las palabras de la lista del juego: sustantivos, adjetivos e infinitivos del banco (sin plurales ni conjugaciones) y sin tildes. Cada panal esconde de 20 a 100 según la dificultad y siempre al menos un <b>pangrama</b>, una palabra con las siete letras.</p>
+<p>Puntos: 4 letras = 1; más largas, tantos como letras; el pangrama suma 7 extra. El rango sube con el porcentaje de puntos y llegas a <b>Genio</b> con el 70 %.</p>
+<p>En <b>Diario</b> el panal es el mismo para todos y cambia cada día; tu avance se guarda y cada día que llegas a Genio alarga la racha. <b>Terminar</b> enseña las que faltaban (en Diario, eso cierra el día).</p>`;
+
+/* ══ GENERADOR ══════════════════════════════════════════════════════════
+   Las soluciones salen del banco curado (banco-es.js): palabras de 4 letras
+   o más cuyas letras estén todas en el panal y que lleven la del centro. El
+   panal nace de un pangrama del propio banco (una palabra con exactamente 7
+   letras distintas), así que siempre hay al menos uno. Solo se aceptan
+   tableros con un número de soluciones dentro del rango del nivel. */
+/* ==GEN== */
+const AL = 'abcdefghijklmnñopqrstuvwxyz';
+const bit = (c) => 1 << AL.indexOf(c);
+let IDX = null, PANG = null;
+function prepararIndice() {
+  if (IDX) return;
+  IDX = []; PANG = [];
+  const vistos = new Set();
+  for (const e of Banco.list) {
+    const n = e.n;
+    if (n.length < 4 || vistos.has(n) || !/^[a-zñ]+$/.test(n)) continue;
+    vistos.add(n);
+    let m = 0, k = 0;
+    for (const c of n) { const b = bit(c); if (!(m & b)) k++; m |= b; }
+    const it = { w: e.w, n, m, k, rank: e.rank };
+    IDX.push(it);
+    if (k === 7) PANG.push(it);
+  }
+}
+const puntosDe = (it, M) => (it.n.length === 4 ? 1 : it.n.length) + (it.m === M ? PANGRAMA_EXTRA : 0);
+function soluciones(M, cb) {
+  const out = [];
+  for (const it of IDX) if ((it.m & ~M) === 0 && (it.m & cb)) out.push(it);
+  return out;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function barajar(arr, rng) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+/* Devuelve un panal con entre lo y hi soluciones (y al menos un pangrama), o
+   null si en 3000 intentos no salió (con el banco actual sale siempre). */
+function generar(rng, lo, hi) {
+  prepararIndice();
+  for (let t = 1; t <= 3000; t++) {
+    const p = PANG[Math.floor(rng() * PANG.length)];
+    const letras = [...new Set(p.n)];
+    const centro = letras[Math.floor(rng() * 7)];
+    const sols = soluciones(p.m, bit(centro));
+    if (sols.length < lo || sols.length > hi) continue;
+    if (!sols.some((s) => s.m === p.m)) continue;
+    const ext = barajar(letras.filter((c) => c !== centro), rng);
+    const mapa = new Map();
+    let max = 0;
+    for (const s of sols) { mapa.set(s.n, s); max += puntosDe(s, p.m); }
+    return { centro, ext, M: p.m, sols, mapa, max, intentos: t };
+  }
+  return null;
+}
+/* ==FINGEN== */
+
+/* ── Fecha y diario ──────────────────────────────────────────────────── */
+const fecha = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const hoy = () => fecha(new Date());
+const ayer = () => { const d = new Date(); d.setDate(d.getDate() - 1); return fecha(d); };
+function semillaDia(s) {
+  let h = 2166136261;
+  for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+const rangoDe = (pct) => { let r = RANGOS[0][1]; for (const [p, n] of RANGOS) if (pct >= p) r = n; return r; };
+const pctActual = () => S.tab && S.tab.max ? Math.round(100 * S.pts / S.tab.max) : 0;
+
+function cargarDiaria() {
+  const d = store.get('pan.diaria', null);
+  if (d && d.date === hoy()) return d;
+  return { date: hoy(), letras: '', found: [], terminado: false, genio: false, pct: 0 };
+}
+function guardarDiaria() {
+  if (S.modo !== 'diaria') return;
+  store.set('pan.diaria', {
+    date: hoy(), letras: S.tab.centro + S.tab.ext.slice().sort().join(''),
+    found: S.found, terminado: S.terminado, genio: S.diaGenio, pct: pctActual(),
+  });
+}
+/* La racha cuenta días seguidos llegando a Genio en el diario. */
+function rachaViva() {
+  const r = store.get('pan.racha', { n: 0, last: '', pct: 0 });
+  return (r.last === hoy() || r.last === ayer()) ? r : { n: 0, last: '', pct: 0 };
+}
+function registrarGenio() {
+  const r = store.get('pan.racha', { n: 0, last: '', pct: 0 });
+  if (r.last === hoy()) return r.n;
+  r.n = (r.last === ayer()) ? r.n + 1 : 1;
+  r.last = hoy(); r.pct = pctActual();
+  store.set('pan.racha', r);
+  if (r.n > store.get('pan.mejorRacha', 0)) store.set('pan.mejorRacha', r.n);
+  return r.n;
+}
+/* Regla del hub: si hay racha viva (Genio hoy o ayer), manda el diario con su
+   porcentaje y la racha; si no, el mejor porcentaje libre con su nivel (en
+   empate, el nivel más alto). */
+function actualizarHub() {
+  const r = rachaViva();
+  if (r.n > 0) {
+    const pct = r.last === hoy() ? Math.max(r.pct, S.modo === 'diaria' ? pctActual() : 0) : r.pct;
+    if (r.last === hoy() && pct > r.pct) { r.pct = pct; store.set('pan.racha', r); }
+    store.set('pan.hub', `Diario: ${pct} % · racha ${r.n}`);
+    return;
+  }
+  let mejor = 0, nivel = null;
+  for (const d of ['facil', 'normal', 'dificil', 'experto']) {
+    const b = store.get('pan.best.' + d, 0);
+    if (b > 0 && b >= mejor) { mejor = b; nivel = d; }
+  }
+  if (nivel) store.set('pan.hub', `Mejor: ${mejor} % · ${DIFF_LABEL[nivel]}`);
+}
+
+/* ── Pantalla de inicio ──────────────────────────────────────────────── */
+function limpiarTemporizadores() {
+  clearTimeout(S.tmMsg); clearTimeout(S.tmMezcla); clearTimeout(S.tmFin);
+  S.tmMsg = S.tmMezcla = S.tmFin = null;
+}
+
+function renderSetup() {
+  limpiarTemporizadores();
+  S.tab = null;
+  const bests = ['facil', 'normal', 'dificil', 'experto'].map((d) => {
+    const b = store.get('pan.best.' + d, 0);
+    return `<div class="b"><div class="bn">${b ? b + ' %' : '—'}</div><div class="bl">${DIFF_LABEL[d]}</div></div>`;
+  }).join('');
+  const dd = cargarDiaria();
+  const r = rachaViva();
+  const hoyTxt = dd.found.length
+    ? `Hoy: <b>${dd.pct} %</b> · ${rangoDe(dd.pct)}${dd.terminado ? ' · terminado' : ''}`
+    : 'Hoy aún no has empezado';
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Panal', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Modo</div><div class="row-hint" id="m-hint"></div></div>
+        <div class="seg" id="seg-m">
+          <button data-v="diaria" class="${S.modo === 'diaria' ? 'sel' : ''}">Diario</button>
+          <button data-v="libre" class="${S.modo === 'libre' ? 'sel' : ''}">Libre</button>
+        </div>
+        <div id="bloque-d" ${S.modo === 'libre' ? '' : 'hidden'}>
+          <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Dificultad</div><div class="row-hint" id="d-hint"></div></div>
+          ${diffSegHTML('seg-d', S.nivel)}
+        </div>
+        <div id="bloque-h" class="pn-hoy" style="padding-top: 12px;" ${S.modo === 'diaria' ? '' : 'hidden'}>
+          ${hoyTxt}<br>Racha: <b>${r.n}</b> · Mejor racha: <b>${store.get('pan.mejorRacha', 0)}</b>
+        </div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Mejor porcentaje en libre</div>
+      <div class="bests">${bests}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">${S.modo === 'diaria' && dd.found.length ? (dd.terminado ? 'Ver el de hoy' : 'Seguir con el de hoy') : 'Jugar'}</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  const hint = () => {
+    $('#m-hint').textContent = S.modo === 'diaria' ? 'El mismo para todos' : 'Uno nuevo cada vez';
+    $('#d-hint').textContent = `${CFG[S.nivel].lo}–${CFG[S.nivel].hi} palabras`;
+  };
+  hint();
+  bindSeg('seg-m', (v) => {
+    S.modo = v; store.set('panal.modo', v);
+    $('#bloque-d').hidden = v !== 'libre';
+    $('#bloque-h').hidden = v !== 'diaria';
+    $('#new').textContent = v === 'diaria' && dd.found.length ? (dd.terminado ? 'Ver el de hoy' : 'Seguir con el de hoy') : 'Jugar';
+    hint();
+  });
+  bindSeg('seg-d', (v) => { S.nivel = v; store.set('panal.nivel', v); hint(); });
+  $('#new').onclick = startGame;
+  bindHowto(REGLAS);
+}
+
+/* ── Partida ─────────────────────────────────────────────────────────── */
+function startGame() {
+  limpiarTemporizadores();
+  S.entrada = ''; S.abierto = false; S.found = []; S.pts = 0; S.terminado = false; S.diaGenio = false;
+  if (S.modo === 'diaria') {
+    S.tab = generar(mulberry32(semillaDia(hoy())), DIARIO.lo, DIARIO.hi);
+    const d = cargarDiaria();
+    const letras = S.tab.centro + S.tab.ext.slice().sort().join('');
+    if (d.letras === letras) {
+      S.found = d.found.filter((w) => S.tab.mapa.has(w));
+      S.terminado = !!d.terminado; S.diaGenio = !!d.genio;
+      for (const w of S.found) S.pts += puntosDe(S.tab.mapa.get(w), S.tab.M);
+    }
+  } else {
+    S.tab = generar(Math.random, CFG[S.nivel].lo, CFG[S.nivel].hi);
+  }
+  renderPlay();
+  if (S.terminado) S.tmFin = setTimeout(() => modalFin(false), 400);
+}
+
+const CHEV = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>';
+/* Posición (en % del cuadrado) de los seis hexágonos exteriores. */
+const POS = [[84.04, 50], [67.02, 79.48], [32.98, 79.48], [15.96, 50], [32.98, 20.52], [67.02, 20.52]];
+
+function renderPlay() {
+  const puntosBarra = RANGOS.slice(1, -1).map(([p]) => `<i class="pn-dot" data-p="${p}" style="left:${p}%"></i>`).join('');
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Panal', `<span class="chip">${S.modo === 'diaria' ? 'Diario' : DIFF_LABEL[S.nivel]}</span>`)}
+    <div class="scroll pn-zona">
+      <div class="pn-cab">
+        <div class="pn-rango"><span class="pn-rn" id="rango"></span><span class="dato" id="pts"></span></div>
+        <div class="pn-barra"><div class="pn-fill" id="fill"></div>${puntosBarra}</div>
+      </div>
+      <div class="pn-hall" id="hall">
+        <button class="pn-hall-h" id="hall-h" aria-expanded="false"><span id="hall-n"></span><span class="pn-ult" id="hall-ult"></span>${CHEV}</button>
+        <div class="pn-hall-b" id="hall-b"></div>
+      </div>
+      <div class="pn-entrada" id="entrada"></div>
+      <div class="msg" id="msg"></div>
+      <div class="pn-panal" id="panal">
+        <button class="pn-hex centro" data-l="${S.tab.centro}" style="left:33.98%;top:31.5%">${S.tab.centro}</button>
+        ${POS.map(([x, y], i) => `<button class="pn-hex" data-i="${i}" data-l="${S.tab.ext[i]}" style="left:${(x - 16.02).toFixed(2)}%;top:${(y - 18.5).toFixed(2)}%">${S.tab.ext[i]}</button>`).join('')}
+      </div>
+      <div class="pn-acciones">
+        <button class="btn btn-sm" id="b-borrar">Borrar</button>
+        <button class="btn btn-sm" id="b-mezclar">Mezclar</button>
+        <button class="btn btn-primary btn-sm" id="b-enviar">Enviar</button>
+      </div>
+    </div>
+    <div class="pn-tools">
+      <button class="pn-tool" id="t-fin">Terminar</button>
+      ${S.modo === 'libre' ? '<button class="pn-tool" id="t-nueva">Nuevo panal</button>' : ''}
+      <button class="pn-tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#panal').onclick = (e) => {
+    const b = e.target.closest('.pn-hex');
+    if (b) letra(b.dataset.l);
+  };
+  $('#b-borrar').onclick = () => { S.entrada = S.entrada.slice(0, -1); pintarEntrada(); };
+  $('#b-mezclar').onclick = mezclar;
+  $('#b-enviar').onclick = enviar;
+  $('#hall-h').onclick = () => { S.abierto = !S.abierto; pintarHalladas(); };
+  $('#t-fin').onclick = () => terminar();
+  const nueva = $('#t-nueva');
+  if (nueva) nueva.onclick = () => { cerrarLibre(); startGame(); };
+  $('#t-salir').onclick = () => { cerrarLibre(); renderSetup(); };
+  pintar();
+}
+
+function pintar() {
+  if (!$('#panal')) return;
+  const pct = pctActual();
+  $('#rango').textContent = rangoDe(pct);
+  $('#pts').textContent = `${S.pts} / ${S.tab.max} pts`;
+  $('#fill').style.width = Math.min(100, pct) + '%';
+  $$('.pn-dot').forEach((d) => d.classList.toggle('ok', pct >= Number(d.dataset.p)));
+  $$('#panal .pn-hex[data-i]').forEach((b) => { b.dataset.l = S.tab.ext[Number(b.dataset.i)]; b.textContent = b.dataset.l; });
+  pintarEntrada();
+  pintarHalladas();
+}
+function pintarEntrada() {
+  const el = $('#entrada');
+  if (!el) return;
+  el.innerHTML = [...S.entrada].map((c) => `<span class="${c === S.tab.centro ? 'pn-c' : ''}">${c}</span>`).join('')
+    + (S.terminado ? '' : '<span class="pn-caret"></span>');
+}
+function pintarHalladas() {
+  const h = $('#hall');
+  if (!h) return;
+  h.classList.toggle('abierto', S.abierto);
+  $('#hall-h').setAttribute('aria-expanded', S.abierto ? 'true' : 'false');
+  const n = S.found.length;
+  $('#hall-n').textContent = n === 0 ? 'Sin palabras aún' : `${n} de ${S.tab.sols.length}`;
+  $('#hall-ult').textContent = S.found.slice(-3).reverse().map((w) => S.tab.mapa.get(w).w).join(' · ');
+  if (S.abierto) {
+    $('#hall-b').innerHTML = S.found.slice().sort().map((w) => {
+      const it = S.tab.mapa.get(w);
+      return `<span class="pn-h ${it.m === S.tab.M ? 'pang' : ''}">${esc(it.w)}</span>`;
+    }).join('');
+  } else $('#hall-b').innerHTML = '';
+}
+
+function aviso(texto, tipo) {
+  const m = $('#msg');
+  if (!m) return;
+  clearTimeout(S.tmMsg);
+  m.textContent = texto; m.className = 'msg ' + (tipo || '');
+  S.tmMsg = setTimeout(() => { const e = $('#msg'); if (e && e.textContent === texto) { e.textContent = ''; e.className = 'msg'; } }, 1600);
+}
+function sacudir() {
+  const el = $('#entrada');
+  if (!el) return;
+  el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+  vibrate(40);
+}
+
+function letra(c) {
+  if (S.terminado || !S.tab) return;
+  if (S.entrada.length >= 18) return;
+  S.entrada += c;
+  vibrate(6);
+  pintarEntrada();
+}
+function mezclar() {
+  if (!S.tab) return;
+  const p = $('#panal');
+  if (!p) return;
+  clearTimeout(S.tmMezcla);
+  p.classList.add('mezclando');
+  S.tmMezcla = setTimeout(() => {
+    if (!$('#panal')) return;
+    S.tab.ext = shuffle(S.tab.ext);
+    pintar();
+    $('#panal').classList.remove('mezclando');
+  }, 130);
+}
+
+function enviar() {
+  if (!S.tab || S.terminado) return;
+  const w = S.entrada;
+  if (!w) return;
+  if (w.length < 4) { aviso('Muy corta', 'err'); sacudir(); return; }
+  if (!w.includes(S.tab.centro)) { aviso('Falta la del centro', 'err'); sacudir(); return; }
+  if (S.found.includes(w)) { aviso('Ya la tienes', 'check'); S.entrada = ''; pintarEntrada(); return; }
+  const it = S.tab.mapa.get(w);
+  if (!it) { aviso('No está en la lista', 'err'); sacudir(); return; }
+  const p = puntosDe(it, S.tab.M);
+  const antes = rangoDe(pctActual());
+  S.found.push(w); S.pts += p; S.entrada = '';
+  vibrate(12);
+  const pct = pctActual(), rango = rangoDe(pct);
+  if (it.m === S.tab.M) aviso(`¡Pangrama! +${p}`, 'ok');
+  else if (rango !== antes && pct < 100) aviso(`+${p} · ${rango}`, 'ok');
+  else aviso((p >= 7 ? '¡Genial! ' : p >= 5 ? '¡Bien! ' : '') + `+${p}`, 'ok');
+  pintar();
+  if (S.modo === 'diaria' && pct >= GENIO && !S.diaGenio) { S.diaGenio = true; registrarGenio(); }
+  guardarDiaria();
+  actualizarHub();
+  if (S.found.length === S.tab.sols.length) {
+    S.terminado = true;
+    guardarDiaria();
+    confetti(); vibrate([30, 60, 30]);
+    S.tmFin = setTimeout(() => modalFin(true), 700);
+  }
+}
+
+/* Marca libre: mejor porcentaje por nivel. Se anota al cerrar la partida por
+   cualquier vía (Terminar, panal entero, Nuevo panal o Salir). */
+function cerrarLibre() {
+  if (S.modo !== 'libre' || !S.tab) return false;
+  const pct = pctActual();
+  const k = 'pan.best.' + S.nivel;
+  const best = store.get(k, 0);
+  if (pct > best) { store.set(k, pct); actualizarHub(); return true; }
+  return false;
+}
+
+function terminar() {
+  if (!S.tab) return;
+  if (!S.terminado) {
+    S.terminado = true;
+    guardarDiaria();
+  }
+  pintarEntrada();
+  modalFin(true);
+}
+
+function modalFin(fresco) {
+  if (!$('#panal')) return;
+  const pct = pctActual(), rango = rangoDe(pct);
+  const entero = S.found.length === S.tab.sols.length;
+  const record = fresco && cerrarLibre();
+  if (S.modo === 'diaria') actualizarHub();
+  const faltan = S.tab.sols.filter((s) => !S.found.includes(s.n)).sort((a, b) => b.length - a.length || a.n.localeCompare(b.n));
+  const lista = faltan.slice(0, 12).map((s) => `<b class="${s.m === S.tab.M ? 'pang' : ''}">${esc(s.w)}</b>`).join(' · ');
+  const r = rachaViva();
+  openModal(`
+    <h3>${entero ? '¡Panal entero!' : record ? '¡Récord!' : rango}</h3>
+    <div class="stats" style="margin:14px 0;">
+      <div class="stat"><div class="n">${pct} %</div><div class="l">puntos</div></div>
+      <div class="stat"><div class="n">${S.found.length}/${S.tab.sols.length}</div><div class="l">palabras</div></div>
+      <div class="stat"><div class="n">${S.modo === 'diaria' ? r.n : Math.max(pct, store.get('pan.best.' + S.nivel, 0)) + ' %'}</div><div class="l">${S.modo === 'diaria' ? 'racha' : 'mejor'}</div></div>
+    </div>
+    ${faltan.length ? `<p class="pn-m-lista">Faltaban: ${lista}${faltan.length > 12 ? ` y ${faltan.length - 12} más` : ''}</p>` : '<p style="text-align:center;">No quedaba ninguna por encontrar.</p>'}
+    ${S.modo === 'diaria' ? '<p style="text-align:center;">Mañana hay panal nuevo.</p>' : ''}
+    <div class="m-actions">
+      ${S.modo === 'libre' ? '<button class="btn btn-primary" id="m-again">Otro panal</button>' : '<button class="btn btn-primary" id="m-libre">Jugar en libre</button>'}
+      <button class="btn btn-ghost" id="m-out">Salir</button>
+    </div>
+  `, closeModal);
+  const again = $('#m-again');
+  if (again) again.onclick = () => { closeModal(); startGame(); };
+  const libre = $('#m-libre');
+  if (libre) libre.onclick = () => { closeModal(); S.modo = 'libre'; store.set('panal.modo', 'libre'); startGame(); };
+  $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+}
+
+/* Teclado físico: solo las siete letras, Retroceso, Intro y espacio (mezclar). */
+addEventListener('keydown', (e) => {
+  if (!S.tab || !$('#panal') || $('#modal').classList.contains('open')) return;
+  const k = e.key.toLowerCase();
+  if (k === 'backspace') { S.entrada = S.entrada.slice(0, -1); pintarEntrada(); e.preventDefault(); }
+  else if (k === 'enter') enviar();
+  else if (k === ' ') { mezclar(); e.preventDefault(); }
+  else if (k.length === 1 && /^[a-zñ]$/.test(k)) {
+    if (k === S.tab.centro || S.tab.ext.includes(k)) letra(k);
+    else sacudir();
+  }
+});
+
+renderSetup();
+</script>
+</body>
+</html>

@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#FAF4E8" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="description" content="Conecta cuatro fichas en línea antes que tu rival o que la app." />
+<title>Conecta 4</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23C0603A'/%3E%3Crect x='13' y='9' width='38' height='44' rx='6' fill='%23FAF4E8'/%3E%3Ctext x='32' y='42' font-size='28' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='%2333302B' text-anchor='middle'%3E4%3C/text%3E%3C/svg%3E" />
+<link rel="manifest" href="../../manifest.webmanifest" />
+<link rel="apple-touch-icon" href="../../icons/icon-180.png" />
+<link rel="stylesheet" href="../../comun/estilo.css" />
+<style>
+  /* El tablero se lleva el alto sobrante y se centra en él: así el marcador y
+     «Salir» bajan a la zona del pulgar en vez de dejar papel muerto debajo. */
+  .boardwrap { display: flex; justify-content: center; align-items: center; padding: 14px 12px 0; flex: 1; }
+  .c4 {
+    display: grid; gap: 6px; background: var(--card); padding: 10px; border-radius: 12px;
+    box-shadow: var(--shadow); touch-action: manipulation; user-select: none; -webkit-user-select: none; border: 1px solid var(--linea-fuerte); }
+  .hole {
+    border-radius: 999px; background: var(--soft); position: relative; cursor: pointer;
+    border: 1px solid var(--linea);
+  }
+  /* Una sola curva de tiempo: con dos (la del bote y var(--ease) detrás) la
+     declaración era inválida y la ficha aparecía sin caer. */
+  .hole .disc {
+    position: absolute; inset: 2px; border-radius: 999px;
+    animation: dropIn .3s var(--ease);
+  }
+  @keyframes dropIn { 0% { transform: translateY(-240px); } 100% { transform: none; } }
+  /* Ficha de la app en azul tinta-2: --second daba 2,6:1 sobre el hueco; tinta-2 da 4,4 y ΔE 41 frente a la terracota. */
+  .hole .disc.a { background: var(--accent); }
+  .hole .disc.b { background: var(--tinta-2); }
+  /* Aro de tinta para la línea ganadora: el ocre (--warn) quedaba a ΔE 21,7 de la ficha terracota. */
+  .hole.winline { outline: 3px solid var(--ink); outline-offset: 1px; }
+  /* El aviso de turno va en tinta (el terracota a 15 px daba 3,85:1 sobre el papel
+     y el azul 3,0) y el color del jugador se lleva a un punto delante del texto. */
+  .turnrow { text-align: center; padding: 14px 0 0; font-family: var(--display); font-style: italic; font-size: 17px; font-weight: 400; color: var(--bg-ink); }
+  .turnrow .who { color: var(--ink); }
+  .turnrow .who::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 999px; background: var(--accent); margin-right: 8px; vertical-align: 1px; }
+  .turnrow .who.o::before { background: var(--tinta-2); }
+  .turnrow .who.neutro::before { display: none; }
+  .scorebar { display: flex; justify-content: center; gap: 14px; margin: 16px 16px 0; }
+  .scorebar .b { flex: 0 1 110px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 6px; text-align: center; border: 1px solid var(--linea-fuerte); }
+  .scorebar .bn { font-family: var(--title-font); font-size: 22px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .scorebar .bl { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--sub); margin-top: 3px; }
+  .tools { margin: auto 16px calc(16px + env(safe-area-inset-bottom)); display: flex; gap: 10px; justify-content: center; padding-top: 14px; }
+  .tool { border: var(--trazo) solid var(--linea-fuerte); cursor: pointer; font-family: var(--title-font); font-weight: 600;
+    font-size: 13px; padding: 10px 17px; border-radius: var(--pastilla); background: var(--card); color: var(--ink);
+    box-shadow: var(--shadow-sutil); }
+  .tool:active { opacity: .6; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" role="dialog" aria-modal="true"></div>
+
+<script src="../../comun/nucleo.js"></script>
+<script>
+'use strict';
+
+const COLS = 7, ROWS = 6;
+
+const S = {
+  mode: store.get('c4.mode', 'app'),
+  level: store.get('c4.level', 'normal'),
+  board: null,           // [col][fila desde abajo] = 'A'|'B'
+  turn: 'A', starter: 'A', over: false, thinking: false,
+  score: { A: 0, B: 0, E: 0 },
+};
+
+const REGLAS = `<p>Por turnos, cada quien <b>suelta una ficha en una columna</b>; la ficha cae hasta abajo. Gana quien alinee <b>cuatro</b> del mismo color: en fila, en columna o en diagonal.</p>
+<p>Juega <b>contra la app</b> (tres niveles: en Experto mira varios turnos adelante) o en <b>2 jugadores</b> pasando el teléfono.</p>
+<p>Quien inicia se alterna cada ronda. <b>Tus victorias se guardan por nivel</b>: ganarle en Fácil no cuenta lo mismo que en Experto.</p>`;
+
+/* ── Marca por nivel ─────────────────────────────────────────────────── */
+const NIVELES = ['facil', 'normal', 'experto'];
+const victorias = (n) => store.get('c4.wins.' + n, 0);
+
+function anotaVictoria(nivel) {
+  const n = victorias(nivel) + 1;
+  store.set('c4.wins.' + nivel, n);
+  // Al hub va la marca del nivel más alto en el que se haya ganado.
+  let alto = null;
+  for (const v of NIVELES) if (victorias(v) > 0) alto = v;
+  if (alto) {
+    const k = victorias(alto);
+    store.set('c4.hub', `${DIFF_LABEL[alto]}: ${k} victoria${k === 1 ? '' : 's'}`);
+  }
+  return n;
+}
+
+function bestsHTML() {
+  return NIVELES.map((v) =>
+    `<div class="b"><div class="bn">${victorias(v) || '—'}</div><div class="bl">${DIFF_LABEL[v]}</div></div>`).join('');
+}
+
+function renderSetup() {
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Conecta 4', '')}
+    <div class="g-setup scroll">
+      <div class="card" style="padding: 14px 18px 18px;">
+        <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Modo</div></div>
+        <div class="seg" id="seg-m">
+          <button data-v="app" class="${S.mode === 'app' ? 'sel' : ''}">Vs. app</button>
+          <button data-v="2p" class="${S.mode === '2p' ? 'sel' : ''}">2 jugadores</button>
+        </div>
+        <div id="lvl-wrap" style="${S.mode === 'app' ? '' : 'display:none;'}">
+          <div class="row" style="border:none; padding-bottom: 8px;"><div class="row-title">Nivel de la app</div></div>
+          ${diffSegHTML('seg-d', S.level, ['facil', 'normal', 'experto'])}
+        </div>
+      </div>
+      <div class="label-sm" style="margin-top:4px;">Victorias vs. app, por nivel</div>
+      <div class="bests">${bestsHTML()}</div>
+      <button class="btn btn-primary" style="margin-top:8px;" id="new">Jugar</button>
+      <button class="howto" id="howto">¿Cómo se juega?</button>
+    </div>
+  </div>`;
+  bindSeg('seg-m', (v) => { S.mode = v; store.set('c4.mode', v); $('#lvl-wrap').style.display = v === 'app' ? '' : 'none'; });
+  bindSeg('seg-d', (v) => { S.level = v; store.set('c4.level', v); });
+  $('#new').onclick = () => { S.score = { A: 0, B: 0, E: 0 }; S.starter = 'A'; startRound(true); };
+  bindHowto(REGLAS);
+}
+
+function startRound(first) {
+  S.board = Array.from({ length: COLS }, () => []);
+  S.turn = S.starter;
+  S.over = false; S.thinking = false;
+  if (first) renderPlay(); else { paint(); updateTurn(); }
+  maybeApp();
+}
+
+function renderPlay() {
+  const cell = Math.min(50, Math.floor((Math.min(402, innerWidth) * .94 - 20 - (COLS - 1) * 6) / COLS));
+  const holes = [];
+  for (let r = ROWS - 1; r >= 0; r--) {
+    for (let c = 0; c < COLS; c++) {
+      holes.push(`<div class="hole" data-c="${c}" data-r="${r}" style="width:${cell}px;height:${cell}px;"></div>`);
+    }
+  }
+  $('#app').innerHTML = `
+  <div class="screen">
+    ${topbarHTML('Conecta 4', `<span class="chip">${S.mode === 'app' ? 'Vs. app · ' + DIFF_LABEL[S.level] : '2 jugadores'}</span>`)}
+    <div class="turnrow" id="turnrow"></div>
+    <div class="boardwrap"><div class="c4" id="board" style="grid-template-columns: repeat(${COLS}, ${cell}px);">${holes.join('')}</div></div>
+    <div class="scorebar">
+      <div class="b"><div class="bn" id="sa">0</div><div class="bl">${S.mode === 'app' ? 'Tú' : 'Jugador 1'}</div></div>
+      <div class="b"><div class="bn" id="se">0</div><div class="bl">Empates</div></div>
+      <div class="b"><div class="bn" id="sb">0</div><div class="bl">${S.mode === 'app' ? 'App' : 'Jugador 2'}</div></div>
+    </div>
+    <div class="tools">
+      <button class="tool" id="t-salir">Salir</button>
+    </div>
+  </div>`;
+  $('#board').onclick = (e) => {
+    const h = e.target.closest('.hole');
+    if (h) tap(Number(h.dataset.c));
+  };
+  $('#t-salir').onclick = renderSetup;
+  paint();
+  updateTurn();
+}
+
+function updateTurn() {
+  const el = $('#turnrow');
+  if (!el || S.over) return;
+  const who = S.turn === 'A'
+    ? (S.mode === 'app' ? 'Tu turno' : 'Turno del Jugador 1')
+    : (S.mode === 'app' ? 'Piensa la app…' : 'Turno del Jugador 2');
+  el.innerHTML = `<span class="who ${S.turn === 'B' ? 'o' : ''}">${who}</span>`;
+}
+
+function paint(winCells) {
+  if (!$('#sa')) return;  // el jugador ya se fue de la pantalla
+  const win = new Set((winCells || []).map(([c, r]) => c + ',' + r));
+  $$('.hole').forEach((el) => {
+    const c = Number(el.dataset.c), r = Number(el.dataset.r);
+    const v = S.board[c][r];
+    const cur = el.dataset.v || '';
+    if (cur !== (v || '')) {
+      el.innerHTML = v ? `<div class="disc ${v === 'A' ? 'a' : 'b'}"></div>` : '';
+      el.dataset.v = v || '';
+    }
+    el.classList.toggle('winline', win.has(c + ',' + r));
+  });
+  $('#sa').textContent = S.score.A;
+  $('#sb').textContent = S.score.B;
+  $('#se').textContent = S.score.E;
+}
+
+function tap(c) {
+  if (S.over || S.thinking) return;
+  if (S.mode === 'app' && S.turn === 'B') return;
+  drop(c);
+}
+
+function drop(c) {
+  if (S.board[c].length >= ROWS) { vibrate(40); return; }
+  S.board[c].push(S.turn);
+  vibrate(12);
+  const w = winnerAt(S.board, c, S.board[c].length - 1);
+  paint(w);
+  if (w) return endRound(S.turn, w);
+  if (S.board.every((col) => col.length >= ROWS)) return endRound(null);
+  S.turn = S.turn === 'A' ? 'B' : 'A';
+  updateTurn();
+  maybeApp();
+}
+
+function maybeApp() {
+  if (S.mode !== 'app' || S.turn !== 'B' || S.over) return;
+  S.thinking = true;
+  setTimeout(() => {
+    S.thinking = false;
+    if (S.over) return;
+    drop(appMove());
+  }, 380 + randInt(420));
+}
+
+/* ── Reglas del tablero ──────────────────────────────────────────────── */
+function cellAt(b, c, r) { return (c < 0 || c >= COLS || r < 0) ? null : (b[c][r] || null); }
+
+function winnerAt(b, c, r) {
+  const p = b[c][r];
+  const dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+  for (const [dc, dr] of dirs) {
+    const cells = [[c, r]];
+    for (let s = 1; cellAt(b, c + dc * s, r + dr * s) === p; s++) cells.push([c + dc * s, r + dr * s]);
+    for (let s = 1; cellAt(b, c - dc * s, r - dr * s) === p; s++) cells.push([c - dc * s, r - dr * s]);
+    if (cells.length >= 4) return cells;
+  }
+  return null;
+}
+
+function colsLibres(b) {
+  return Array.from({ length: COLS }, (_, c) => c).filter((c) => b[c].length < ROWS);
+}
+
+/* ── IA ──────────────────────────────────────────────────────────────── */
+function pruebaGana(b, c, p) {
+  b[c].push(p);
+  const w = winnerAt(b, c, b[c].length - 1);
+  b[c].pop();
+  return !!w;
+}
+
+function appMove() {
+  const b = S.board;
+  const libres = colsLibres(b);
+  if (S.level !== 'facil' || Math.random() < .6) {
+    for (const c of libres) if (pruebaGana(b, c, 'B')) return c;
+    for (const c of libres) if (pruebaGana(b, c, 'A')) return c;
+  }
+  if (S.level === 'facil') {
+    return libres[randInt(libres.length)];
+  }
+  if (S.level === 'normal') {
+    const centradas = libres.slice().sort((x, y) => Math.abs(x - 3) - Math.abs(y - 3));
+    // evita regalar: no juegues columna que le dé victoria encima
+    for (const c of centradas) {
+      b[c].push('B');
+      const regala = b[c].length < ROWS && pruebaGana(b, c, 'A');
+      b[c].pop();
+      if (!regala) return c;
+    }
+    return centradas[0];
+  }
+  // experto: minimax con poda
+  let best = -Infinity, bestCols = [];
+  for (const c of ordenCentro(libres)) {
+    b[c].push('B');
+    const v = minimax(b, 6, -Infinity, Infinity, false, c);
+    b[c].pop();
+    if (v > best) { best = v; bestCols = [c]; }
+    else if (v === best) bestCols.push(c);
+  }
+  return bestCols[randInt(bestCols.length)];
+}
+
+const ordenCentro = (cols) => cols.slice().sort((a, b) => Math.abs(a - 3) - Math.abs(b - 3));
+
+function minimax(b, depth, alfa, beta, esB, ultimaCol) {
+  const w = winnerAt(b, ultimaCol, b[ultimaCol].length - 1);
+  if (w) return esB ? -100000 - depth : 100000 + depth;
+  const libres = colsLibres(b);
+  if (!libres.length) return 0;
+  if (depth === 0) return evalBoard(b);
+  if (esB) {
+    let v = -Infinity;
+    for (const c of ordenCentro(libres)) {
+      b[c].push('B');
+      v = Math.max(v, minimax(b, depth - 1, alfa, beta, false, c));
+      b[c].pop();
+      alfa = Math.max(alfa, v);
+      if (alfa >= beta) break;
+    }
+    return v;
+  }
+  let v = Infinity;
+  for (const c of ordenCentro(libres)) {
+    b[c].push('A');
+    v = Math.min(v, minimax(b, depth - 1, alfa, beta, true, c));
+    b[c].pop();
+    beta = Math.min(beta, v);
+    if (alfa >= beta) break;
+  }
+  return v;
+}
+
+function evalBoard(b) {
+  // puntúa ventanas de 4
+  let score = 0;
+  const val = (c, r) => cellAt(b, c, r);
+  const puntua = (cells) => {
+    const vs = cells.map(([c, r]) => val(c, r));
+    const nB = vs.filter((v) => v === 'B').length;
+    const nA = vs.filter((v) => v === 'A').length;
+    if (nB && nA) return 0;
+    if (nB) return [0, 1, 8, 60, 0][nB] || 0;
+    if (nA) return -([0, 1, 8, 60, 0][nA] || 0);
+    return 0;
+  };
+  for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) {
+    for (const [dc, dr] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
+      const cells = [];
+      for (let s = 0; s < 4; s++) {
+        const cc = c + dc * s, rr = r + dr * s;
+        if (cc < 0 || cc >= COLS || rr < 0 || rr >= ROWS) { cells.length = 0; break; }
+        cells.push([cc, rr]);
+      }
+      if (cells.length === 4) score += puntua(cells);
+    }
+  }
+  // bonus centro
+  score += b[3].filter((v) => v === 'B').length * 3;
+  score -= b[3].filter((v) => v === 'A').length * 3;
+  return score;
+}
+
+/* ── Fin de ronda ────────────────────────────────────────────────────── */
+function endRound(winner, winCells) {
+  S.over = true;
+  if (winner) S.score[winner]++; else S.score.E++;
+  paint(winCells);
+  let title, pie = '';
+  if (!winner) title = 'Empate';
+  else if (S.mode === 'app') {
+    if (winner === 'A') {
+      title = '¡Ganaste!';
+      pie = `<p style="text-align:center;">Llevas <b>${anotaVictoria(S.level)}</b> victoria(s) en <b>${DIFF_LABEL[S.level]}</b></p>`;
+      confetti(); vibrate([30, 60, 30]);
+    } else title = 'Ganó la app';
+  } else {
+    title = winner === 'A' ? 'Ganó el Jugador 1' : 'Ganó el Jugador 2';
+    confetti();
+  }
+  const el = $('#turnrow');
+  el.innerHTML = `<span class="who ${!winner ? 'neutro' : winner === 'B' ? 'o' : ''}">${title}</span>`;
+  setTimeout(() => {
+    S.starter = S.starter === 'A' ? 'B' : 'A';
+    openModal(`
+      <h3>${title}</h3>
+      <p style="text-align:center;">Marcador: <b>${S.score.A}</b> – <b>${S.score.E}</b> – <b>${S.score.B}</b></p>
+      ${pie}
+      <div class="m-actions">
+        <button class="btn btn-primary" id="m-again">Siguiente ronda</button>
+        <button class="btn btn-ghost" id="m-out">Salir</button>
+      </div>
+    `);
+    $('#m-again').onclick = () => { closeModal(); startRound(false); };
+    $('#m-out').onclick = () => { closeModal(); renderSetup(); };
+  }, 1100);
+}
+
+renderSetup();
+</script>
+</body>
+</html>
