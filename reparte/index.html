@@ -108,6 +108,7 @@ h1,h2,h3{font-weight:400;margin:0}
 .kv b{font-weight:600;font-variant-numeric:tabular-nums}
 .link{color:var(--terra);font-weight:500}
 .empty{padding:36px 16px;text-align:center;color:var(--gris);font-size:14px;line-height:1.5}
+/* GESTOS-CSS:INICIO */
 .ill{display:block;width:var(--s,72px);height:var(--s,72px);border-radius:24%;overflow:hidden;flex:none}
 .ill img{display:block;width:100%;height:100%;transform:scale(1.05)}
 .ill.live img{filter:var(--boil,none)}
@@ -124,6 +125,7 @@ h1,h2,h3{font-weight:400;margin:0}
 .ill.anim .an{opacity:0}
 .ill.anim.play .an{animation:none var(--d) steps(1,end) var(--dl,0s) both}
 @media (prefers-reduced-motion:no-preference){.ill.anim.play .an{animation-name:var(--an)}}
+/* GESTOS-CSS:FIN */
 /* sheet */
 .backdrop{position:fixed;inset:0;background:rgba(28,25,23,.42);animation:fadein .2s;z-index:20;display:flex;align-items:flex-end;justify-content:center}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
@@ -373,6 +375,7 @@ function render(){
   const f = $('[autofocus]'); if (f) setTimeout(()=>f.focus(), 50);
 }
 
+// GESTOS:INICIO — también lo usa design/ReParte Gestos.html
 // Cada gesto: n cuadros de movimiento y luego la imagen quieta. Coordenadas en % de la imagen.
 // parts: recortes que se mueven (f = transform por cuadro). covers: tapan con el color de fondo lo que se movió.
 // marks: rayitas dibujadas aparte. f en covers y marks = cuadros en que se ven.
@@ -421,6 +424,36 @@ const GESTURES = {
     parts:[{ clip:'inset(41.5% 47.2% 25.5% 19.4%)', o:'37% 57%', f:['scale(.2)','scale(.6)','scale(1.12)','scale(.95)'] }],
     covers:[{ r:[19.4,41.5,33.4,33] }],
     marks:[{ f:[2], d:'M22 42 L19.5 39.5 M30 37.5 L29 34 M18 52 L14.5 51.5' }, { f:[3], d:'M21 41 L17.5 37.5 M29.5 36 L28.3 31.5 M17 52 L12.5 51.4' }] },
+  // Del set, aún sin pantalla en la app (se ven en design/ReParte Gestos.html).
+  'repartir': { bg:'#BC6C74', n:4,
+    parts:[{ clip:'polygon(0 14%,68% 14%,68% 64%,0 64%)', o:'50% 50%', f:['translateY(-8%)','translateY(-3%)','translateY(1%)','none'] },
+           { clip:'inset(66.3% 63.8% 13.1% 15.6%)', o:'25.9% 76.6%', f:['scale(.01)','scale(1.2)','none','none'] },
+           { clip:'inset(66.9% 39.7% 12.8% 39.7%)', o:'50% 77%', f:['scale(.01)','scale(.01)','scale(1.2)','none'] },
+           { clip:'inset(66.9% 15.6% 12.8% 63.8%)', o:'74.1% 77%', f:['scale(.01)','scale(.01)','scale(.01)','scale(1.2)'] }],
+    covers:[{ r:[0,0,100,100] }],
+    marks:[{ f:[1], d:'M25.9 63.5 L25.9 61 M19.5 65.5 L17.8 63.8 M32.3 65.5 L34 63.8' },
+           { f:[2], d:'M50 63.5 L50 61 M43.6 65.5 L41.9 63.8 M56.4 65.5 L58.1 63.8' },
+           { f:[3], d:'M74.1 63.5 L74.1 61 M67.7 65.5 L66 63.8 M80.5 65.5 L82.2 63.8' }] },
+  'reparto-personalizado': { bg:'#6C9CCC', n:4,
+    parts:[{ clip:'inset(29.5% 53.8% 59% 29%)', o:'37% 35%', f:['translateX(-6%)','translateX(-3%)','translateX(2%)','translateX(-.5%)'] },
+           { clip:'inset(57% 56.7% 31.3% 22.8%)', o:'33% 63%', f:['translateX(10%)','translateX(5%)','translateX(-1.5%)','translateX(.5%)'] }],
+    covers:[{ r:[29,29.5,17.2,11.5], at:[20,53] }, { r:[22.8,57,20.5,11.7], at:[20,53] }] },
+  'recibo-partidas': { bg:'#EC9C9C', n:4, parts:[],
+    covers:[{ r:[42.2,28.4,22.2,4.9], f:[0], at:[68,38] }, { r:[42.2,62.5,10.3,4.5], f:[0,1,2], at:[68,38] }],
+    marks:[{ f:[2], d:'M33 41 L33 38.5 M28.5 42.5 L26.8 40.8 M37.5 42.5 L39.2 40.8' }] },
+  'recordatorio': { bg:'#C4C4E4', n:4,
+    parts:[{ clip:'inset(21% 31% 43% 39%)', o:'54% 39%', f:['scaleY(-1)','scaleY(-.45)','scaleY(.2)','scaleY(.8)'] }],
+    covers:[{ r:[39,21,30,36] }] },
+  'resumen': { bg:'#ACCCC4', n:4, parts:[],
+    covers:[{ r:[32.3,38.9,27.9,3.8], f:[0], at:[38,44.5] }, { r:[32.9,46.9,25.2,3.8], f:[0,1], at:[38,44.5] }, { r:[33.2,54.7,27.9,3.7], f:[0,1,2], at:[38,44.5] },
+            { r:[68.3,36,15,14.4], f:[0,1,2] }, { r:[68.3,20.5,15,15.5], f:[0,1,2,3] }] },
+  'privacidad': { bg:'#BC647C', n:4,
+    parts:[{ clip:'inset(22.5% 31% 32.5% 32%)', o:'50% 66%', f:['translateY(-20%) rotate(-8deg)','translateY(-10%) rotate(5deg)','translateY(-3%) rotate(-2deg)','translateY(1.5%)'] }],
+    covers:[{ r:[32,22.5,37,45] }],
+    marks:[{ f:[3,4], d:'M36 68 L33 70.5 M40 69.5 L38.5 72.5 M64 68 L67 70.5 M60 69.5 L61.5 72.5' }] },
+  'restaurar-respaldo': { bg:'#6C9CCC', n:4,
+    parts:[{ clip:'polygon(0 5%,66% 5%,66% 58.6%,64.3% 58.6%,64.3% 69.8%,35.4% 69.8%,35.4% 58.6%,0 58.6%)', o:'50% 50%', f:['translateY(-20%)','translateY(-11%)','translateY(-4%)','translateY(1.2%)'] }],
+    covers:[{ r:[0,5,66,53.6] }, { r:[35.4,58.6,28.9,11.2], at:[30,70] }] },
 };
 const FRAME = .195;
 const ills = { prev:new Set(), now:new Set(), t:new Map() };
@@ -460,6 +493,7 @@ const Ill = (name, size=72, live=false) => {
 };
 // Tocar una ilustración animada repite su gesto.
 document.addEventListener('click', e => { const p = e.target.closest('.ill.anim'); if (!p) return; p.style.setProperty('--dl','0s'); p.classList.remove('play'); void p.offsetWidth; p.classList.add('play'); });
+// GESTOS:FIN
 // Línea viva: tres cuadros de ruido que se turnan a 4 por segundo, como stop motion. Quieta con "reducir movimiento" o pestaña oculta.
 const boil = { frame:0, timer:null, reduce: matchMedia('(prefers-reduced-motion: reduce)') };
 function boilSync(){
