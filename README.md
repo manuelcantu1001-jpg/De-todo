@@ -7,6 +7,7 @@ El cajón: proyectos que no son del hospital y que no ameritan un repositorio ca
 |---|---|---|
 | [`sobremesa/`](sobremesa/) | **Sobremesa · Pasatiempos en español.** 61 juegos sin anuncios, sin conexión y con el mismo lenguaje de diseño. Se instala en el teléfono con «Añadir a pantalla de inicio». | <https://manuelcantu1001-jpg.github.io/De-todo/> |
 | [`reparte/`](reparte/) | **ReParte.** Dividir gastos de grupo: entras por un link de WhatsApp, sin app ni cuenta, y al final dice quién le paga cuánto a quién. | `/reparte/` |
+| [`reparte-v2/`](reparte-v2/) | **ReParte v2.** Versión sincronizada con base compartida, privacidad por participante y pagos confirmables. Se prepara sin reemplazar aún la versión pública. | Vista privada de revisión |
 | [`tier-list/`](tier-list/) | Una **tier list** estilo TierMaker, en un solo archivo HTML. | `/tier-list/` |
 
 ## ⚠️ Sobremesa vive en la raíz del sitio, y ahí se queda
